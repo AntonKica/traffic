@@ -12,7 +12,7 @@ GO::ID DescriptorManager::createDescriptorPool(const Info::DescriptorPoolInfo& p
 	for (const auto& typeInfo : poolInfo.supportedTypes)
 	{
 		VkDescriptorPoolSize poolSize{};
-		poolSize.descriptorCount = imageCount;
+		poolSize.descriptorCount = imageCount * poolInfo.maxSets;
 		poolSize.type = typeInfo;
 
 		poolSizes.push_back(poolSize);
@@ -25,6 +25,7 @@ GO::ID DescriptorManager::createDescriptorPool(const Info::DescriptorPoolInfo& p
 	);
 	DescriptorPool pool;
 	VK_CHECK_RESULT(vkCreateDescriptorPool(*device, &poolCreateInfo, nullptr, &pool.pool));
+	pool.info = poolInfo;
 
 	GO::ID poolId = generateNextContainerID(pools);
 	pools[poolId] = pool;

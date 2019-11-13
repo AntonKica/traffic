@@ -4,7 +4,7 @@ BasicBuilding::BasicBuilding()
 {
 }
 
-std::vector<Models::TexturedVertex> BasicBuilding::getVertices() const
+const std::vector<Models::TexturedVertex>& BasicBuilding::getVertices() const
 {
 	static std::vector<Models::TexturedVertex> s_vertices = 
 	{
@@ -23,9 +23,9 @@ std::vector<Models::TexturedVertex> BasicBuilding::getVertices() const
 	return s_vertices;
 }
 
-std::vector<uint16_t> BasicBuilding::getIndices() const
+const std::vector<uint32_t>& BasicBuilding::getIndices() const
 {
-	static std::vector<uint16_t> s_indices =
+	static std::vector<uint32_t> s_indices =
 	{
 		// bottom plane
 		2,1,0,

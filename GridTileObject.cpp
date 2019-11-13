@@ -1,6 +1,8 @@
 #include "GridTileObject.h"
+#include "GraphicsComponent.h"
 #include <iostream>
 #include "Grid.h"
+#include "GlobalObjects.h"
 
 GridTileObject::GridTileObject()
 {
@@ -32,6 +34,36 @@ void GridTileObject::placeOnGrid(std::vector<GridTile*> position)
 
 void GridTileObject::placeOnGridAction()
 {
+	if(!gc)
+		createGraphics();
+
+	gc->position = glm::vec3(m_position.x, 0.0, m_position.y);
+	gc->rotation = glm::vec3(m_rotation, 0.0, 0.0);
+}
+
+void GridTileObject::createGraphics()
+{
+	Info::GraphicsComponentCreateInfo createInfo;
+	Info::DrawInfo dInfo{};
+	dInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; 
+
+	Info::ModelInfo mInfo{};
+
+	const auto& vts = getVertices();
+	GO::TypedVertices vertices;
+	vertices.first = GO::VertexType::TEXTURED;
+	vertices.second.resize(vts.size());
+	for (int i = 0; i < vts.size(); ++i)
+		vertices.second[i].texturedVertex = vts[i];
+
+	mInfo.vertices = &vertices;
+	mInfo.indices = &getIndices();
+	mInfo.texturePath = getTexturePath();
+
+	createInfo.drawInfo = &dInfo;
+	createInfo.modelInfo = &mInfo;
+
+	gc = App::Scene.vulkanBase->createGrahicsComponent(createInfo);
 }
 
 void GridTileObject::setPosition(glm::dvec2 newPos)

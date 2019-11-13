@@ -72,8 +72,8 @@ public:
 	virtual std::vector<EntryPoint> getEntryPoints() const;
 	BasicRoad* getConnectedRoad(EntryPoint entry) const;
 
-	std::vector<Models::TexturedVertex> getVertices() const override;
-	std::vector<uint16_t> getIndices() const override;
+	const std::vector<Models::TexturedVertex>& getVertices() const override;
+	const std::vector<uint32_t>& getIndices() const override;
 	GridTile::ObjectType getObjectType() const override;
 	std::string getTexturePath() const override;
 	glm::dvec3 getRelativePosition() const override;

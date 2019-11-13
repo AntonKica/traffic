@@ -209,7 +209,7 @@ GO::ID DataManager::processModelInfo(const Info::ModelInfo& info)
 		}
 
 		newModel.typedVertices = *info.vertices;
-		if (info.indices)
+		if (info.indices && info.indices->size() > 0)
 			newModel.indices = *info.indices;
 		if (!info.texturePath.empty())
 			newModel.texturePath = info.texturePath;
@@ -224,19 +224,18 @@ ID DataManager::loadModel(const Model& model)
 	{
 		return loadedModel.value();
 	}
-
 	// create reference
 	ModelReference ref;
 	ref.file = model.file;
-	ref.vertices = loadVertices(model.typedVertices, false);
+	ref.vertices = loadVertices(model.typedVertices, true);
 	ref.verticesType = model.typedVertices.first;
 
 	// has indices?
 	if (model.indices)
-		ref.indices = loadIndices(model.indices.value(), false);
+		ref.indices = loadIndices(model.indices.value(), true);
 	// has texture?
 	if (model.texturePath)
-		ref.textureRefID = loadTexture(model.texturePath.value(), false);
+		ref.textureRefID = loadTexture(model.texturePath.value(), true);
 
 	// register
 	ID refId = generateNextContainerID(loaded.models);

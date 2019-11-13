@@ -9,7 +9,7 @@
 #include "Models.h"
 
 class GridTile;
-
+class GraphicsComponent;
 class GridTileObject
 {
 public:
@@ -39,8 +39,8 @@ public:
 	virtual ~GridTileObject();
 
 	// EXPERIMENTAL
-	virtual std::vector<Models::TexturedVertex> getVertices() const = 0;
-	virtual std::vector<uint16_t> getIndices() const = 0;
+	virtual const std::vector<Models::TexturedVertex>& getVertices() const = 0;
+	virtual const std::vector<uint32_t>& getIndices() const = 0;
 	virtual std::string getTexturePath() const = 0;
 	virtual GridTile::ObjectType getObjectType() const = 0;
 
@@ -56,6 +56,9 @@ public:
 	void placeOnGrid(std::vector<GridTile*> position);
 	virtual void placeOnGridAction();
 
+	// testing graphics
+	void createGraphics();
+	GraphicsComponent* gc = nullptr;
 protected:
 	virtual glm::dvec3 getRelativePosition() const = 0;
 

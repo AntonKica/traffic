@@ -271,6 +271,8 @@ GraphicsComponent* VulkanBase::createGrahicsComponent(const Info::GraphicsCompon
 
 	static_assert(true && "MAke module, omg");
 	//load texture, MAKEMODULE
+
+
 	std::optional<GO::ID> textureRefID;
 	if (modelRef.textureRefID)
 		textureRefID = getImageReference(m_dataManager.getTexturePath(modelRef.textureRefID.value()));
@@ -445,7 +447,7 @@ std::optional<GO::ID> VulkanBase::findImageReference(const std::string& loadPath
 	std::string file = std::filesystem::path(loadPath).filename().string();
 	for (const auto& [id, imageRef] : m_imageReferences)
 	{
-		if (imageRef.textureFile == loadPath)
+		if (imageRef.textureFile == file)
 		{
 			refID = id;
 			break;
@@ -517,6 +519,9 @@ void VulkanBase::mainLoop()
 	std::chrono::time_point lastFrame = std::chrono::high_resolution_clock::now();
 	double deltaTime = 0.0;
 
+	//just for testing puproses
+
+	App::Scene.initComponents();
 	while (!glfwWindowShouldClose(m_window))
 	{
 		std::chrono::time_point currentFrame = std::chrono::high_resolution_clock::now();
@@ -1229,7 +1234,7 @@ void VulkanBase::recreateCommandBuffer(uint32_t currentImage)
 
 		descriptorOffsets[0] = graphicsComponent->getBufferOffset();
 		auto& pipelineLayot = m_pipelinesManager.getPipelineLayoutFromReference(graphicsComponent->m_pipelineReference);
-		auto& descriptorSet = m_descriptorManager.getDescriptorSetFromRef(graphicsComponent->m_pipelineReference, currentImage);
+		auto& descriptorSet = m_descriptorManager.getDescriptorSetFromRef(graphicsComponent->m_descriptorSetReference, currentImage);
 		vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayot, 0, 
 			1, &descriptorSet, 1, descriptorOffsets);
 
@@ -1389,9 +1394,9 @@ void VulkanBase::updateUniformBuffer(uint32_t currentImage)
 		UniformBufferObject ubo;
 		auto model = glm::mat4(1.0);
 		model = glm::translate(model, graphicsComponent->position);
-		model = glm::rotate(model, graphicsComponent->rotation.x, (glm::vec3)Transformations::VectorRight);
-		model = glm::rotate(model, graphicsComponent->rotation.y, (glm::vec3)Transformations::VectorUp);
-		model = glm::rotate(model, graphicsComponent->rotation.z, (glm::vec3)Transformations::VectorForward);
+		model = glm::rotate(model, glm::radians(graphicsComponent->rotation.x), (glm::vec3)Transformations::VectorUp);
+		model = glm::rotate(model, glm::radians(graphicsComponent->rotation.y), (glm::vec3)Transformations::VectorRight);
+		model = glm::rotate(model, glm::radians(graphicsComponent->rotation.z), (glm::vec3)Transformations::VectorForward);
 		model = glm::scale(model, graphicsComponent->size);
 		ubo.model = model;
 

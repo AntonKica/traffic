@@ -14,7 +14,7 @@ namespace Info
 		// or raw
 		const GO::TypedVertices* vertices = nullptr;
 		const GO::Indices* indices = nullptr;
-		std::string_view texturePath = {};
+		std::string texturePath;
 	};
 	struct GraphicsComponentCreateInfo
 	{

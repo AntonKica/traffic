@@ -84,7 +84,7 @@ public:
 	}
 	// EXPERIMENTAL AS WELL
 	// EXPERIMENTAL
-	std::vector<uint16_t> resourceIndices(GridTileResource resourceType)
+	std::vector<uint32_t> resourceIndices(GridTileResource resourceType)
 	{
 		//deduce type
 		switch (resourceType)

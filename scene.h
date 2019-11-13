@@ -13,6 +13,7 @@
 #include "camera.h"
 #include "resource_creator.h"
 #include "Grid.h"
+#include "VulkanBase.h"
 
 
 #define DATA_FILE "DATA.dat"
@@ -80,17 +81,23 @@ public:
 	camera m_camera;
 	resourceCreator& m_resourceCreator;
 	Grid m_grid;
+	VulkanBase* vulkanBase;
+
 	scene()
 		:m_resourceCreator(CreateResourceCreator())
 	{
 		m_camera = camera();
-
-		auto initData = loadFromFile();
-		m_grid.initGrid(initData);
 	}
 	~scene()
 	{
 		saveToFile();
+	}
+
+	// another ugly
+	void initComponents()
+	{
+		auto initData = loadFromFile();
+		m_grid.initGrid(initData);
 	}
 
 	std::map<GridTile::ObjectType, std::vector<PositionRotation>> loadFromFile()

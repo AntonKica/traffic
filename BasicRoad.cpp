@@ -60,7 +60,7 @@ BasicRoad* BasicRoad::getConnectedRoad(EntryPoint entry) const
 	return nullptr;
 }
 
-std::vector<Models::TexturedVertex> BasicRoad::getVertices() const
+const std::vector<Models::TexturedVertex>& BasicRoad::getVertices() const
 {
 	static std::vector<Models::TexturedVertex> s_vertices =
 	{
@@ -74,9 +74,9 @@ std::vector<Models::TexturedVertex> BasicRoad::getVertices() const
 	return s_vertices;
 }
 
-std::vector<uint16_t> BasicRoad::getIndices() const
+const std::vector<uint32_t>& BasicRoad::getIndices() const
 {
-	static std::vector<uint16_t> s_indices =
+	static std::vector<uint32_t> s_indices =
 	{
 		// bottom plane
 		2,1,0,
@@ -104,6 +104,8 @@ glm::dvec3 BasicRoad::getRelativePosition() const
 
 void BasicRoad::placeOnGridAction()
 {
+	GridTileObject::placeOnGridAction();
+
 	glm::dvec3 pos = getWorldPosition();
 	auto surroundingTiles = App::Scene.m_grid.getSurroundingTiles({ pos.x, pos.z });
 	for (const auto& tile : surroundingTiles)

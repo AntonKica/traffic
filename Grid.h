@@ -20,7 +20,7 @@ constexpr bool multipleOfTwo(int num)
 
 namespace GridSettings
 {
-	constexpr int tilesPerUnit = 4;
+	constexpr int tilesPerUnit = 2;
 	static_assert(tilesPerUnit > 1 && tilesPerUnit < 32 && multipleOfTwo(tilesPerUnit)
 		&& "Tile per one unit > 1 and < 32 and is multiple of 2");
 
