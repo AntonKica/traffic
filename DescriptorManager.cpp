@@ -336,10 +336,26 @@ const VkDescriptorSetLayout& DescriptorManager::getDescriptorLayout(GO::ID id) c
 
 VkDescriptorSet& DescriptorManager::getDescriptorSet(GO::ID id, int index)
 {
-	return sets[id][index];
+	auto setIT = sets.find(id);
+	if (setIT == std::end(sets))
+		throw std::runtime_error("Unknown layout id " + std::to_string(id));
+
+	return setIT->second[index];
 }
 
 VkDescriptorSetLayout DescriptorManager::getDescriptorSetLayout(GO::ID id)
 {
-	return setLayouts[id];
+	auto setLayoutIT = setLayouts.find(id);
+	if (setLayoutIT == std::end(setLayouts))
+		throw std::runtime_error("Unknown layout id " + std::to_string(id));
+
+	return setLayoutIT->second;
+}
+
+void DescriptorManager::cleanup(const VkAllocationCallbacks* allocator)
+{
+	for (auto& [id, pool] : pools)
+		vkDestroyDescriptorPool(*device, pool, allocator);
+	for (auto& [id, setLayout] : setLayouts)
+		vkDestroyDescriptorSetLayout(*device, setLayout, allocator);
 }

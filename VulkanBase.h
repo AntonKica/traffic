@@ -163,63 +163,6 @@ class VulkanBase
 
 	std::vector<GraphicsComponent*> activeGraphicsComponents;
 	bool createdGraphicsComponent = false;
-	// old parts
-	struct
-	{
-		VkDescriptorSetLayout basic;
-		VkDescriptorSetLayout grid;
-		VkDescriptorSetLayout gridResource;
-	} m_descriptorSetLayouts;
-
-	struct 
-	{
-		VkPipelineLayout basic;
-		VkPipelineLayout grid;
-		VkPipelineLayout gridResource;
-		VkPipelineLayout gridResourceSketch;
-	} m_pipelineLayouts;
-
-	struct
-	{
-		VkPipeline basic;
-		VkPipeline grid;
-		VkPipeline gridResource;
-		VkPipeline gridResourceSketch;
-	} m_graphicsPipelines;
-
-	struct
-	{
-		drawObject tile;
-		drawObject grid;
-
-		std::map<GridTileResource, drawObject> gridResources;
-
-	} m_drawObjects;
-	
-	vkh::structs::Buffer gridResourceSketchUBO;
-
-	struct
-	{
-		VkDescriptorPool basic;
-		VkDescriptorPool gridResource;
-	} m_descriptorPools;
-
-	// concate with draw object?
-	struct 
-	{
-		std::vector<VkDescriptorSet> tile;
-		std::vector<VkDescriptorSet> grid;
-
-		std::map<GridTileResource, std::vector<VkDescriptorSet>> gridResources;
-	} m_descriptorSets;
-
-	struct 
-	{
-		std::map <GridTileResource, vkh::structs::Image> gridResourceImage;
-
-		VkSampler sampler;
-	} m_deprecatedImages;
-
 	// helperFunctions
 	friend void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 	std::vector<const char*> getRequiredExtensions() const;
@@ -269,9 +212,6 @@ private:
 	void createImage(const char* filename, vkh::structs::Image& image) const;
 	// pipeline
 	void createRenderPass();
-	void createDescriptorSetLayout();
-	void createGraphicsPipeline();
-	VkShaderModule createShaderModule(const std::vector<char> shaderCode) const;
 	// recreate
 	void recreateSwapchain();
 

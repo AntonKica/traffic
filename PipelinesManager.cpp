@@ -216,6 +216,14 @@ void PipelinesManager::init(VulkanBase* vkBase)
 	this->device = vkBase->getDevice();
 }
 
+void PipelinesManager::cleanup(const VkAllocationCallbacks* allocator)
+{
+	for (auto& [id, pipeline] : pipelines)
+		vkDestroyPipeline(*device, pipeline, allocator);
+	for (auto& [id, pipelineLayout] : pipelineLayouts)
+		vkDestroyPipelineLayout(*device, pipelineLayout, allocator);
+}
+
 GO::ID PipelinesManager::getPipelineReference(const PipInfo& pipelineInfo)
 {
 	std::optional<GO::ID> pipId = findPipeline(pipelineInfo);

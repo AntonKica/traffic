@@ -104,6 +104,7 @@ private:
 	void writeDescriptorSets(std::vector<VkDescriptorSet>& sets, const Info::DescriptorSetInfo& setInfo);
 public:
 	void init(VulkanBase* vkBase);
+	void cleanup(const VkAllocationCallbacks* allocator);
 
 	GO::ID getDescriptorReference(const Info::DescriptorSetCreateInfo& info);
 	VkDescriptorSet& getDescriptorSetFromRef(GO::ID refId, int index);

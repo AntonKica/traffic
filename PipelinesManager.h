@@ -112,6 +112,7 @@ class PipelinesManager
 public:
 
 	void init(VulkanBase* vkBase);
+	void cleanup(const VkAllocationCallbacks* allocator);
 	GO::ID getPipelineReference(const PipInfo& pipelineInfo);
 	VkPipeline& getPipelineFromReference(GO::ID referenceID);
 	VkPipelineLayout& getPipelineLayoutFromReference(GO::ID referenceID);

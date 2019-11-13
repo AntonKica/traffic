@@ -498,56 +498,6 @@ void VulkanBase::initVulkan()
 		updateVertexBuffer();
 		updateIndexBuffer();
 	}
-
-	{
-		Info::GraphicsComponentCreateInfo info;
-		Info::ModelInfo mInfo;
-		Info::DrawInfo dInfo;
-		dInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-		dInfo.polygon = VK_POLYGON_MODE_FILL;
-		dInfo.lineWidth = 1.0;
-
-		info.modelInfo = &mInfo;
-		info.drawInfo = &dInfo;
-
-		GO::TypedVertices tVerts;
-		GO::Indices indices = {
-			0, 1, 2,
-			2,3,0
-		};
-		GO::VariantVertex vtx;
-		{
-			tVerts.first = GO::VertexType::COLORED;
-			//for (int i = 0; i < 20; ++i)
-			{
-				vtx.coloredVertex.color = { 0.5, 0.0, 0.5 };
-
-				vtx.texturedVertex.texCoord = { 0.0,1.0 };
-				vtx.texturedVertex.position = { -0.5, 0.0, 0.5 };
-				tVerts.second.push_back(vtx);
-				vtx.texturedVertex.texCoord = { 1.0,1.0 };
-				vtx.texturedVertex.position = { 0.5, 0.0, .5 };
-				tVerts.second.push_back(vtx);
-				vtx.texturedVertex.texCoord = { 1.0,0.0 };
-				vtx.texturedVertex.position = { 0.5, 0.0,-.5 };
-				tVerts.second.push_back(vtx);
-				vtx.texturedVertex.texCoord = { 0.0,0.0 };
-				vtx.texturedVertex.position = { -0.5, 0.0,-0.5 };
-				tVerts.second.push_back(vtx);
-			}
-		}
-		mInfo.vertices = &tVerts;
-		mInfo.indices = &indices;
-		//mInfo.texturePath = "resources/materials/road.png";
-
-		int k = 999'999 / 10;
-		for (int i = 0; i < k; ++i)
-		{
-			float p = 360.0 / k * i;
-			auto comp = createGrahicsComponent(info);
-			comp->position = glm::vec3(glm::sin(glm::radians(p)), 0.0f, glm::cos(glm::radians(p))) * 10.0f;
-		}
-	}
 	createCommandBuffers();
 }
 
@@ -927,355 +877,10 @@ void VulkanBase::createRenderPass()
 	}
 }
 
-void VulkanBase::createDescriptorSetLayout()
-{
-	std::vector<VkDescriptorSetLayoutBinding> uboLayoutBindings =
-	{
-		vkh::initializers::descritptorSetLayoutBinding(
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-			VK_SHADER_STAGE_VERTEX_BIT,
-			0)
-	};
-
-	VkDescriptorSetLayoutCreateInfo descriptorSetlayoutInfo =
-	{
-		vkh::initializers::descriptorSetLayoutCreateInfo(
-			uboLayoutBindings.size(),
-			uboLayoutBindings.data()
-		)
-	};
-	// selected tile
-	VK_CHECK_RESULT(vkCreateDescriptorSetLayout(m_device, &descriptorSetlayoutInfo, nullptr, &m_descriptorSetLayouts.basic));
-	// grid
-	uboLayoutBindings =
-	{
-		vkh::initializers::descritptorSetLayoutBinding(
-			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
-			VK_SHADER_STAGE_VERTEX_BIT,
-			0)
-	};
-	descriptorSetlayoutInfo =
-	{
-		vkh::initializers::descriptorSetLayoutCreateInfo(
-			uboLayoutBindings.size(),
-			uboLayoutBindings.data()
-		)
-	};
-	VK_CHECK_RESULT(vkCreateDescriptorSetLayout(m_device, &descriptorSetlayoutInfo, nullptr, &m_descriptorSetLayouts.grid));
-
-	// grid resource
-	uboLayoutBindings =
-	{
-		vkh::initializers::descritptorSetLayoutBinding(
-			VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
-			VK_SHADER_STAGE_VERTEX_BIT,
-			0),
-		vkh::initializers::descritptorSetLayoutBinding(
-			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			1),
-	};
-	descriptorSetlayoutInfo =
-	{
-		vkh::initializers::descriptorSetLayoutCreateInfo(
-			uboLayoutBindings.size(),
-			uboLayoutBindings.data()
-		)
-	};
-	VK_CHECK_RESULT(vkCreateDescriptorSetLayout(m_device, &descriptorSetlayoutInfo, nullptr, &m_descriptorSetLayouts.gridResource));
-}
-
-void VulkanBase::createGraphicsPipeline()
-{
-	std::vector<char> basicVertCode = readFile("shaders/basicShaderVert.spv");
-	std::vector<char> basicFragCode = readFile("shaders/basicShaderFrag.spv");
-
-	VkShaderModule basicVertModule = createShaderModule(basicVertCode);
-	VkShaderModule basicFragModule = createShaderModule(basicFragCode);
-
-	VkPipelineShaderStageCreateInfo vertStageInfo =
-		vkh::initializers::pipelineShaderStageCreateInfo(
-			VK_SHADER_STAGE_VERTEX_BIT,
-			basicVertModule
-		);
-
-	VkPipelineShaderStageCreateInfo fragStageInfo =
-		vkh::initializers::pipelineShaderStageCreateInfo(
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			basicFragModule
-		);
-
-	VkPipelineShaderStageCreateInfo shaderStages[]{ vertStageInfo, fragStageInfo };
-
-	auto bindingDescription = Models::Vertex::getBindingDescription();
-	auto attributeDescription = Models::Vertex::getAttributeDescriptions();
-
-	VkPipelineVertexInputStateCreateInfo vertexInputInfo =
-		vkh::initializers::pipelineVertexInputStateCreateInfo(
-			1,
-			&bindingDescription,
-			attributeDescription.size(),
-			attributeDescription.data()
-		);
-
-	VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
-	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-	inputAssembly.primitiveRestartEnable = VK_FALSE;
-
-	VkViewport viewport{};
-	viewport.x = 0.0f;
-	viewport.y = 0.0f;
-	viewport.width = m_swapchain.extent.width;
-	viewport.height = m_swapchain.extent.height;
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
-
-	VkRect2D scissors{};
-	scissors.offset = { 0 ,0 };
-	scissors.extent = m_swapchain.extent;
-
-	VkPipelineViewportStateCreateInfo viewportInfo{};
-	viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-	viewportInfo.scissorCount = 1;
-	viewportInfo.pScissors = &scissors;
-	viewportInfo.viewportCount = 1;
-	viewportInfo.pViewports = &viewport;
-
-	VkPipelineRasterizationStateCreateInfo rasterizer{};
-	rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-	rasterizer.depthClampEnable = VK_FALSE;
-	rasterizer.rasterizerDiscardEnable = VK_FALSE;
-	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-	rasterizer.lineWidth = 1.0f;
-	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-	rasterizer.depthBiasEnable = VK_FALSE;
-	rasterizer.depthBiasConstantFactor = 0.0f;
-	rasterizer.depthBiasClamp = 0.0f;
-	rasterizer.depthBiasSlopeFactor = 0.0f;
-
-	VkPipelineMultisampleStateCreateInfo multisampling{};
-	multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-	multisampling.sampleShadingEnable = VK_FALSE;
-	multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-	multisampling.minSampleShading = 1.0f;
-	multisampling.pSampleMask = nullptr;
-	multisampling.alphaToCoverageEnable = VK_FALSE;
-	multisampling.alphaToOneEnable = VK_FALSE;
-
-	VkPipelineColorBlendAttachmentState colorBlendingAttachment{};
-	colorBlendingAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-		VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-	colorBlendingAttachment.blendEnable = VK_TRUE;
-
-	colorBlendingAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-	colorBlendingAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-	colorBlendingAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-
-	colorBlendingAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-	colorBlendingAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-	colorBlendingAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-
-	// blending op
-
-	VkPipelineColorBlendStateCreateInfo colorBlending{};
-	colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-	colorBlending.logicOpEnable = VK_FALSE;
-	colorBlending.logicOp = VK_LOGIC_OP_COPY;
-	colorBlending.attachmentCount = 1;
-	colorBlending.pAttachments = &colorBlendingAttachment;
-	colorBlending.blendConstants[0] = 0.0f;
-	colorBlending.blendConstants[1] = 0.0f;
-	colorBlending.blendConstants[2] = 0.0f;
-	colorBlending.blendConstants[3] = 0.0f;
-
-	VkPipelineDepthStencilStateCreateInfo depthStencil = vkh::initializers::pipelineDepthStencilStateCreateInfo();
-	depthStencil.depthTestEnable = VK_TRUE;
-	depthStencil.depthWriteEnable = VK_TRUE;
-	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
-	depthStencil.depthBoundsTestEnable = VK_FALSE;
-	depthStencil.minDepthBounds = 0.0f;
-	depthStencil.maxDepthBounds = 1.0f;
-	depthStencil.stencilTestEnable = VK_FALSE;
-	depthStencil.front = {};
-	depthStencil.back = {};
-
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo =
-		vkh::initializers::pipelineLayoutCreateInfo(
-			0, nullptr,
-			1, &m_descriptorSetLayouts.basic
-		);
-
-	VK_CHECK_RESULT(vkCreatePipelineLayout(m_device, &pipelineLayoutInfo, nullptr, &m_pipelineLayouts.basic));
-
-	VkGraphicsPipelineCreateInfo pipelineInfo = vkh::initializers::graphicsPipelineCreateInfo();
-	pipelineInfo.stageCount = 2;
-	pipelineInfo.pStages = shaderStages;
-	pipelineInfo.pVertexInputState = &vertexInputInfo;
-	pipelineInfo.pInputAssemblyState = &inputAssembly;
-	pipelineInfo.pViewportState = &viewportInfo;
-	pipelineInfo.pRasterizationState = &rasterizer;
-	pipelineInfo.pMultisampleState = &multisampling;
-	pipelineInfo.pDepthStencilState = &depthStencil;
-	pipelineInfo.pColorBlendState = &colorBlending;
-	pipelineInfo.pDynamicState = nullptr;
-	pipelineInfo.layout = m_pipelineLayouts.basic;
-	pipelineInfo.renderPass = m_renderPass;
-	pipelineInfo.subpass = 0;
-	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
-	pipelineInfo.basePipelineIndex = -1;
-
-	// tile
-	VK_CHECK_RESULT(vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_graphicsPipelines.basic));
-
-	vkDestroyShaderModule(m_device, basicVertModule, nullptr);
-	vkDestroyShaderModule(m_device, basicFragModule, nullptr);
-	//grid resource
-
-	std::vector<char> gridResVertCode = readFile("shaders/gridResourceShaderVert.spv");
-	std::vector<char> gridResFragCode = readFile("shaders/gridResourceShaderFrag.spv");
-
-	VkShaderModule gridResVertModule = createShaderModule(gridResVertCode);
-	VkShaderModule gridResFragModule = createShaderModule(gridResFragCode);
-
-	vertStageInfo =
-		vkh::initializers::pipelineShaderStageCreateInfo(
-			VK_SHADER_STAGE_VERTEX_BIT,
-			gridResVertModule
-		);
-
-	fragStageInfo =
-		vkh::initializers::pipelineShaderStageCreateInfo(
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			gridResFragModule
-		);
-	shaderStages[0] = vertStageInfo;
-	shaderStages[1] = fragStageInfo;
-
-	auto resourceBindingDescription = Models::TexturedVertex::getBindingDescription();
-	auto resourceAttributeDescription = Models::TexturedVertex::getAttributeDescriptions();
-
-	vertexInputInfo =
-		vkh::initializers::pipelineVertexInputStateCreateInfo(
-			1,
-			&resourceBindingDescription,
-			resourceAttributeDescription.size(),
-			resourceAttributeDescription.data()
-		);
-	pipelineInfo.pVertexInputState = &vertexInputInfo;
-
-	pipelineLayoutInfo.pSetLayouts = &m_descriptorSetLayouts.gridResource;
-	VK_CHECK_RESULT(vkCreatePipelineLayout(m_device, &pipelineLayoutInfo, nullptr, &m_pipelineLayouts.gridResource));
-
-	pipelineInfo.layout = m_pipelineLayouts.gridResource;
-	VK_CHECK_RESULT(vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_graphicsPipelines.gridResource));
-
-	vkDestroyShaderModule(m_device, gridResVertModule, nullptr);
-	vkDestroyShaderModule(m_device, gridResFragModule, nullptr);
-
-	// sketch
-	std::vector<char> sketchVertCode = readFile("shaders/sketchShaderVert.spv");
-	std::vector<char> sketchFragCode = readFile("shaders/sketchShaderFrag.spv");
-
-	VkShaderModule sketchVertModule = createShaderModule(sketchVertCode);
-	VkShaderModule sketchFragModule = createShaderModule(sketchFragCode);
-	vertStageInfo =
-		vkh::initializers::pipelineShaderStageCreateInfo(
-			VK_SHADER_STAGE_VERTEX_BIT,
-			sketchVertModule
-		);
-
-	fragStageInfo =
-		vkh::initializers::pipelineShaderStageCreateInfo(
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			sketchFragModule
-		);
-	shaderStages[0] = vertStageInfo;
-	shaderStages[1] = fragStageInfo;
-
-	vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_graphicsPipelines.gridResourceSketch);
-
-	vkDestroyShaderModule(m_device, sketchVertModule, nullptr);
-	vkDestroyShaderModule(m_device, sketchFragModule, nullptr);
-
-	
-	// grid
-	auto resourceBindingDescriptionGrid = Models::Vertex::getBindingDescription();
-	auto resourceAttributeDescriptionGrid = Models::Vertex::getAttributeDescriptions();
-
-	std::vector<char> gridVertCode = readFile("shaders/gridShaderVert.spv");
-	std::vector<char> gridFragCode = readFile("shaders/gridShaderFrag.spv");
-
-	VkShaderModule gridVertModule = createShaderModule(gridVertCode);
-	VkShaderModule gridFragModule = createShaderModule(gridFragCode);
-	
-	vertStageInfo =
-		vkh::initializers::pipelineShaderStageCreateInfo(
-			VK_SHADER_STAGE_VERTEX_BIT,
-			gridVertModule
-		);
-
-	fragStageInfo =
-		vkh::initializers::pipelineShaderStageCreateInfo(
-			VK_SHADER_STAGE_FRAGMENT_BIT,
-			gridFragModule
-		);
-	shaderStages[0] = vertStageInfo;
-	shaderStages[1] = fragStageInfo;
-
-	vertexInputInfo =
-		vkh::initializers::pipelineVertexInputStateCreateInfo(
-			1,
-			&resourceBindingDescriptionGrid,
-			resourceAttributeDescriptionGrid.size(),
-			resourceAttributeDescriptionGrid.data()
-		);
-
-	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
-	//rasterizer.polygonMode = VK_POLYGON_MODE_LINE;
-	rasterizer.lineWidth = 1.0f;
-
-	pipelineInfo.pVertexInputState = &vertexInputInfo;
-
-	pipelineLayoutInfo =
-		vkh::initializers::pipelineLayoutCreateInfo(
-			0, nullptr,
-			1, &m_descriptorSetLayouts.grid
-		);
-	VK_CHECK_RESULT(vkCreatePipelineLayout(m_device, &pipelineLayoutInfo, nullptr, &m_pipelineLayouts.grid));
-	pipelineInfo.layout = m_pipelineLayouts.grid;
-
-	VK_CHECK_RESULT(vkCreateGraphicsPipelines(m_device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_graphicsPipelines.grid));
-
-	vkDestroyShaderModule(m_device, gridVertModule, nullptr);
-	vkDestroyShaderModule(m_device, gridFragModule, nullptr);
-
-}
-
-VkShaderModule VulkanBase::createShaderModule(const std::vector<char> shaderCode) const
-{
-	VkShaderModuleCreateInfo shaderModuleInfo{};
-	shaderModuleInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	shaderModuleInfo.codeSize = shaderCode.size();
-	shaderModuleInfo.pCode = reinterpret_cast<const uint32_t*>(shaderCode.data());
-
-	VkResult res;
-	VkShaderModule shaderModule;
-	res = vkCreateShaderModule(m_device, &shaderModuleInfo, nullptr, &shaderModule);
-
-	if (res != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create shader module!");
-	}
-
-	return shaderModule;
-}
-
 void VulkanBase::recreateSwapchain()
 {
 	// minimalization
+	throw std::runtime_error("DOnt minimalize or resize, thanks!");
 	int width = 0, height = 0;
 	while (width == 0 || height == 0)
 	{
@@ -1285,11 +890,9 @@ void VulkanBase::recreateSwapchain()
 	vkDeviceWaitIdle(m_device);
 
 	cleanupSwapchain();
-
 	createSwapchain();
-
 	createRenderPass();
-	createGraphicsPipeline();
+	//createGraphicsPipeline();
 	createDepthResources();
 	createFramebuffers();
 	
@@ -1485,8 +1088,9 @@ void VulkanBase::updateVertexBuffer()
 		m_device.copyBuffer(stagingBuffer, currentBufer);
 
 		stagingBuffer.cleanup(m_device, nullptr);
-		m_dataManager.setState(DataManager::Flags::VERTICES_LOADED, false);
 	}
+	m_dataManager.setState(DataManager::Flags::VERTICES_LOADED, false);
+
 }
 
 void VulkanBase::updateIndexBuffer()
@@ -1802,18 +1406,13 @@ void VulkanBase::cleanup()
 	m_selectionUI.destroyUI();
 	cleanupSwapchain();
 
-	vkDestroySampler(m_device, m_deprecatedImages.sampler, nullptr);
-	for (auto& image : m_deprecatedImages.gridResourceImage)
-	{
-		image.second.cleanup(m_device, nullptr);
-	}
-	vkDestroyDescriptorSetLayout(m_device, m_descriptorSetLayouts.basic, nullptr);
-	vkDestroyDescriptorSetLayout(m_device, m_descriptorSetLayouts.grid, nullptr);
-	vkDestroyDescriptorSetLayout(m_device, m_descriptorSetLayouts.gridResource, nullptr);
+	vkDestroySampler(m_device, m_sampler, nullptr);
 
 	m_syncObjects.cleanUp(m_device, nullptr);
 
 	vkDestroyCommandPool(m_device, m_commandPool, nullptr);
+	m_pipelinesManager.cleanup(nullptr);
+	m_descriptorManager.cleanup(nullptr);
 	m_device.destroyVulkanDevice();
 
 	if (enableValidationLayers)
@@ -1832,29 +1431,9 @@ void VulkanBase::cleanupSwapchain()
 	vkFreeCommandBuffers(m_device, m_commandPool, static_cast<uint32_t>(m_commandBuffers.size()),
 		m_commandBuffers.data());
 
-	vkDestroyPipeline(m_device, m_graphicsPipelines.basic, nullptr);
-	vkDestroyPipeline(m_device, m_graphicsPipelines.grid, nullptr);
-	vkDestroyPipeline(m_device, m_graphicsPipelines.gridResource, nullptr);
-	vkDestroyPipeline(m_device, m_graphicsPipelines.gridResourceSketch, nullptr);
-	vkDestroyPipelineLayout(m_device, m_pipelineLayouts.basic, nullptr);
-	vkDestroyPipelineLayout(m_device, m_pipelineLayouts.grid, nullptr);
-	vkDestroyPipelineLayout(m_device, m_pipelineLayouts.gridResource, nullptr);
-	vkDestroyPipelineLayout(m_device, m_pipelineLayouts.gridResourceSketch, nullptr);
 	vkDestroyRenderPass(m_device, m_renderPass, nullptr);
 
-
-	for (auto& resource : m_drawObjects.gridResources)
-	{
-		resource.second.cleanup(m_device, nullptr);
-	}
-	m_drawObjects.tile.cleanup(m_device, nullptr);
-	m_drawObjects.grid.cleanup(m_device, nullptr);
-
-	vkDestroyDescriptorPool(m_device, m_descriptorPools.basic, nullptr);
-	vkDestroyDescriptorPool(m_device, m_descriptorPools.gridResource, nullptr);
-
 	m_depthImage.cleanup(m_device, nullptr);
-
 	m_swapchain.cleanup(m_device, nullptr);
 }
 
