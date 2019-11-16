@@ -89,7 +89,6 @@ VkPipelineRasterizationStateCreateInfo PipelinesManager::createRasterizationStat
 	rasterizer.polygonMode = drawInfo.polygon;
 	rasterizer.lineWidth = drawInfo.lineWidth;
 	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-	rasterizer.cullMode = VK_CULL_MODE_NONE;
 	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterizer.depthBiasEnable = VK_FALSE;
 	rasterizer.depthBiasConstantFactor = 0.0f;
@@ -341,6 +340,9 @@ std::pair<GO::ID, GO::ID> PipelinesManager::creteGraphicsPipeline(const PipInfo&
 
 	VkPipeline newPipeline;
 	VK_CHECK_RESULT(vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &newPipeline));
+
+	vkDestroyShaderModule(*device, moduleVert, nullptr);
+	vkDestroyShaderModule(*device, moduleFrag, nullptr);
 
 	GO::ID pipelineID = generateNextContainerID(pipelines);
 	pipelines[pipelineID] = newPipeline;

@@ -1,4 +1,5 @@
 #include "GraphicsObjects.h"
+#include <filesystem>
 
 VkVertexInputBindingDescription GO::Vertex::getBindingDescription()
 {
@@ -79,12 +80,16 @@ std::vector<VkVertexInputAttributeDescription> GO::TexturedVertex::getAttributeD
 	return attributeDescriptions;
 }
 
-std::string GO::Model::getPath(const Model& model)
+std::optional<std::string> GO::Model::getFile(const Model& model)
 {
-	return model.directory.empty() ? model.file : model.directory + '/' + model.file;
+	std::optional<std::string> file;
+	if (model.directory.has_value())
+		file = std::filesystem::path(model.directory.value()).filename().string();
+	
+	return file;
 }
 
-size_t GO::getVertexSize(VertexType type)
+uint32_t GO::getVertexSize(VertexType type)
 {
 	switch (type)
 	{
@@ -133,4 +138,26 @@ std::vector<VkVertexInputAttributeDescription> GraphicsObjects::getAttributeDesc
 	default:
 		throw std::runtime_error("Unknown vertex type!");
 	}
+}
+
+GO::ByteVertices GraphicsObjects::transformTypedVerticesToBytes(const TypedVertices& tTverts)
+{
+	const auto& [type, verts] = tTverts;
+	GO::ByteVector bytes = createByteContainer(verts, getVertexSize(type));
+
+	GO::ByteVertices bVerts;
+	bVerts.type = type;
+	bVerts.vertices = bytes;
+
+	return bVerts;
+}
+
+uint64_t GraphicsObjects::getVerticesCountFromByteVertices(const ByteVertices* bVts)
+{
+	auto vCount = bVts->vertices.size();
+	auto vSize = getVertexSize(bVts->type);
+	//uint64_t vtxCount = bVts->vertices.size() / getVertexSize(bVts->type);
+	uint64_t vtxCount = vCount / vSize;
+
+	return vtxCount;
 }

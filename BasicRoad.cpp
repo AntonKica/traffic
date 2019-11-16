@@ -79,8 +79,8 @@ const std::vector<uint32_t>& BasicRoad::getIndices() const
 	static std::vector<uint32_t> s_indices =
 	{
 		// bottom plane
-		2,1,0,
-		0,3,2
+		0,1,2,
+		2,3,0
 	};
 
 	return s_indices;

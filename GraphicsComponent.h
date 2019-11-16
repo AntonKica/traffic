@@ -1,27 +1,22 @@
 #pragma once
 #include <vector>
 #include <string>
-#include "GraphicsObjects.h"
-#include "PipelinesManager.h"
 
+#include "vulkanHelper/VulkanStructs.h"
+#include "GraphicsObjects.h"
 //#include "DescriptorManager.h"
 namespace Info
 {
-	struct ModelInfo
-	{
-		// model
-		std::optional<std::string> modelPath;
-		// or raw
-		const GO::TypedVertices* vertices = nullptr;
-		const GO::Indices* indices = nullptr;
-		std::string texturePath;
-	};
+	struct ModelInfo;
+	struct DrawInfo;
 	struct GraphicsComponentCreateInfo
 	{
-		const DrawInfo* drawInfo;
-		const ModelInfo* modelInfo;
+		const Info::DrawInfo* drawInfo;
+		const Info::ModelInfo* modelInfo;
 	};
 };
+
+struct ModelReference;
 class GraphicsComponent
 {
 private:
@@ -29,14 +24,9 @@ private:
 	size_t dynamicBufferOffset;
 
 public:
-	GO::ID m_modelReference;
+	const ModelReference* pModelReference;
 	// create module
-	struct ImageRef
-	{
-		std::string textureFile;
-		GO::ID imageID;
-	};
-	std::optional<GO::ID> textureRefID;
+	const vkh::structs::Image* pTexture;
 	GO::ID m_descriptorSetReference = {};
 	GO::ID m_pipelineReference = {};
 

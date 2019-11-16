@@ -46,7 +46,8 @@ const std::vector<uint32_t>& BasicBuilding::getIndices() const
 		2,3,7,
 		7,6,2
 	};
-
+	// nechce sa mi to prepisovat
+	std::reverse(s_indices.begin(), s_indices.end());
 	return s_indices;
 }
 

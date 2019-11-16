@@ -2,57 +2,152 @@
 #include <map>
 #include <optional>
 #include <bitset>
+#include <set>
+#include <string>
 #include "GraphicsObjects.h"
 #include "GraphicsComponent.h"
 
+namespace Info
+{
+	struct ModelInfo
+	{
+		// model
+		std::optional<std::string> modelPath;
+		// or raw
+		const GO::TypedVertices* vertices = nullptr;
+		const GO::Indices* indices = nullptr;
+		std::string texturePath;
+	};
+
+	struct VerticesInfo
+	{
+		GO::VertexType verticesType;
+	};
+}
+
+
+struct ModelReference
+{
+	std::optional<std::string> file;
+
+	const GO::ByteVertices* pVertices;
+	std::optional<const GO::Indices*> pIndices;
+	std::optional<const std::string> texture;
+};
+namespace Comparators
+{
+	struct ModelReferenceCompLess
+	{
+		bool operator()(const ModelReference& lhs, const ModelReference& rhs) const
+		{
+			bool returnVal = false;
+			if (lhs.file && rhs.file)
+			{
+				returnVal =  lhs.file.value() < rhs.file.value();
+			}
+			else if (!lhs.file && rhs.file)
+			{
+				returnVal =  false;
+			}
+			else if (lhs.file && !rhs.file)
+			{
+				returnVal =  true;
+			}
+			else
+			{
+				if (ByteVerticesCompEqual()(*lhs.pVertices, *rhs.pVertices))
+				{
+					bool lessIndices = false;
+					{
+						if (lhs.pIndices.has_value() && rhs.pIndices.has_value())
+							lessIndices = IndicesCompLess()(*lhs.pIndices.value(), *rhs.pIndices.value());
+						else if (!lhs.pIndices && rhs.pIndices)
+							lessIndices = false;
+						else
+							lessIndices = true;
+					}
+					bool lessTexture = false;
+					{
+						if (lhs.texture.has_value() && rhs.texture.has_value())
+							lessTexture = lhs.texture.value() < rhs.texture.value();
+						else if (!lhs.texture && rhs.texture)
+							lessTexture = false;
+						else
+							lessTexture = true;
+					}
+
+					returnVal =  lessIndices || lessTexture;
+				}
+				else
+				{
+					returnVal =  ByteVerticesCompLess()(*lhs.pVertices, *rhs.pVertices);
+				}
+			}
+
+			return returnVal;
+		}
+	};
+	struct ModelReferenceCompEqual
+	{
+		bool operator()(const ModelReference& lhs, const ModelReference& rhs) const
+		{
+			if(lhs.file == rhs.file)
+				return ByteVerticesCompEqual()(*lhs.pVertices, *rhs.pVertices);
+
+			return false;
+		}
+	};
+
+}
 class DataManager
 {
 private:
-	template <typename c1, typename c2> 
+	template <typename c1, typename c2>
 	bool sizeContentCompare(const c1& c1, const c2& c2) const;
-	template <typename c1, typename c2, typename pr> 
+	template <typename c1, typename c2, typename pr>
 	bool sizeContentCompare(const c1& c1, const c2& c2, pr pred) const;
+	using ByteVerticesSet = std::set<GO::ByteVertices, Comparators::ByteVerticesCompLess>;
+	using IndicesSet = std::set<GO::Indices, Comparators::IndicesCompLess>;
+	using ModelReferenceSet = std::set<ModelReference, Comparators::ModelReferenceCompLess>;
 
-	bool identicalTypedVerticles(const GO::TypedVertices& lhs, const GO::TypedVertices& rhs) const;
+	GO::Model processModelInfo(const Info::ModelInfo& info) const;
+	std::optional<const ModelReference*> modelLoaded(const GO::Model& model) const;
+	const GO::ByteVertices* loadVertices(const GO::ByteVertices& vertices);
+	const GO::Indices* loadIndices(const GO::Indices& indices);
+	std::string loadTexture(const std::string& textureFile);
 
-	using IDList = std::vector<GO::ID>;
-	IDList findListOfIdenticalVertices(const GO::TypedVertices& verticesToFind) const;
-	IDList findListOfIdenticalIndices(const GO::Indices& indicesToFind) const;
-	IDList findListOfIdenticalTexture(const std::string& imageFileToFind) const;
-	std::optional<GO::ID> findIdenticalVertices(const GO::TypedVertices& verticesToFind) const;
-	std::optional<GO::ID> findIdenticalIndices(const GO::Indices& indicesToFind) const;
-	std::optional<GO::ID> findIdenticalTexture(const std::string& imageFileToFind) const;
-	std::optional<GO::ID> findIdenticalModelReference(IDList vertices, IDList indices, IDList textures) const;
+	const GO::ByteVertices* findVertices(const GO::ByteVertices& toFind) const;
+	const GO::Indices* findIndices(const GO::Indices& toFind) const;
+	const std::string* findTexture(const std::string& file) const;
+	std::optional<const ModelReference*> findSuitableModelReference(
+		const GO::ByteVertices* verts, 
+		const GO::Indices* inds, 
+		const std::string* text) const;
 public:
-	GO::ID processModelInfo(const Info::ModelInfo& info);
-	GO::ID loadModel(const GO::Model& model);;
-	std::optional<GO::ID> modelLoaded(const GO::Model& model) const;
-	GO::ID loadVertices(const GO::TypedVertices& vertices, bool checkLoaded = true);
-	GO::ID loadIndices(const GO::Indices& indices, bool checkLoaded = true);
-	GO::ID loadTexture(const std::string& textureFile, bool checkLoaded = true);
+	const ModelReference* getModelReference(const Info::ModelInfo& info);
 
-	size_t getLoadedVerticesSize(GO::VertexType type) const;
+	size_t getLoadedVerticesByteSize(GO::VertexType type) const;
 	size_t getLoadedIndicesSize() const;
-	const GO::ModelReference& getModelReference(GO::ID id) const;
-	std::string getTexturePath(GO::ID id) const;
-	std::pair<size_t, size_t> getIndicesCountAndOffsetFromModelReference(GO::ID modelID) const;
-	std::pair<size_t, size_t> getVerticesCountAndOffsetFromModelReference(GO::ID modelID) const;
+	//std::pair<size_t, size_t> getIndicesCountAndOffsetFromModelReference(const ModelReference* modelRef) const;
+	//std::pair<size_t, size_t> getVerticesCountAndOffsetFromModelReference(const ModelReference* modelRef) const;
 	//private:
 	struct
 	{
-		std::map<GO::ID, GO::ModelReference> models;
-		std::map<GO::ID, GO::TypedVertices> typedVertices;
-		std::map<GO::ID, GO::Indices> indices;
-		std::map<GO::ID, std::string> textures;
+		ModelReferenceSet models;
+		ByteVerticesSet vertices;
+		IndicesSet indices;
+		std::set<std::string> textures;
 	} loaded;
 
 	// for drawing purposes
-	void setIndicesOffset(GO::ID id, uint64_t offset);
-	void setVerticesOffset(GO::ID id, GO::VertexType type, uint64_t offset);
+	void setIndicesOffset(const GO::Indices* inds, uint64_t offset);
+	void setVerticesOffset(const GO::ByteVertices* verts, uint64_t byteOffset);
+	uint64_t getVerticesOffset(const GO::ByteVertices* verts) const;
+	uint64_t getIndicesOffset(const GO::Indices* inds) const;
 	struct
 	{
-		std::map<GO::ID, std::pair<GO::VertexType, uint64_t>> typedVertices;
-		std::map<GO::ID, uint64_t> indices;
+		std::map<const GO::ByteVertices*, uint64_t> vertices;
+		std::map<const GO::Indices*, uint64_t> indices;
 	} offsets;
 
 	enum Flags

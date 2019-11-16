@@ -13,14 +13,8 @@ Model ModelLoader::loadModel(const std::string& path)
 		std::cerr << "Failed to load model!\n" << ERROR_PREFIX << importer.GetErrorString();
 		throw std::runtime_error("Unknfown texture path: " + path);
 	}
-
-	int lastBracket = path.find_last_of('/');
-	std::string directory = path.substr(0, lastBracket);
-	std::string file = std::filesystem::path(path).filename().string();
-
 	Model newModel;
-	newModel.directory = directory;
-	newModel.file = file;
+	newModel.directory = path;
 
 	processNode(scene, scene->mRootNode, newModel);
 
@@ -35,8 +29,8 @@ void ModelLoader::processNode(const aiScene* scene, aiNode* node, Model& model)
 		aiMesh* mesh = scene->mMeshes[node->mMeshes[i]];
 
 		processMesh(scene, mesh, model);
-		const auto& [type, vertices] = model.typedVertices;
-		if (!vertices.empty())
+		const auto& [type, vertices] = model.vertices;
+		if (vertices.size())
 			return;
 	}
 	for (unsigned int i = 0; i < node->mNumChildren; i++)
@@ -51,7 +45,7 @@ void ModelLoader::processNode(const aiScene* scene, aiNode* node, Model& model)
 void ModelLoader::processMesh(const aiScene* scene, aiMesh* mesh, Model& model)
 {
 	GO::VertexType vertexType = VertexType::DEFAULT;
-	GO::Vertices vertices;
+	GO::ByteVertices vertices;
 	GO::Indices indices;
 
 	bool containsTexture = mesh->mTextureCoords[0] != nullptr;
@@ -61,6 +55,7 @@ void ModelLoader::processMesh(const aiScene* scene, aiMesh* mesh, Model& model)
 	}
 
 	VariantVertex variantVertex;
+	vertices.vertices.resize(mesh->mNumVertices);
 	for (size_t i = 0; i < mesh->mNumVertices; ++i)
 	{
 		glm::vec3 vector;
@@ -81,9 +76,9 @@ void ModelLoader::processMesh(const aiScene* scene, aiMesh* mesh, Model& model)
 			variantVertex.texturedVertex.texCoord = vec;
 		}
 
-		vertices.push_back(variantVertex);
+		std::memcpy(vertices.vertices.data() + i, &variantVertex, getVertexSize(vertexType));
 	}
-	model.typedVertices = std::make_pair(vertexType, vertices);
+	model.vertices = vertices;
 
 	// indices
 	for (size_t i = 0; i < mesh->mNumFaces; ++i)

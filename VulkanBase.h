@@ -21,7 +21,7 @@
 #include "DescriptorManager.h"
 #include "PipelinesManager.h"
 
-#define ENABLE_VSYNC true
+#define ENABLE_VSYNC false
 
 using GraphicsObjects::ID;
 
@@ -137,14 +137,8 @@ class VulkanBase
 	DescriptorManager m_descriptorManager;
 	PipelinesManager m_pipelinesManager;
 
-	struct ImageRef
-	{
-		std::string textureFile;
-		GO::ID imageID;
-	};
 	VkSampler m_sampler;
-	std::map<GO::ID, vkh::structs::Image> m_images;
-	std::map<GO::ID, ImageRef> m_imageReferences;
+	std::map<std::string, vkh::structs::Image> m_images;
 	VkPushConstantRange m_pushRange;
 	struct PushRange
 	{
@@ -180,12 +174,12 @@ public:
 	GraphicsComponent* createGrahicsComponent(const Info::GraphicsComponentCreateInfo& info);
 private:
 	Info::DescriptorSetCreateInfo generateSetCreatInfo(const Info::GraphicsComponentCreateInfo& info,
-		const GO::ModelReference& modelRef) const;
+		const ModelReference& modelRef) const;
 	Info::PipelineInfo generatePipelineCreateInfo(const Info::GraphicsComponentCreateInfo& info,
-		const GO::ModelReference& modelRef, GO::ID descriptorSetRefID) const;
+		const ModelReference& modelRef, GO::ID descriptorSetRefID) const;
 	// textureManager?
-	GO::ID getImageReference(const std::string& loadPath);
-	std::optional<GO::ID> findImageReference(const std::string& loadPath);
+	const vkh::structs::Image* getImage(const std::string& loadPath);
+	std::optional<const vkh::structs::Image*> findImage(const std::string& filePath);
 private:
 	// menu
 	void initWindow();

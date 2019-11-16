@@ -266,34 +266,30 @@ uint16_t VulkanBase::getSwapchainImageCount() const
 
 GraphicsComponent* VulkanBase::createGrahicsComponent(const Info::GraphicsComponentCreateInfo& info)
 {
-	GO::ID modelRefID = m_dataManager.processModelInfo(*info.modelInfo);
-	auto modelRef = m_dataManager.getModelReference(modelRefID);
+	auto pModelReference = m_dataManager.getModelReference(*info.modelInfo);
 
 	static_assert(true && "MAke module, omg");
 	//load texture, MAKEMODULE
 
 
-	std::optional<GO::ID> textureRefID;
-	if (modelRef.textureRefID)
-		textureRefID = getImageReference(m_dataManager.getTexturePath(modelRef.textureRefID.value()));
+	const vkh::structs::Image* texture = nullptr;
+	if (pModelReference->texture)
+		texture = getImage(pModelReference->texture.value());
 
 	Info::DescriptorSetCreateInfo bindingInfo = 
-		generateSetCreatInfo(info, modelRef);
+		generateSetCreatInfo(info, *pModelReference);
 	GO::ID descriptorSetRefID = m_descriptorManager.getDescriptorReference(bindingInfo);
 
 	Info::PipelineInfo pipelineInfo =
-		generatePipelineCreateInfo(info, modelRef, descriptorSetRefID);
+		generatePipelineCreateInfo(info, *pModelReference, descriptorSetRefID);
 	GO::ID pipelineRefID = m_pipelinesManager.getPipelineReference(pipelineInfo);
 
-	// pseudo
-	constexpr int i = 100'000'000;
-	static GraphicsComponent* newComps = new GraphicsComponent[100'000'000];
-	static int counter = 0;
+	// pseu
 
-	GraphicsComponent* newComp = &newComps[counter++];
-	newComp->m_modelReference = modelRefID;
+	GraphicsComponent* newComp = new GraphicsComponent;
+	newComp->pModelReference = pModelReference;
 	newComp->m_descriptorSetReference = descriptorSetRefID;
-	newComp->textureRefID = textureRefID;
+	newComp->pTexture = texture;
 	newComp->m_pipelineReference = pipelineRefID;
 
 	activeGraphicsComponents.push_back(newComp);
@@ -302,7 +298,7 @@ GraphicsComponent* VulkanBase::createGrahicsComponent(const Info::GraphicsCompon
 }
 
 Info::DescriptorSetCreateInfo VulkanBase::generateSetCreatInfo(const Info::GraphicsComponentCreateInfo& info,
-	const GO::ModelReference& modelRef) const
+	const ModelReference& modelRef) const
 {
 	//Info::DescriptorSetCreateInfo setInfo;
 	Info::DescriptorBindings bindings;
@@ -314,7 +310,7 @@ Info::DescriptorSetCreateInfo VulkanBase::generateSetCreatInfo(const Info::Graph
 
 		bindings.push_back(uboBinding);
 	}
-	if (modelRef.textureRefID)
+	if (modelRef.texture)
 	{
 		Info::DescriptorBinding imageBinding;
 		imageBinding.binding = 1;
@@ -333,21 +329,21 @@ Info::DescriptorSetCreateInfo VulkanBase::generateSetCreatInfo(const Info::Graph
 		std::back_inserter(setInfo.dstBuffers), transformBuffer);
 
 	// guaranted that no exception is thrown
-	if (modelRef.textureRefID)
-		setInfo.srcImage = &m_images.find(modelRef.textureRefID.value())->second;
+	if (modelRef.texture)
+		setInfo.srcImage = &m_images.find(modelRef.texture.value())->second;
 
 	return setInfo;
 }
 
 Info::PipelineInfo VulkanBase::generatePipelineCreateInfo(const Info::GraphicsComponentCreateInfo& info,
-	const GO::ModelReference& modelRef, GO::ID descriptorSetRefID) const
+	const ModelReference& modelRef, GO::ID descriptorSetRefID) const
 {
 	using namespace Info;
 
 	VertexInfo vertexInfo;
-	vertexInfo.vertexType = modelRef.verticesType;
-	vertexInfo.attributes = GO::getAttributeDescriptionsFromType(modelRef.verticesType);
-	vertexInfo.bindingDescription = GO::getBindingDescriptionFromType(modelRef.verticesType);
+	vertexInfo.vertexType = modelRef.pVertices->type;
+	vertexInfo.attributes = GO::getAttributeDescriptionsFromType(vertexInfo.vertexType);
+	vertexInfo.bindingDescription = GO::getBindingDescriptionFromType(vertexInfo.vertexType);
 
 	ViewportInfo viewportInfo;
 	viewportInfo.minDepth = 0.0f;
@@ -364,7 +360,7 @@ Info::PipelineInfo VulkanBase::generatePipelineCreateInfo(const Info::GraphicsCo
 
 	ColorBlendingInfo colorBlendingInfo;
 #pragma message ("Pimp up blending!")
-	colorBlendingInfo.blendEnable = false;
+	colorBlendingInfo.blendEnable = true;
 	colorBlendingInfo.writeAllMasks = true;
 
 	DepthStencilInfo depthStencilInfo;
@@ -390,12 +386,12 @@ Info::PipelineInfo VulkanBase::generatePipelineCreateInfo(const Info::GraphicsCo
 	return pipelineInfo;
 }
 
-GO::ID VulkanBase::getImageReference(const std::string& loadPath)
+const vkh::structs::Image* VulkanBase::getImage(const std::string& loadPath)
 {
 	{
-		std::optional<GO::ID> imageRefID = findImageReference(loadPath);
-		if (imageRefID)
-			return imageRefID.value();
+		auto image = findImage(loadPath);
+		if (image)
+			return image.value();
 	}
 
 	static_assert(true && "UGLY, rewriite..");
@@ -427,34 +423,28 @@ GO::ID VulkanBase::getImageReference(const std::string& loadPath)
 	newImage.setupDescriptor(m_sampler);
 	stagingBuffer.cleanup(m_device, nullptr);
 
-	GO::ID imageID = generateNextContainerID(m_images);
-	m_images[imageID] = newImage;
+	//std::string file = std::filesystem::path(loadPath).filename().string();
+	m_images[loadPath] = newImage;
 
-	ImageRef imageRef;
-	imageRef.imageID = imageID;
-	imageRef.textureFile = std::filesystem::path(loadPath).filename().string();
 
-	GO::ID imageRefID = generateNextContainerID(m_imageReferences);
-	m_imageReferences[imageID] = imageRef;
-
-	return imageRefID;
+	return &m_images[loadPath];
 }
 
-std::optional<GO::ID> VulkanBase::findImageReference(const std::string& loadPath)
+std::optional<const vkh::structs::Image*> VulkanBase::findImage(const std::string& filePath)
 {
-	std::optional<GO::ID> refID;
+	std::optional<const vkh::structs::Image*> image;
 
-	std::string file = std::filesystem::path(loadPath).filename().string();
-	for (const auto& [id, imageRef] : m_imageReferences)
+	std::string file = std::filesystem::path(filePath).filename().string();
+	for (const auto& [_file, _image] : m_images)
 	{
-		if (imageRef.textureFile == file)
+		if (_file== file)
 		{
-			refID = id;
+			image = &_image;
 			break;
 		}
 	}
 
-	return refID;
+	return image;
 }
 
 vkh::structs::VulkanDevice* VulkanBase::getDevice()
@@ -496,10 +486,6 @@ void VulkanBase::initVulkan()
 	initBuffers();
 	initModules();
 
-	{
-		updateVertexBuffer();
-		updateIndexBuffer();
-	}
 	createCommandBuffers();
 }
 
@@ -1057,37 +1043,29 @@ void VulkanBase::updateVertexBuffer()
 {
 	for (GO::VertexType type = static_cast<GO::VertexType>(0); type < GO::VertexType::MAX_TYPE; ++type)
 	{
-		auto& currentBufer = m_buffers.vertex[type];
-		auto dataSize = GO::getVertexSize(type);
-		auto strideSize = sizeof(GO::VariantVertex);
-
 		VkDeviceSize requiredBufferSize = 
-			m_dataManager.getLoadedVerticesSize(type) * dataSize;
+			m_dataManager.getLoadedVerticesByteSize(type);
 		//nothing to draw
 		if (requiredBufferSize <= 0)
 			continue;
 		// resize if needed
+		auto& currentBufer = m_buffers.vertex[type];
 		if (requiredBufferSize > currentBufer.size)
 			createVertexBuffer(currentBufer, requiredBufferSize * 1.25);
 
 		vkh::structs::Buffer stagingBuffer = m_device.createStaginBuffer(requiredBufferSize);
 		uint8_t* data = static_cast<uint8_t*>(stagingBuffer.map());
 
-		uint64_t offset = 0;
-		for (const auto& [id, typedVertices] : m_dataManager.loaded.typedVertices)
+		uint64_t byteOffset = 0;
+		for (const auto& vertices : m_dataManager.loaded.vertices)
 		{
-			const auto& [_type, _vertices] = typedVertices;
-			if (type != _type)
+			if (type != vertices.type)
 				continue;
 
-			for (const auto& vertex : _vertices)
-			{
-				memcpy(data, &vertex, dataSize);
-				data += dataSize;
-			}
+			memcpy(data, vertices.vertices.data(), vertices.vertices.size());
 
-			m_dataManager.setVerticesOffset(id, _type, offset);
-			offset = _vertices.size();
+			m_dataManager.setVerticesOffset(&vertices, byteOffset);
+			byteOffset += vertices.vertices.size();
 		}
 		stagingBuffer.unmap();
 		m_device.copyBuffer(stagingBuffer, currentBufer);
@@ -1095,7 +1073,6 @@ void VulkanBase::updateVertexBuffer()
 		stagingBuffer.cleanup(m_device, nullptr);
 	}
 	m_dataManager.setState(DataManager::Flags::VERTICES_LOADED, false);
-
 }
 
 void VulkanBase::updateIndexBuffer()
@@ -1114,12 +1091,12 @@ void VulkanBase::updateIndexBuffer()
 	uint8_t* data = static_cast<uint8_t*>(stagingBuffer.map());
 
 	uint64_t offset = 0;
-	for (const auto& [id, indices] : m_dataManager.loaded.indices)
+	for (const auto& indices : m_dataManager.loaded.indices)
 	{
 		size_t copySize = indices.size() * strideSize;
 		memcpy(data, indices.data(), copySize);
 
-		m_dataManager.setIndicesOffset(id, offset);
+		m_dataManager.setIndicesOffset(&indices, offset);
 
 		offset = indices.size();
 		data += copySize;
@@ -1224,10 +1201,10 @@ void VulkanBase::recreateCommandBuffer(uint32_t currentImage)
 			vkCmdPushConstants(cmdBuffer, m_pipelinesManager.getPipelineLayoutFromReference(graphicsComponent->m_pipelineReference),
 				VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(m_pushConstants), &m_pushConstants);
 		}
-		auto modelRef = m_dataManager.getModelReference(graphicsComponent->m_modelReference);
-		if (vertType != modelRef.verticesType)
+		const auto& modelRef = graphicsComponent->pModelReference;
+		if (vertType != modelRef->pVertices->type)
 		{
-			vertType = modelRef.verticesType;
+			vertType = modelRef->pVertices->type;
 
 			vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &m_buffers.vertex[vertType].buffer, vertexOffsets);
 		}
@@ -1238,16 +1215,17 @@ void VulkanBase::recreateCommandBuffer(uint32_t currentImage)
 		vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayot, 0, 
 			1, &descriptorSet, 1, descriptorOffsets);
 
-		if (modelRef.indices)
+		auto [vCnt, vOff] = std::make_pair(GO::getVerticesCountFromByteVertices(modelRef->pVertices),
+			m_dataManager.getVerticesOffset(modelRef->pVertices));
+		if (modelRef->pIndices)
 		{
-			auto[iCnt, iOff] = m_dataManager.getIndicesCountAndOffsetFromModelReference(graphicsComponent->m_modelReference);
-			auto[vCnt, vOff] = m_dataManager.getVerticesCountAndOffsetFromModelReference(graphicsComponent->m_modelReference);
+			auto [iCnt, iOff] = std::make_pair(modelRef->pIndices.value()->size(), 
+				m_dataManager.getIndicesOffset(modelRef->pIndices.value()));
 			vkCmdBindIndexBuffer(cmdBuffer, m_buffers.index, 0, VK_INDEX_TYPE_UINT32);
 			vkCmdDrawIndexed(cmdBuffer, iCnt, 1, iOff, vOff, 0);
 		}
 		else
 		{
-			auto [vCnt, vOff] = m_dataManager.getVerticesCountAndOffsetFromModelReference(graphicsComponent->m_modelReference);
 			vkCmdDraw(cmdBuffer, vCnt, 1, vOff, 0);
 		}
 	}
