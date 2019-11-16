@@ -102,6 +102,6 @@ private:
 	GO::TypedVertices createGridLines() const;
 	void initGraphicsComponent();
 
-	const GraphicsComponent* gridGraphics;
+	pGraphicsComponent gridGraphics;
 };
 #endif // !GRID_h

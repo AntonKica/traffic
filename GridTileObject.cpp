@@ -37,8 +37,8 @@ void GridTileObject::placeOnGridAction()
 	if(!gc)
 		createGraphics();
 
-	gc->position = glm::vec3(m_position.x, 0.0, m_position.y);
-	gc->rotation = glm::vec3(m_rotation, 0.0, 0.0);
+	gc->setPosition(glm::vec3(m_position.x, 0.0, m_position.y));
+	gc->setRotation(glm::vec3(m_rotation, 0.0, 0.0));
 }
 
 void GridTileObject::createGraphics()

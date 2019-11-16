@@ -52,32 +52,63 @@ GO::Model DataManager::processModelInfo(const Info::ModelInfo& info) const
 	return newModel;
 }
 
+void DataManager::addUsage(const ModelReference* model)
+{
+	addUsage(model, usageCounts.models);
+	addUsage(model->pVertices, usageCounts.vertices);
+	if(model->pIndices)
+		addUsage(model->pIndices.value(), usageCounts.indices);
+	if (model->texture)
+		addUsage(model->texture.value(), usageCounts.textures);
+}
+
 const ModelReference* DataManager::getModelReference(const Info::ModelInfo& info)
 {
+	static int i = 0;
+	++i;
+	if (i == 3)
+		std::cout << '\n';
+	const ModelReference* retModel;
 	GO::Model model = processModelInfo(info);
 
 	auto loadedModel = modelLoaded(model);
 	if (loadedModel)
 	{
-		return loadedModel.value();
+		retModel = loadedModel.value();
 	}
-	// create reference
-	ModelReference ref;
-	ref.file = model.getFile(model);
-	ref.pVertices = loadVertices(model.vertices);
+	else
+	{
+		// create reference
+		ModelReference ref;
+		ref.file = model.getFile(model);
+		ref.pVertices = loadVertices(model.vertices);
 
-	// has indices?
-	if (model.indices)
-		ref.pIndices.emplace(loadIndices(model.indices.value()));
-	// has texture?
-	if (model.texturePath)
-		ref.texture.emplace(loadTexture(model.texturePath.value()));
+		// has indices?
+		if (model.indices)
+			ref.pIndices.emplace(loadIndices(model.indices.value()));
+		// has texture?
+		if (model.texturePath)
+			ref.texture.emplace(loadTexture(model.texturePath.value()));
 
-	// register
-	const auto& [modelRef, inserted] = loaded.models.insert(ref);
+		// register
+		const auto& [modelRef, inserted] = loaded.models.insert(ref);
+		retModel = &(*modelRef);
+	}
+	addUsage(retModel);
 
 	setState(MODEL_LOADED, true);
-	return &(*modelRef);
+	return retModel;
+}
+
+void DataManager::removeModelReference(const ModelReference* reference)
+{
+	removeUsage(reference, usageCounts.models);
+
+	removeVertices(reference->pVertices);
+	if(reference->pIndices)
+		removeIndices(reference->pIndices.value());
+	if (reference->texture)
+		removeTexture(reference->texture.value());
 }
 
 std::optional<const ModelReference *> DataManager::modelLoaded(const GO::Model& model) const
@@ -121,27 +152,69 @@ const GO::ByteVertices* DataManager::loadVertices(const GO::ByteVertices& byteVe
 	//insert element
 	const auto& [vts, inserted] = loaded.vertices.insert(byteVertices);
 
+	const GO::ByteVertices* pVertices = &(*vts);
+
 	setState(VERTICES_LOADED, true);
 	//return const_cast<ByteVertices*>(&(*vts));
-	return &(*vts);
+	return pVertices;
 }
 
 const GO::Indices* DataManager::loadIndices(const Indices& indices)
 {
 	const auto&[ids, inserted] = loaded.indices.insert(indices);
 
+	const GO::Indices* pIndices = &(*ids);
+	addUsage(pIndices, usageCounts.indices);
+
 	setState(INDICES_LOADED, true);
-	return &(*ids);
+	return pIndices;
 }
 
 
 std::string DataManager::loadTexture(const std::string& textureFile)
 {
 	//std::string file = std::filesystem::path(textureFile).filename().string();
-	const auto& [texture, inserted] = loaded.textures.insert(textureFile);
+	const auto& [pTexture, inserted] = loaded.textures.insert(textureFile);
+
+
+	const std::string text = (*pTexture);
+	addUsage(text, usageCounts.textures);
 
 	setState(TEXTURE_LOADED, true);
-	return *texture;
+	return text;
+}
+
+void DataManager::removeVertices(const GO::ByteVertices* vertices)
+{
+	removeUsage(vertices, usageCounts.vertices);
+
+	if (canRemove(vertices, usageCounts.vertices))
+	{
+		auto vIter = loaded.vertices.find(*vertices);
+		loaded.vertices.erase(vIter);
+	}
+}
+
+void DataManager::removeIndices(const GO::Indices* indices)
+{
+	removeUsage(indices, usageCounts.indices);
+
+	if (canRemove(indices, usageCounts.indices))
+	{
+		auto iIter = loaded.indices.find(*indices);
+		loaded.indices.erase(iIter);
+	}
+}
+
+void DataManager::removeTexture(const std::string textureFile)
+{
+	removeUsage(textureFile, usageCounts.textures);
+
+	if (canRemove(textureFile, usageCounts.textures))
+	{
+		auto tIter = loaded.textures.find(textureFile);
+		loaded.textures.erase(tIter);
+	}
 }
 
 inline const GO::ByteVertices* DataManager::findVertices(const GO::ByteVertices& toFind) const
@@ -183,14 +256,14 @@ std::optional<const ModelReference*> DataManager::findSuitableModelReference(
 				if (model.pIndices && inds)
 					identicalIndices = Comparators::IndicesCompEqual()(*inds, *(model.pIndices.value()));
 				else
-					identicalIndices == (model.pIndices && inds);
+					identicalIndices = (model.pIndices && inds);
 
 
 				bool identicalTexture = false;
 				if (model.texture && text)
 					identicalTexture = model.texture == *text;
 				else
-					identicalTexture == (model.pIndices && text);
+					identicalTexture = (model.texture && text);
 
 				if (identicalIndices && identicalTexture)
 				{

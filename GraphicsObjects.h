@@ -115,14 +115,14 @@ namespace GO = GraphicsObjects;
 
 namespace Comparators
 {
-	template<class container> constexpr bool sizeMemoryCompareLess(container c1, container c2)
+	template<class container> constexpr bool sizeMemoryCompareLess(const container& c1, const container& c2)
 	{
 		if (c1.size() == c2.size())
 			return std::memcmp(c1.data(), c2.data(), c1.size()) == 1;
 
 		return c1.size() < c2.size();
 	}
-	template<class container> constexpr bool sizeMemoryCompareEqual(container c1, container c2)
+	template<class container> constexpr bool sizeMemoryCompareEqual(const container& c1, const container& c2)
 	{
 		if (c1.size() == c2.size())
 			return std::memcmp(c1.data(), c2.data(), c1.size()) == 0;
@@ -130,40 +130,80 @@ namespace Comparators
 		return false;
 	}
 
+	template <class T>
+	T* ptr(T& obj) { return &obj; }
+	template <class T>
+	T* ptr(T* obj) { return obj; }
+
 	struct ByteVerticesCompLess
 	{
-		bool operator()(const GO::ByteVertices& rhs, const GO::ByteVertices& lhs) const
+	private:
+		bool compare(const GO::ByteVertices* rhs, const GO::ByteVertices* lhs) const
 		{
-			if (lhs.type == rhs.type)
+			if (lhs->type == rhs->type)
 			{
-				return sizeMemoryCompareLess(rhs.vertices, lhs.vertices);
+				return sizeMemoryCompareLess(rhs->vertices, lhs->vertices);
 			}
-			return lhs.type < rhs.type;
+			return lhs->type < rhs->type;
+		}	
+	public:
+		template<class bContainer> bool operator()(const bContainer& rhs, const bContainer& lhs) const
+		{
+			if (!std::is_same<bContainer, GO::ByteVertices>::value)
+				static_assert("Uncompatible ByteVerticesContainers");
+
+			return compare(ptr(rhs), ptr(lhs));
 		}
 	};
+
+
 	struct ByteVerticesCompEqual
 	{
-		bool operator()(const GO::ByteVertices& rhs, const GO::ByteVertices& lhs) const
+		bool compare(const GO::ByteVertices* lhs, const GO::ByteVertices* rhs) const
 		{
-			if (lhs.type == rhs.type)
+			if (lhs->type == rhs->type)
 			{
-				return sizeMemoryCompareEqual(rhs.vertices, lhs.vertices);
+				return sizeMemoryCompareEqual(lhs->vertices, rhs->vertices);
 			}
 			return false;
 		}
-	};
-	struct IndicesCompLess
-	{
-		bool operator()(const GO::Indices& lhs, const GO::Indices& rhs) const
+		template<class bContainer> bool operator()(const bContainer& lhs, const bContainer& rhs) const
 		{
-			return sizeMemoryCompareLess(lhs, rhs);
+			if (!std::is_same<bContainer, GO::ByteVertices>::value)
+				static_assert("Uncompatible ByteVerticesContainers");
+	
+			return compare(ptr(lhs), ptr(rhs));
 		}
 	};
+
+	struct IndicesCompLess
+	{
+		bool compare(const GO::Indices* lhs, const GO::Indices* rhs) const
+		{
+			return sizeMemoryCompareLess(*lhs, *rhs);
+		}
+
+		template<class bContainer> bool operator()(const bContainer& lhs, const bContainer& rhs) const
+		{
+			if (!std::is_same<bContainer, GO::Indices>::value)
+				static_assert("Uncompatible ByteVerticesContainers");
+
+			return compare(ptr(lhs), ptr(rhs));
+		}
+	};
+
 	struct IndicesCompEqual
 	{
-		bool operator()(const GO::Indices& rhs, const GO::Indices& lhs) const
+		bool compare(const GO::Indices* rhs, const GO::Indices* lhs) const
 		{
-			return sizeMemoryCompareEqual(rhs, lhs);
+			return sizeMemoryCompareEqual(*rhs, *lhs);
+		}
+		template<class bContainer> bool operator()(const bContainer& lhs, const bContainer& rhs) const
+		{
+			if (!std::is_same<bContainer, GO::Indices>::value)
+				static_assert("Uncompatible ByteVerticesContainers");
+
+			return compare(ptr(lhs), ptr(rhs));
 		}
 	};
 }

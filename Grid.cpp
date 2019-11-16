@@ -323,7 +323,8 @@ inline glm::dvec2 Grid::roundToTileUnits(const glm::dvec2& position) const
 GO::TypedVertices Grid::createGridLines() const
 {
 	GO::TypedVertices vVerts;
-	vVerts.first = GO::VertexType::DEFAULT;
+	vVerts.first = GO::VertexType::COLORED;
+	glm::vec3 color(1.0, 0.0, 0.0);
 
 	auto createAxialySymmetricalVertices = [](const glm::vec3& vertex, double distance, bool horizontal)
 		->std::pair< glm::vec3, glm::vec3>
@@ -356,9 +357,11 @@ GO::TypedVertices Grid::createGridLines() const
 		const auto [top, bottom] = createAxialySymmetricalVertices(pos, zSpan, true);
 
 		GO::VariantVertex verticalTop;
-		verticalTop.vertex.position = top;
+		verticalTop.coloredVertex.position = top;
+		verticalTop.coloredVertex.color = color;
 		GO::VariantVertex verticalBottom;
-		verticalBottom.vertex.position = bottom;
+		verticalBottom.coloredVertex.position = bottom;
+		verticalBottom.coloredVertex.color = color;
 
 		vVerts.second.insert(vVerts.second.begin(), { verticalTop, verticalBottom });
 	}
@@ -375,9 +378,11 @@ GO::TypedVertices Grid::createGridLines() const
 		const auto [left, right] = createAxialySymmetricalVertices(pos, xSpan, false);
 
 		GO::VariantVertex verticalLeft;
-		verticalLeft.vertex.position = left;
+		verticalLeft.coloredVertex.position = left;
+		verticalLeft.coloredVertex.color = color;
 		GO::VariantVertex verticalRight;
-		verticalRight.vertex.position = right;
+		verticalRight.coloredVertex.position = right;
+		verticalRight.coloredVertex.color= color;
 
 		vVerts.second.insert(vVerts.second.begin(), { verticalLeft, verticalRight });
 	}

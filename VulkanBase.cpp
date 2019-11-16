@@ -264,41 +264,23 @@ uint16_t VulkanBase::getSwapchainImageCount() const
 	return m_swapchain.images.size();
 }
 
-GraphicsComponent* VulkanBase::createGrahicsComponent(const Info::GraphicsComponentCreateInfo& info)
+pGraphicsComponent VulkanBase::createGrahicsComponent(const Info::GraphicsComponentCreateInfo& info)
 {
-	static int i = 0;
-	if (i == 2)
-		std::cout << '\n';
-	++i;
-	auto pModelReference = m_dataManager.getModelReference(*info.modelInfo);
+	GraphicsModule gModule = createGraphicsModule(info);
+	GraphicsComponent* comp = getGraphicsComponent();
+	//stupid
+	comp->setGraphicsModule(gModule);
 
-	static_assert(true && "MAke module, omg");
-	//load texture, MAKEMODULE
-
-
-	const vkh::structs::Image* texture = nullptr;
-	if (pModelReference->texture)
-		texture = getImage(pModelReference->texture.value());
-
-	Info::DescriptorSetCreateInfo bindingInfo = 
-		generateSetCreatInfo(info, *pModelReference);
-	GO::ID descriptorSetRefID = m_descriptorManager.getDescriptorReference(bindingInfo);
-
-	Info::PipelineInfo pipelineInfo =
-		generatePipelineCreateInfo(info, *pModelReference, descriptorSetRefID);
-	GO::ID pipelineRefID = m_pipelinesManager.getPipelineReference(pipelineInfo);
-
-	// pseu
-
-	GraphicsComponent* newComp = new GraphicsComponent;
-	newComp->pModelReference = pModelReference;
-	newComp->m_descriptorSetReference = descriptorSetRefID;
-	newComp->pTexture = texture;
-	newComp->m_pipelineReference = pipelineRefID;
-
-	activeGraphicsComponents.push_back(newComp);
 	createdGraphicsComponent = true;
-	return newComp;
+	return comp;
+}
+
+
+void VulkanBase::destroyGraphicsComponent(const pGraphicsComponent& comp)
+{
+	m_dataManager.removeModelReference(comp->graphicsModule.pModelReference);
+
+	removeGraphicsComponent(comp);
 }
 
 Info::DescriptorSetCreateInfo VulkanBase::generateSetCreatInfo(const Info::GraphicsComponentCreateInfo& info,
@@ -390,6 +372,52 @@ Info::PipelineInfo VulkanBase::generatePipelineCreateInfo(const Info::GraphicsCo
 	pipelineInfo.renderPass = m_renderPass;
 
 	return pipelineInfo;
+}
+
+GraphicsModule VulkanBase::createGraphicsModule(const Info::GraphicsComponentCreateInfo& info)
+{
+	auto pModelReference = m_dataManager.getModelReference(*info.modelInfo);
+
+	static_assert(true && "MAke module, omg");
+
+
+	const vkh::structs::Image* texture = nullptr;
+	if (pModelReference->texture)
+		texture = getImage(pModelReference->texture.value());
+
+	Info::DescriptorSetCreateInfo bindingInfo =
+		generateSetCreatInfo(info, *pModelReference);
+	GO::ID descriptorSetRefID = m_descriptorManager.getDescriptorReference(bindingInfo);
+
+	Info::PipelineInfo pipelineInfo =
+		generatePipelineCreateInfo(info, *pModelReference, descriptorSetRefID);
+	GO::ID pipelineRefID = m_pipelinesManager.getPipelineReference(pipelineInfo);
+
+
+	GraphicsModule newModule;
+	newModule.pModelReference = pModelReference;
+	newModule.m_descriptorSetReference = descriptorSetRefID;
+	newModule.pTexture = texture;
+	newModule.m_pipelineReference = pipelineRefID;
+
+	return newModule;
+}
+
+pGraphicsComponent VulkanBase::getGraphicsComponent()
+{
+	GraphicsComponent* gComp = m_graphicsComponents.top();
+	m_graphicsComponents.pop();
+
+	m_activeGraphicsComponents.push_back(gComp);
+	return gComp;
+}
+
+void VulkanBase::removeGraphicsComponent(const pGraphicsComponent& graphicsComponent)
+{
+	auto gIt = std::find(std::begin(m_activeGraphicsComponents), std::end(m_activeGraphicsComponents), graphicsComponent);
+	m_activeGraphicsComponents.erase(gIt);
+
+	m_graphicsComponents.push(graphicsComponent);
 }
 
 const vkh::structs::Image* VulkanBase::getImage(const std::string& loadPath)
@@ -499,6 +527,21 @@ void VulkanBase::initModules()
 {
 	m_descriptorManager.init(this);
 	m_pipelinesManager.init(this);
+
+
+	initGraphicsComponents();
+}
+
+void VulkanBase::initGraphicsComponents()
+{
+	constexpr size_t maxGraphicsComponents = 100'000;
+
+	//GraphicsComponent* gm = new GraphicsComponent[maxGraphicsComponents];
+	//FIX THIS
+	for (int index = 0; index < maxGraphicsComponents; ++index)
+	{
+		m_graphicsComponents.push(new GraphicsComponent);
+	}
 }
 
 void VulkanBase::initUI()
@@ -1121,15 +1164,15 @@ void VulkanBase::updateUniformBufferOffsets()
 {
 	auto strideSize = 
 		getRequiredAligment(sizeof(UniformBufferObject), m_device.properties.limits.minUniformBufferOffsetAlignment);
-	size_t totalBytes = activeGraphicsComponents.size() * strideSize;
+	size_t totalBytes = m_activeGraphicsComponents.size() * strideSize;
 
 	// pseudo warning
 	if (m_buffers.uniform[0].size < totalBytes)
 		throw std::runtime_error("Not engough space!");
 	VkDeviceSize offset = 0;
-	for (auto& graphicsComponent : activeGraphicsComponents)
+	for (auto& graphicsComponent : m_activeGraphicsComponents)
 	{
-		graphicsComponent->setBufferOffset(offset);
+		graphicsComponent->graphicsModule.setBufferOffset(offset);
 		offset += strideSize;
 	}
 
@@ -1197,20 +1240,21 @@ void VulkanBase::recreateCommandBuffer(uint32_t currentImage)
 	m_pushConstants.projection = App::Scene.m_camera.getProjection();
 	m_pushConstants.view = App::Scene.m_camera.getView();
 
-	for (const auto& graphicsComponent : activeGraphicsComponents)
+	for (const auto& graphicsComponent : m_activeGraphicsComponents)
 	{
-		if (graphicsPipeline != graphicsComponent->m_pipelineReference)
+		const auto& graphicsModule = graphicsComponent->graphicsModule;
+		if (graphicsPipeline != graphicsModule.m_pipelineReference)
 		{
-			graphicsPipeline = graphicsComponent->m_pipelineReference;
+			graphicsPipeline = graphicsModule.m_pipelineReference;
 
 			vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
 				m_pipelinesManager.getPipelineFromReference(graphicsPipeline));
 
 			// pushConstants
-			vkCmdPushConstants(cmdBuffer, m_pipelinesManager.getPipelineLayoutFromReference(graphicsComponent->m_pipelineReference),
+			vkCmdPushConstants(cmdBuffer, m_pipelinesManager.getPipelineLayoutFromReference(graphicsModule.m_pipelineReference),
 				VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(m_pushConstants), &m_pushConstants);
 		}
-		const auto& modelRef = graphicsComponent->pModelReference;
+		const auto& modelRef = graphicsModule.pModelReference;
 		if (vertType != modelRef->pVertices->type)
 		{
 			vertType = modelRef->pVertices->type;
@@ -1218,9 +1262,9 @@ void VulkanBase::recreateCommandBuffer(uint32_t currentImage)
 			vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &m_buffers.vertex[vertType].buffer, vertexOffsets);
 		}
 
-		descriptorOffsets[0] = graphicsComponent->getBufferOffset();
-		auto& pipelineLayot = m_pipelinesManager.getPipelineLayoutFromReference(graphicsComponent->m_pipelineReference);
-		auto& descriptorSet = m_descriptorManager.getDescriptorSetFromRef(graphicsComponent->m_descriptorSetReference, currentImage);
+		descriptorOffsets[0] = graphicsModule.getBufferOffset();
+		auto& pipelineLayot = m_pipelinesManager.getPipelineLayoutFromReference(graphicsModule.m_pipelineReference);
+		auto& descriptorSet = m_descriptorManager.getDescriptorSetFromRef(graphicsModule.m_descriptorSetReference, currentImage);
 		vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayot, 0, 
 			1, &descriptorSet, 1, descriptorOffsets);
 
@@ -1377,18 +1421,18 @@ void VulkanBase::updateUniformBuffer(uint32_t currentImage)
 	const VkDeviceSize dynamicAligment = getRequiredAligment(sizeof(UniformBufferObject), 256);
 	uint8_t* const data = static_cast<uint8_t* const>(m_buffers.uniform[currentImage].map());
 
-	for (const auto& graphicsComponent : activeGraphicsComponents)
+	for (const auto& graphicsComponent : m_activeGraphicsComponents)
 	{
 		UniformBufferObject ubo;
 		auto model = glm::mat4(1.0);
-		model = glm::translate(model, graphicsComponent->position);
-		model = glm::rotate(model, glm::radians(graphicsComponent->rotation.x), (glm::vec3)Transformations::VectorUp);
-		model = glm::rotate(model, glm::radians(graphicsComponent->rotation.y), (glm::vec3)Transformations::VectorRight);
-		model = glm::rotate(model, glm::radians(graphicsComponent->rotation.z), (glm::vec3)Transformations::VectorForward);
-		model = glm::scale(model, graphicsComponent->size);
+		model = glm::translate(model, graphicsComponent->graphicsModule.position);
+		model = glm::rotate(model, glm::radians(graphicsComponent->graphicsModule.rotation.x), (glm::vec3)Transformations::VectorUp);
+		model = glm::rotate(model, glm::radians(graphicsComponent->graphicsModule.rotation.y), (glm::vec3)Transformations::VectorRight);
+		model = glm::rotate(model, glm::radians(graphicsComponent->graphicsModule.rotation.z), (glm::vec3)Transformations::VectorForward);
+		model = glm::scale(model, graphicsComponent->graphicsModule.size);
 		ubo.model = model;
 
-		memcpy(data + graphicsComponent->getBufferOffset(), &ubo, dynamicAligment);
+		memcpy(data + graphicsComponent->graphicsModule.getBufferOffset(), &ubo, dynamicAligment);
 	}
 	m_buffers.uniform[currentImage].unmap();
 }
@@ -1421,6 +1465,7 @@ void VulkanBase::cleanup()
 
 void VulkanBase::cleanupSwapchain()
 {
+	destroyGraphicsComponents();
 	vkFreeCommandBuffers(m_device, m_commandPool, static_cast<uint32_t>(m_commandBuffers.size()),
 		m_commandBuffers.data());
 
@@ -1456,4 +1501,23 @@ void VulkanBase::processInput()
 	
 	bool enableMouse = !m_selectionUI.mouseOverlap();
 	App::Scene.m_grid.setMouseEnable(enableMouse);
+}
+
+void VulkanBase::destroyGraphicsComponents()
+{
+	while (m_activeGraphicsComponents.size())
+	{
+		auto bIt = m_activeGraphicsComponents.begin();
+
+		(*bIt)->freeGraphicsModule();
+	}
+
+	pGraphicsComponent comp;
+	while (m_graphicsComponents.size())
+	{
+		comp = m_graphicsComponents.top();
+		m_graphicsComponents.pop();
+
+		delete comp;
+	}
 }

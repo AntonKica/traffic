@@ -38,53 +38,61 @@ namespace Comparators
 {
 	struct ModelReferenceCompLess
 	{
-		bool operator()(const ModelReference& lhs, const ModelReference& rhs) const
+		bool compare(const ModelReference* lhs, const ModelReference* rhs) const
 		{
 			bool returnVal = false;
-			if (lhs.file && rhs.file)
+			if (lhs->file && rhs->file)
 			{
-				returnVal =  lhs.file.value() < rhs.file.value();
+				returnVal = lhs->file.value() < rhs->file.value();
 			}
-			else if (!lhs.file && rhs.file)
+			else if (!lhs->file && rhs->file)
 			{
-				returnVal =  false;
+				returnVal = false;
 			}
-			else if (lhs.file && !rhs.file)
+			else if (lhs->file && !rhs->file)
 			{
-				returnVal =  true;
+				returnVal = true;
 			}
 			else
 			{
-				if (ByteVerticesCompEqual()(*lhs.pVertices, *rhs.pVertices))
+				if (ByteVerticesCompEqual()(lhs->pVertices, rhs->pVertices))
 				{
 					bool lessIndices = false;
 					{
-						if (lhs.pIndices.has_value() && rhs.pIndices.has_value())
-							lessIndices = IndicesCompLess()(*lhs.pIndices.value(), *rhs.pIndices.value());
-						else if (!lhs.pIndices && rhs.pIndices)
+						if (lhs->pIndices.has_value() && rhs->pIndices.has_value())
+							lessIndices = IndicesCompLess()(*lhs->pIndices.value(), *rhs->pIndices.value());
+						else if (!lhs->pIndices && rhs->pIndices)
 							lessIndices = false;
 						else
 							lessIndices = true;
 					}
 					bool lessTexture = false;
 					{
-						if (lhs.texture.has_value() && rhs.texture.has_value())
-							lessTexture = lhs.texture.value() < rhs.texture.value();
-						else if (!lhs.texture && rhs.texture)
+						if (lhs->texture.has_value() && rhs->texture.has_value())
+							lessTexture = lhs->texture.value() < rhs->texture.value();
+						else if (!lhs->texture && rhs->texture)
 							lessTexture = false;
 						else
 							lessTexture = true;
 					}
 
-					returnVal =  lessIndices || lessTexture;
+					returnVal = lessIndices || lessTexture;
 				}
 				else
 				{
-					returnVal =  ByteVerticesCompLess()(*lhs.pVertices, *rhs.pVertices);
+					returnVal = ByteVerticesCompLess()(*lhs->pVertices, *rhs->pVertices);
 				}
 			}
 
 			return returnVal;
+		}
+
+		template<class model> bool operator()(const model& lhs, const model& rhs) const
+		{
+			if (!std::is_same<model, ModelReference>::value)
+				static_assert("Uncompatible ByteVerticesContainers");
+
+			return compare(ptr(lhs), ptr(rhs));
 		}
 	};
 	struct ModelReferenceCompEqual
@@ -97,7 +105,6 @@ namespace Comparators
 			return false;
 		}
 	};
-
 }
 class DataManager
 {
@@ -116,6 +123,10 @@ private:
 	const GO::Indices* loadIndices(const GO::Indices& indices);
 	std::string loadTexture(const std::string& textureFile);
 
+	void removeVertices(const GO::ByteVertices* vertices);
+	void removeIndices(const GO::Indices* indices);
+	void removeTexture(const std::string textureFile);
+
 	const GO::ByteVertices* findVertices(const GO::ByteVertices& toFind) const;
 	const GO::Indices* findIndices(const GO::Indices& toFind) const;
 	const std::string* findTexture(const std::string& file) const;
@@ -123,8 +134,26 @@ private:
 		const GO::ByteVertices* verts, 
 		const GO::Indices* inds, 
 		const std::string* text) const;
+
+	struct
+	{
+		std::map<const GO::Indices*, size_t> indices;
+		std::map<const GO::ByteVertices*, size_t> vertices;
+		std::map<const ModelReference*, size_t> models;
+		std::map<const std::string, size_t> textures;
+
+	} usageCounts;
+	void addUsage(const ModelReference* model);
+	template<class type, class container>
+	void addUsage(const type& t, container& c);
+	template<class type, class container>
+	void removeUsage(const type& t, container& c);
+	template<class type, class container>
+	bool canRemove(const type& t, container& c) const;
+
 public:
 	const ModelReference* getModelReference(const Info::ModelInfo& info);
+	void removeModelReference(const ModelReference* reference);
 
 	size_t getLoadedVerticesByteSize(GO::VertexType type) const;
 	size_t getLoadedIndicesSize() const;
@@ -138,6 +167,7 @@ public:
 		IndicesSet indices;
 		std::set<std::string> textures;
 	} loaded;
+
 
 	// for drawing purposes
 	void setIndicesOffset(const GO::Indices* inds, uint64_t offset);
@@ -183,4 +213,60 @@ bool DataManager::sizeContentCompare(const c1& c1, const c2& c2, pr pred) const
 	}
 
 	return false;
+}
+
+
+template<class type, class container>
+void DataManager::addUsage(const type& t, container& c)
+{
+	if (!std::is_same<container, std::map<type, size_t>>::value)
+		static_assert("Container is not <idk, size_t>");
+	if (!std::is_const<type>::value)
+		static_assert("Non const");
+	if (!std::is_pointer<type>::value)
+		static_assert("Non Pointer");
+
+	typename container::iterator iter = c.find(t);
+	if (iter == std::end(c))
+	{
+		c[t] = 1;
+	}
+	else
+	{
+		++(iter->second);
+	}
+}
+
+template<class type, class container>
+void DataManager::removeUsage(const type& t, container& c)
+{
+	if (!std::is_same<container, std::map<type, size_t>>::value)
+		static_assert("Container is not <idk, size_t>");
+	if (!std::is_const<type>::value)
+		static_assert("Non const");
+
+	typename container::iterator iter = c.find(t);
+	if (iter == std::end(c))
+	{
+		throw std::runtime_error("Removing usage from unknown type");
+	}
+	else
+	{
+		--(iter->second);
+		// remove key as well
+		if (iter->second == 0)
+			c.erase(iter);
+	}
+}
+
+template<class type, class container>
+inline bool DataManager::canRemove(const type& t, container& c) const
+{
+	if (!std::is_same <container, std::map<type, size_t>>::value)
+		static_assert("Container is not <idk, size_t>");
+	if (!std::is_const<type>::value)
+		static_assert("Non const");
+
+	typename container::iterator iter = c.find(t);
+	return iter == std::end(c);
 }

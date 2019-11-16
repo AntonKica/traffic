@@ -7,9 +7,9 @@
 
 #include "GridTile.h"
 #include "Models.h"
+#include "GraphicsComponent.h"
 
 class GridTile;
-class GraphicsComponent;
 class GridTileObject
 {
 public:
@@ -58,7 +58,7 @@ public:
 
 	// testing graphics
 	void createGraphics();
-	GraphicsComponent* gc = nullptr;
+	pGraphicsComponent gc;
 protected:
 	virtual glm::dvec3 getRelativePosition() const = 0;
 

@@ -17,10 +17,11 @@ namespace Info
 };
 
 struct ModelReference;
-class GraphicsComponent
+
+// consider deleting
+class GraphicsModule
 {
 private:
-	bool initialized = false;
 	size_t dynamicBufferOffset;
 
 public:
@@ -32,12 +33,39 @@ public:
 
 	glm::vec3 position = {};
 	glm::vec3 rotation = {};
-	glm::vec3 size = {1.0, 1.0, 1.0};
+	glm::vec3 size = { 1.0, 1.0, 1.0 };
 public:
 
-	GraphicsComponent();
+	GraphicsModule();
 	void setBufferOffset(size_t offset);
 	size_t getBufferOffset() const;
 	//void processNode
 };
 
+class GraphicsComponent
+{
+	// stupid
+	friend class VulkanBase;
+private:
+	GraphicsModule graphicsModule;
+	bool init = false;
+	//Info::GraphicsComponentCreateInfo createInfo;
+	void freeGraphicsModule();
+public:
+	/*GraphicsComponent() = delete;
+	GraphicsComponent(const GraphicsComponent& other) = delete;
+	GraphicsComponent(GraphicsComponent&& other);
+	GraphicsComponent& operator=(const GraphicsComponent& other) = delete;
+	GraphicsComponent& operator=(GraphicsComponent&& other);
+	*/
+	GraphicsComponent();
+	~GraphicsComponent();
+
+	void recreateGraphics(const Info::GraphicsComponentCreateInfo& info);
+	void setPosition(const glm::vec3& pos);
+	void setRotation(const glm::vec3& rotation);
+	//stupid
+	void setGraphicsModule(const GraphicsModule& gModule);
+	bool initialized() const;
+};
+using pGraphicsComponent = GraphicsComponent*;

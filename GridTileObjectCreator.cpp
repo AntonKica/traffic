@@ -29,6 +29,14 @@ void GridTileObjectCreator::updateObjectPos()
 	m_currentObject->setPosition(pos);
 }
 
+void GridTileObjectCreator::initGraphics()
+{
+}
+
+void GridTileObjectCreator::updateGraphics()
+{
+}
+
 GridTileObjectCreator::GridTileObjectCreator()
 {
 	initResources();

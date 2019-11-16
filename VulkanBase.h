@@ -6,6 +6,7 @@
 
 #include <vector>
 #include <array>
+#include <stack>
 #include <optional>
 #include <map>
 #include <glm/glm.hpp>
@@ -155,7 +156,8 @@ class VulkanBase
 		std::vector<vkh::structs::Buffer> uniform;
 	} m_buffers;
 
-	std::vector<GraphicsComponent*> activeGraphicsComponents;
+	std::stack<GraphicsComponent*>  m_graphicsComponents;
+	std::vector<GraphicsComponent*> m_activeGraphicsComponents;
 	bool createdGraphicsComponent = false;
 	// helperFunctions
 	friend void framebufferResizeCallback(GLFWwindow* window, int width, int height);
@@ -171,20 +173,28 @@ public:
 	VkRenderPass getRenderPass() const;
 	uint16_t getSwapchainImageCount() const;
 
-	GraphicsComponent* createGrahicsComponent(const Info::GraphicsComponentCreateInfo& info);
+	pGraphicsComponent createGrahicsComponent(const Info::GraphicsComponentCreateInfo& info);
+	//GraphicsModule* copyGraphicsModule(const GraphicsModule* src);
+	void destroyGraphicsComponent(const pGraphicsComponent& comp);
 private:
 	Info::DescriptorSetCreateInfo generateSetCreatInfo(const Info::GraphicsComponentCreateInfo& info,
 		const ModelReference& modelRef) const;
 	Info::PipelineInfo generatePipelineCreateInfo(const Info::GraphicsComponentCreateInfo& info,
 		const ModelReference& modelRef, GO::ID descriptorSetRefID) const;
+	GraphicsModule createGraphicsModule(const Info::GraphicsComponentCreateInfo& info);
+	pGraphicsComponent getGraphicsComponent();
+	void removeGraphicsComponent(const pGraphicsComponent& graphicsModule);
+
 	// textureManager?
 	const vkh::structs::Image* getImage(const std::string& loadPath);
 	std::optional<const vkh::structs::Image*> findImage(const std::string& filePath);
+
 private:
 	// menu
 	void initWindow();
 	void initVulkan();
 	void initModules();
+	void initGraphicsComponents();
 	void initUI();
 	void mainLoop();
 	// Foundation
@@ -248,6 +258,7 @@ private:
 	void cleanupSwapchain();
 	void cleanupBuffers();
 	void processInput();
+	void destroyGraphicsComponents();
 };
 
 #endif // !VULKAN_BASE_H

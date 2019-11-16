@@ -2,6 +2,7 @@
 #include <map>
 #include "GridTile.h"
 #include "Utilities.h"
+#include "GraphicsComponent.h"
 
 class GridTileObjectCreator : public Utility::NonCopy
 {
@@ -10,6 +11,8 @@ private:
 	void initResources();
 	void releaseResources();
 	void updateObjectPos();
+	void initGraphics();
+	void updateGraphics();
 public:
 	// no init function
 	GridTileObjectCreator();
@@ -29,5 +32,7 @@ private:
 	std::map<GridTile::ObjectType, GridTileObject*> m_prototypes;
 	GridTile::ObjectType m_currentType;
 	GridTileObject* m_currentObject;
+	// trying
+	const GraphicsComponent* graphics;
 };
 

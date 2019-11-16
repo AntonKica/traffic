@@ -119,6 +119,7 @@ void BasicRoad::placeOnGridAction()
 			}
 		}
 	}
+
 }
 
 std::vector<Lane> BasicRoad::generateLanes()
