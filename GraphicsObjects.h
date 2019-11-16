@@ -134,11 +134,11 @@ namespace Comparators
 	{
 		bool operator()(const GO::ByteVertices& rhs, const GO::ByteVertices& lhs) const
 		{
-			if (!(lhs.type < rhs.type))
+			if (lhs.type == rhs.type)
 			{
 				return sizeMemoryCompareLess(rhs.vertices, lhs.vertices);
 			}
-			return false;
+			return lhs.type < rhs.type;
 		}
 	};
 	struct ByteVerticesCompEqual

@@ -266,6 +266,10 @@ uint16_t VulkanBase::getSwapchainImageCount() const
 
 GraphicsComponent* VulkanBase::createGrahicsComponent(const Info::GraphicsComponentCreateInfo& info)
 {
+	static int i = 0;
+	if (i == 2)
+		std::cout << '\n';
+	++i;
 	auto pModelReference = m_dataManager.getModelReference(*info.modelInfo);
 
 	static_assert(true && "MAke module, omg");
@@ -340,6 +344,7 @@ Info::PipelineInfo VulkanBase::generatePipelineCreateInfo(const Info::GraphicsCo
 {
 	using namespace Info;
 
+
 	VertexInfo vertexInfo;
 	vertexInfo.vertexType = modelRef.pVertices->type;
 	vertexInfo.attributes = GO::getAttributeDescriptionsFromType(vertexInfo.vertexType);
@@ -360,8 +365,9 @@ Info::PipelineInfo VulkanBase::generatePipelineCreateInfo(const Info::GraphicsCo
 
 	ColorBlendingInfo colorBlendingInfo;
 #pragma message ("Pimp up blending!")
-	colorBlendingInfo.blendEnable = true;
+	colorBlendingInfo.blendEnable = false;
 	colorBlendingInfo.writeAllMasks = true;
+	colorBlendingInfo.blendOp = VK_BLEND_OP_ADD;
 
 	DepthStencilInfo depthStencilInfo;
 	depthStencilInfo.enableDepth = true;
@@ -1041,6 +1047,7 @@ void VulkanBase::createPushRanges()
 
 void VulkanBase::updateVertexBuffer()
 {
+	vkQueueWaitIdle(m_device.queues.graphics);
 	for (GO::VertexType type = static_cast<GO::VertexType>(0); type < GO::VertexType::MAX_TYPE; ++type)
 	{
 		VkDeviceSize requiredBufferSize = 
@@ -1063,6 +1070,7 @@ void VulkanBase::updateVertexBuffer()
 				continue;
 
 			memcpy(data, vertices.vertices.data(), vertices.vertices.size());
+			data += vertices.vertices.size();
 
 			m_dataManager.setVerticesOffset(&vertices, byteOffset);
 			byteOffset += vertices.vertices.size();
@@ -1077,6 +1085,7 @@ void VulkanBase::updateVertexBuffer()
 
 void VulkanBase::updateIndexBuffer()
 {
+	vkQueueWaitIdle(m_device.queues.graphics);
 	auto strideSize = sizeof(uint32_t);
 	VkDeviceSize requiredBufferSize =
 		m_dataManager.getLoadedIndicesSize() * strideSize;
@@ -1304,8 +1313,9 @@ void VulkanBase::drawFrame()
 	}
 
 	recreateCommandBuffer(imageIndex);
-
 	updateUniformBuffer(imageIndex);
+
+
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -1388,11 +1398,11 @@ void VulkanBase::cleanup()
 {
 	m_selectionUI.destroyUI();
 	cleanupSwapchain();
+	cleanupBuffers();
 
 	vkDestroySampler(m_device, m_sampler, nullptr);
 
 	m_syncObjects.cleanUp(m_device, nullptr);
-
 	vkDestroyCommandPool(m_device, m_commandPool, nullptr);
 	m_pipelinesManager.cleanup(nullptr);
 	m_descriptorManager.cleanup(nullptr);
@@ -1416,8 +1426,23 @@ void VulkanBase::cleanupSwapchain()
 
 	vkDestroyRenderPass(m_device, m_renderPass, nullptr);
 
+
 	m_depthImage.cleanup(m_device, nullptr);
 	m_swapchain.cleanup(m_device, nullptr);
+}
+
+void VulkanBase::cleanupBuffers()
+{
+	for (auto& vBuffer : m_buffers.vertex)
+		vBuffer.second.cleanup(m_device, nullptr);
+
+	m_buffers.index.cleanup(m_device, nullptr);
+
+	for (auto uniformBuffer : m_buffers.uniform)
+		uniformBuffer.cleanup(m_device, nullptr);
+
+	for (const auto image : m_images)
+		vkDestroyImage(m_device, image.second.image, nullptr);
 }
 
 void VulkanBase::processInput()

@@ -246,6 +246,7 @@ private:
 	// clear
 	void cleanup();
 	void cleanupSwapchain();
+	void cleanupBuffers();
 	void processInput();
 };
 

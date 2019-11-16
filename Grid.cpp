@@ -78,7 +78,8 @@ void Grid::initGrid(const std::map<GridTile::ObjectType, std::vector<std::pair<g
 		}
 	}
 
-	// dont mind
+	initGraphicsComponent();
+	/**	// dont mind
 	BasicRoad* currentRoad = nullptr;
 	auto lambda = [](const glm::dvec3& p1, const glm::dvec3& p2) { return p1.z > p2.z || p1.x > p2.x; };
 	for (auto& xTiles : m_tiles)
@@ -146,7 +147,7 @@ void Grid::initGrid(const std::map<GridTile::ObjectType, std::vector<std::pair<g
 	{
 			std::cout << '(' << point.x << ", " << point.y << ')';
 	}
-	std::cout << '\n';
+	std::cout << '\n';*/
 }
 
 std::vector<GridTile*> Grid::getSelectedTiles() const
@@ -169,30 +170,6 @@ std::pair<uint32_t, uint32_t> Grid::getGridLinesCount() const
 	return std::pair<uint32_t, uint32_t>(m_xTileCount + 1, m_zTileCount + 1);
 }
 
-std::vector<std::pair<glm::dvec3, glm::dvec3>> Grid::getGridLinePositions() const
-{
-	auto calcPositions = [&]() 
-	{
-		auto [xCount, yCount] = getGridLinesCount();
-		std::vector<std::pair<glm::dvec3, glm::dvec3>> positions(xCount);
-
-		double pos = m_tiles[0][0].getPosition().x - m_tileSize;
-		double offset = m_tileSize / 2;
-		for (auto& [xPos, zPos] : positions)
-		{
-			// x is constant
-			xPos = glm::dvec3(0, 0, pos + offset);
-			zPos = glm::dvec3(pos + offset, 0, 0);
-
-			pos += m_tileSize;
-		}
-
-		return positions;
-	};
-	static std::vector<std::pair<glm::dvec3, glm::dvec3>> gridPositions = calcPositions();
-
-	return gridPositions;
-}
 
 double Grid::getGridLineLength() const
 {
@@ -341,6 +318,88 @@ inline glm::dvec2 Grid::roundToTileUnits(const glm::dvec2& position) const
 	superPos.y += determinator(remainder.y);
 
 	return glm::dvec2(superPos) / double(dstFromDPoint);
+}
+
+GO::TypedVertices Grid::createGridLines() const
+{
+	GO::TypedVertices vVerts;
+	vVerts.first = GO::VertexType::DEFAULT;
+
+	auto createAxialySymmetricalVertices = [](const glm::vec3& vertex, double distance, bool horizontal)
+		->std::pair< glm::vec3, glm::vec3>
+	{
+		glm::vec3 first, second;
+		if (horizontal)
+		{
+			first = glm::vec3(vertex.x, vertex.y, distance / 2.0);
+			second = glm::vec3(vertex.x, vertex.y, -distance / 2.0);
+		}
+		else
+		{
+			first = glm::vec3(distance / 2.0, vertex.y, vertex.z);
+			second = glm::vec3(-distance / 2.0, vertex.y, vertex.z);
+		}
+		return std::make_pair(first, second);
+	};
+
+	const auto [xLines, zLines] = getGridLinesCount();
+	double burryY = -0.01;
+	for (int nLine = 0; nLine < xLines; ++nLine)
+	{
+		double halfWidth = m_width / 2.0;
+		double offset = -m_tileSize / 2.0;
+		double posX = -halfWidth + (nLine * m_tileSize) + offset;
+
+		glm::vec3 pos = glm::vec3(posX, burryY, 0.0);
+
+		double zSpan = m_height / 2.0;
+		const auto [top, bottom] = createAxialySymmetricalVertices(pos, zSpan, true);
+
+		GO::VariantVertex verticalTop;
+		verticalTop.vertex.position = top;
+		GO::VariantVertex verticalBottom;
+		verticalBottom.vertex.position = bottom;
+
+		vVerts.second.insert(vVerts.second.begin(), { verticalTop, verticalBottom });
+	}
+
+	for (int nLine = 0; nLine < zLines; ++nLine)
+	{
+		double halfHeight = m_height / 2.0;
+		double offset = -m_tileSize / 2.0;
+		double posZ = -halfHeight + (nLine * m_tileSize) + offset;
+
+		glm::vec3 pos = glm::vec3(0.0, burryY, posZ);
+
+		double xSpan = m_width / 2.0;
+		const auto [left, right] = createAxialySymmetricalVertices(pos, xSpan, false);
+
+		GO::VariantVertex verticalLeft;
+		verticalLeft.vertex.position = left;
+		GO::VariantVertex verticalRight;
+		verticalRight.vertex.position = right;
+
+		vVerts.second.insert(vVerts.second.begin(), { verticalLeft, verticalRight });
+	}
+	return vVerts;
+}
+
+void Grid::initGraphicsComponent()
+{
+	Info::DrawInfo draw;
+	draw.lineWidth = 1.0;
+	draw.polygon = VK_POLYGON_MODE_FILL;
+	draw.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+
+	Info::ModelInfo model;
+	auto verts = createGridLines();
+	model.vertices = &verts;
+
+	Info::GraphicsComponentCreateInfo info;
+	info.drawInfo = &draw;
+	info.modelInfo = &model;
+
+	gridGraphics = App::Scene.vulkanBase->createGrahicsComponent(info);
 }
 
 void Grid::clickEvent()

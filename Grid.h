@@ -9,6 +9,7 @@
 
 #include "GridTile.h"
 #include "GridTileObjectCreator.h"
+#include "GraphicsComponent.h"
 
 class GridTile;
 class GridTileObject;
@@ -20,7 +21,7 @@ constexpr bool multipleOfTwo(int num)
 
 namespace GridSettings
 {
-	constexpr int tilesPerUnit = 2;
+	constexpr int tilesPerUnit = 8;
 	static_assert(tilesPerUnit > 1 && tilesPerUnit < 32 && multipleOfTwo(tilesPerUnit)
 		&& "Tile per one unit > 1 and < 32 and is multiple of 2");
 
@@ -50,7 +51,6 @@ public:
 	int getTilesCount();
 
 	std::pair<uint32_t, uint32_t> getGridLinesCount() const;
-	std::vector<std::pair<glm::dvec3, glm::dvec3>> getGridLinePositions() const;
 	double getGridLineLength() const;
 
 	std::vector<GridTile*> getSurroundingTiles(double x, double z);
@@ -99,5 +99,9 @@ private:
 	inline glm::ivec2 transformToTileSpace(const glm::dvec2& position) const;
 	// this function rounds units in positive direction
 	inline glm::dvec2 roundToTileUnits(const glm::dvec2& position) const;
+	GO::TypedVertices createGridLines() const;
+	void initGraphicsComponent();
+
+	const GraphicsComponent* gridGraphics;
 };
 #endif // !GRID_h
