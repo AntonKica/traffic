@@ -106,6 +106,7 @@ void BasicRoad::placeOnGridAction()
 {
 	GridTileObject::placeOnGridAction();
 
+	/*
 	glm::dvec3 pos = getWorldPosition();
 	auto surroundingTiles = App::Scene.m_grid.getSurroundingTiles({ pos.x, pos.z });
 	for (const auto& tile : surroundingTiles)
@@ -119,7 +120,7 @@ void BasicRoad::placeOnGridAction()
 			}
 		}
 	}
-
+	*/
 }
 
 std::vector<Lane> BasicRoad::generateLanes()

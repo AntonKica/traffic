@@ -105,12 +105,12 @@ void UI::createBoxes()
 
 		//ImGui::SameLine();
 		ImGui::Text("Currently selected = %i", selectedNum);
-		auto tile = App::Scene.m_grid.getSelectedTile();
+		/*auto tile = App::Scene.m_grid.getSelectedTile();
 		if (tile)
 		{
 			auto pos = tile->getPosition();
 			ImGui::Text((std::string("Currently selected pos ") + glm::to_string(pos)).c_str());
-		}
+		}*/
 		auto pos = App::Scene.m_camera.getPosition();
 		ImGui::Text((std::string("Currently selected pos ") + glm::to_string(pos)).c_str());
 		ImGui::End();

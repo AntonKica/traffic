@@ -21,12 +21,12 @@ constexpr bool multipleOfTwo(int num)
 
 namespace GridSettings
 {
-	constexpr int tilesPerUnit = 8;
+	constexpr int tilesPerUnit = 4;
 	static_assert(tilesPerUnit > 1 && tilesPerUnit < 32 && multipleOfTwo(tilesPerUnit)
 		&& "Tile per one unit > 1 and < 32 and is multiple of 2");
 
 	constexpr double defaultTileSize = 1.0 / tilesPerUnit;
-	constexpr int defaultGridSize = 100;
+	constexpr int defaultGridSize = 1000;
 	static_assert(defaultGridSize <= 2000 &&
 		"Wth, nejako vela");
 	constexpr size_t maxTiles() { return defaultGridSize * defaultGridSize; }

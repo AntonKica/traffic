@@ -18,7 +18,6 @@
 #include "GraphicsObjects.h"
 #include "Models.h"
 #include "ModelLoader.h"
-#include "Grid.h"
 #include "UI.h"
 #include "Utilities.h"
 using namespace Utility;
@@ -157,7 +156,7 @@ static void mouseButtonCallback(GLFWwindow* window, int button, int action, int 
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
 	{
-		App::Scene.m_grid.clickEvent();
+		//App::Scene.m_simArea.clickEvent();
 	}
 }
 
@@ -165,7 +164,7 @@ static void mouseButtonCallback(GLFWwindow* window, int button, int action, int 
 
 static void cursorPosCallback(GLFWwindow* window, double width, double height)
 {
-	App::Scene.m_grid.updateSelectedTile();
+	//App::Scene.m_grid.updateSelectedTile();
 }
 
 static inline glm::dvec2 getCursorPos(GLFWwindow* window)
@@ -184,7 +183,7 @@ static void keyboardInputCallback(GLFWwindow* window, int key, int scanCode, int
 	}
 
 	// weird
-	App::Scene.m_grid.m_creator.processKeyInput(key, action);
+	//App::Scene.m_grid.m_creator.processKeyInput(key, action);
 }
 
 VkResult CreteDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
@@ -338,7 +337,6 @@ Info::PipelineInfo VulkanBase::generatePipelineCreateInfo(const Info::GraphicsCo
 	viewportInfo.viewportExtent = m_swapchain.extent;
 	viewportInfo.scissorsExtent = m_swapchain.extent;
 	//drawinfo
-
 	MultisampleInfo multisampleInfo;
 	multisampleInfo.sampleShading = false;
 	multisampleInfo.minSampleShading = 0.0f;
@@ -347,7 +345,7 @@ Info::PipelineInfo VulkanBase::generatePipelineCreateInfo(const Info::GraphicsCo
 
 	ColorBlendingInfo colorBlendingInfo;
 #pragma message ("Pimp up blending!")
-	colorBlendingInfo.blendEnable = false;
+	colorBlendingInfo.blendEnable = true;
 	colorBlendingInfo.writeAllMasks = true;
 	colorBlendingInfo.blendOp = VK_BLEND_OP_ADD;
 
@@ -566,7 +564,7 @@ void VulkanBase::mainLoop()
 		glfwSetWindowTitle(m_window, (std::string("Sample title ") + std::to_string(int(1.0 / deltaTime))).c_str());
 
 		App::Scene.m_camera.update(deltaTime, getCursorPos(m_window));
-		App::Scene.m_grid.update(deltaTime);
+		App::Scene.m_simArea.update();
 
 		prepareFrame();
 		drawFrame();
@@ -1441,6 +1439,7 @@ void VulkanBase::updateUniformBuffer(uint32_t currentImage)
 void VulkanBase::cleanup()
 {
 	m_selectionUI.destroyUI();
+	destroyGraphicsComponents();
 	cleanupSwapchain();
 	cleanupBuffers();
 
@@ -1465,7 +1464,6 @@ void VulkanBase::cleanup()
 
 void VulkanBase::cleanupSwapchain()
 {
-	destroyGraphicsComponents();
 	vkFreeCommandBuffers(m_device, m_commandPool, static_cast<uint32_t>(m_commandBuffers.size()),
 		m_commandBuffers.data());
 
@@ -1497,10 +1495,10 @@ void VulkanBase::processInput()
 	int selection = m_selectionUI.getSelection();
 	GridTileResource resourceType = static_cast<GridTileResource>(selection);
 
-	App::Scene.m_grid.m_creator.setCreateObject(resourceType);
+	//App::Scene.m_grid.m_creator.setCreateObject(resourceType);
 	
 	bool enableMouse = !m_selectionUI.mouseOverlap();
-	App::Scene.m_grid.setMouseEnable(enableMouse);
+	//App::Scene.m_grid.setMouseEnable(enableMouse);
 }
 
 void VulkanBase::destroyGraphicsComponents()

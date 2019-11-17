@@ -146,6 +146,7 @@ private:
 	void addUsage(const ModelReference* model);
 	template<class type, class container>
 	void addUsage(const type& t, container& c);
+	void removeUsage(const ModelReference* model);
 	template<class type, class container>
 	void removeUsage(const type& t, container& c);
 	template<class type, class container>
@@ -268,5 +269,5 @@ inline bool DataManager::canRemove(const type& t, container& c) const
 		static_assert("Non const");
 
 	typename container::iterator iter = c.find(t);
-	return iter == std::end(c);
+	return iter != std::end(c);
 }

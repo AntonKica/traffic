@@ -88,7 +88,7 @@ VkPipelineRasterizationStateCreateInfo PipelinesManager::createRasterizationStat
 	rasterizer.rasterizerDiscardEnable = VK_FALSE;
 	rasterizer.polygonMode = drawInfo.polygon;
 	rasterizer.lineWidth = drawInfo.lineWidth;
-	//	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
 	rasterizer.cullMode = VK_CULL_MODE_NONE;
 	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterizer.depthBiasEnable = VK_FALSE;

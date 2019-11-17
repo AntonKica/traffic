@@ -55,11 +55,23 @@ GO::Model DataManager::processModelInfo(const Info::ModelInfo& info) const
 void DataManager::addUsage(const ModelReference* model)
 {
 	addUsage(model, usageCounts.models);
+
 	addUsage(model->pVertices, usageCounts.vertices);
 	if(model->pIndices)
 		addUsage(model->pIndices.value(), usageCounts.indices);
 	if (model->texture)
 		addUsage(model->texture.value(), usageCounts.textures);
+}
+
+void DataManager::removeUsage(const ModelReference* model)
+{
+	removeUsage(model, usageCounts.models);
+
+	removeVertices(model->pVertices);
+	if (model->pIndices)
+		removeIndices(model->pIndices.value());
+	if (model->texture)
+		removeTexture(model->texture.value());
 }
 
 const ModelReference* DataManager::getModelReference(const Info::ModelInfo& info)
@@ -102,13 +114,12 @@ const ModelReference* DataManager::getModelReference(const Info::ModelInfo& info
 
 void DataManager::removeModelReference(const ModelReference* reference)
 {
-	removeUsage(reference, usageCounts.models);
-
-	removeVertices(reference->pVertices);
-	if(reference->pIndices)
-		removeIndices(reference->pIndices.value());
-	if (reference->texture)
-		removeTexture(reference->texture.value());
+	removeUsage(reference);
+	if (canRemove(reference, usageCounts.models))
+	{
+		auto mIter = loaded.models.find(*reference);
+		loaded.models.erase(mIter);
+	}
 }
 
 std::optional<const ModelReference *> DataManager::modelLoaded(const GO::Model& model) const
@@ -164,7 +175,6 @@ const GO::Indices* DataManager::loadIndices(const Indices& indices)
 	const auto&[ids, inserted] = loaded.indices.insert(indices);
 
 	const GO::Indices* pIndices = &(*ids);
-	addUsage(pIndices, usageCounts.indices);
 
 	setState(INDICES_LOADED, true);
 	return pIndices;
@@ -178,7 +188,6 @@ std::string DataManager::loadTexture(const std::string& textureFile)
 
 
 	const std::string text = (*pTexture);
-	addUsage(text, usageCounts.textures);
 
 	setState(TEXTURE_LOADED, true);
 	return text;

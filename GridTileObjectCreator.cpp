@@ -23,25 +23,23 @@ void GridTileObjectCreator::releaseResources()
 
 void GridTileObjectCreator::updateObjectPos()
 {
+	// first time check
+	if (!m_currentObject)
+		setCreateObject(0);
 	// ugh
-	auto pos = GridTileObject::getAveragePosition(App::Scene.m_grid.getSelectedTiles());
+	//auto pos = GridTileObject::getAveragePosition(App::Scene.m_grid.getSelectedTiles());
 
-	m_currentObject->setPosition(pos);
+	///m_currentObject->setPosition(pos);
 }
 
 void GridTileObjectCreator::initGraphics()
 {
-}
 
-void GridTileObjectCreator::updateGraphics()
-{
 }
 
 GridTileObjectCreator::GridTileObjectCreator()
 {
 	initResources();
-
-	setCreateObject(0);
 }
 
 GridTileObjectCreator::~GridTileObjectCreator()

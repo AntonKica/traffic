@@ -33,6 +33,5 @@ private:
 	GridTile::ObjectType m_currentType;
 	GridTileObject* m_currentObject;
 	// trying
-	const GraphicsComponent* graphics;
 };
 

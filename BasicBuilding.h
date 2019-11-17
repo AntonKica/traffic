@@ -12,7 +12,7 @@ public:
 	virtual std::string getTexturePath() const;
 
 	glm::dvec3 getRelativePosition() const override;
-private:
+//private:
 
 };
 

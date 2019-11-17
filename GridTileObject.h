@@ -58,6 +58,7 @@ public:
 
 	// testing graphics
 	void createGraphics();
+	void updateGraphics();
 	pGraphicsComponent gc;
 protected:
 	virtual glm::dvec3 getRelativePosition() const = 0;

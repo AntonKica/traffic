@@ -37,8 +37,7 @@ void GridTileObject::placeOnGridAction()
 	if(!gc)
 		createGraphics();
 
-	gc->setPosition(glm::vec3(m_position.x, 0.0, m_position.y));
-	gc->setRotation(glm::vec3(m_rotation, 0.0, 0.0));
+	updateGraphics();
 }
 
 void GridTileObject::createGraphics()
@@ -66,9 +65,21 @@ void GridTileObject::createGraphics()
 	gc = App::Scene.vulkanBase->createGrahicsComponent(createInfo);
 }
 
+void GridTileObject::updateGraphics()
+{
+	if (gc)
+	{
+		gc->setPosition(getWorldPosition());
+		gc->setRotation(glm::vec3(m_rotation, 0, 0));
+	}
+	else
+		createGraphics();
+}
+
 void GridTileObject::setPosition(glm::dvec2 newPos)
 {
 	m_position = newPos;
+	updateGraphics();
 }
 
 glm::dvec2 GridTileObject::getPosition() const
@@ -90,6 +101,7 @@ double GridTileObject::getRotation() const
 void GridTileObject::setRotation(double rotation)
 {
 	m_rotation = rotation;
+	updateGraphics();
 }
 
 void GridTileObject::rotate(Rotate direction)

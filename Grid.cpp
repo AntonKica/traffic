@@ -324,7 +324,7 @@ GO::TypedVertices Grid::createGridLines() const
 {
 	GO::TypedVertices vVerts;
 	vVerts.first = GO::VertexType::COLORED;
-	glm::vec3 color(1.0, 0.0, 0.0);
+	glm::vec3 color(0.9, 0.9, 0.9);
 
 	auto createAxialySymmetricalVertices = [](const glm::vec3& vertex, double distance, bool horizontal)
 		->std::pair< glm::vec3, glm::vec3>
@@ -332,13 +332,13 @@ GO::TypedVertices Grid::createGridLines() const
 		glm::vec3 first, second;
 		if (horizontal)
 		{
-			first = glm::vec3(vertex.x, vertex.y, distance / 2.0);
-			second = glm::vec3(vertex.x, vertex.y, -distance / 2.0);
+			first = glm::vec3(vertex.x, vertex.y, distance);
+			second = glm::vec3(vertex.x, vertex.y, -distance);
 		}
 		else
 		{
-			first = glm::vec3(distance / 2.0, vertex.y, vertex.z);
-			second = glm::vec3(-distance / 2.0, vertex.y, vertex.z);
+			first = glm::vec3(distance, vertex.y, vertex.z);
+			second = glm::vec3(-distance, vertex.y, vertex.z);
 		}
 		return std::make_pair(first, second);
 	};
@@ -346,14 +346,15 @@ GO::TypedVertices Grid::createGridLines() const
 	const auto [xLines, zLines] = getGridLinesCount();
 	double burryY = -0.01;
 	for (int nLine = 0; nLine < xLines; ++nLine)
-	{
+	{ 
 		double halfWidth = m_width / 2.0;
 		double offset = -m_tileSize / 2.0;
 		double posX = -halfWidth + (nLine * m_tileSize) + offset;
 
 		glm::vec3 pos = glm::vec3(posX, burryY, 0.0);
 
-		double zSpan = m_height / 2.0;
+		// half size from each side
+		double zSpan = m_height / 2.0 + m_tileSize / 2.0;
 		const auto [top, bottom] = createAxialySymmetricalVertices(pos, zSpan, true);
 
 		GO::VariantVertex verticalTop;
@@ -374,7 +375,8 @@ GO::TypedVertices Grid::createGridLines() const
 
 		glm::vec3 pos = glm::vec3(0.0, burryY, posZ);
 
-		double xSpan = m_width / 2.0;
+		// half size from each side
+		double xSpan = m_width / 2.0 + m_tileSize /2.0;
 		const auto [left, right] = createAxialySymmetricalVertices(pos, xSpan, false);
 
 		GO::VariantVertex verticalLeft;

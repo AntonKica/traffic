@@ -12,7 +12,7 @@
 
 #include "camera.h"
 #include "resource_creator.h"
-#include "Grid.h"
+#include "SimulationArea.h"
 #include "VulkanBase.h"
 
 
@@ -80,7 +80,7 @@ class scene
 public:
 	camera m_camera;
 	resourceCreator& m_resourceCreator;
-	Grid m_grid;
+	SimulationArea m_simArea;
 	VulkanBase* vulkanBase;
 
 	scene()
@@ -97,7 +97,8 @@ public:
 	void initComponents()
 	{
 		auto initData = loadFromFile();
-		m_grid.initGrid(initData);
+		m_simArea.initArea();
+		//m_grid.initGrid(initData);
 	}
 
 	std::map<GridTile::ObjectType, std::vector<PositionRotation>> loadFromFile()
