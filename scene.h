@@ -90,17 +90,17 @@ public:
 	}
 	~scene()
 	{
-		saveToFile();
+		///saveToFile();
 	}
 
 	// another ugly
 	void initComponents()
 	{
-		auto initData = loadFromFile();
+		//auto initData = loadFromFile();
 		m_simArea.initArea();
 		//m_grid.initGrid(initData);
 	}
-
+	/*/
 	std::map<GridTile::ObjectType, std::vector<PositionRotation>> loadFromFile()
 	{
 		std::map<GridTile::ObjectType, std::vector<PositionRotation>> positions;
@@ -152,6 +152,7 @@ public:
 		}
 
 		return positions;
+		
 	}
 
 	void saveToFile() const
@@ -181,6 +182,7 @@ public:
 			inputFile << " }\n";
 		}
 	}
+	*/
 };
 
 #endif // !SCENE_H

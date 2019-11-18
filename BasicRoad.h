@@ -1,7 +1,8 @@
 #ifndef BASIC_ROAD_H
 #define BASIC_ROAD_H
 
-#include "GridTileObject.h"
+#include "SimulationAreaObjectStatic.h"
+
 #include <glm/glm.hpp>
 #include "GraphicsComponent.h"
 
@@ -28,11 +29,8 @@ struct Path
 struct Connection;
 using Lane = Path;
 
-class BasicRoad :
-	public GridTileObject
+namespace EP
 {
-public:
-	// clock-wie
 	enum class EntryPoint
 	{
 		FRONT,
@@ -41,7 +39,7 @@ public:
 		LEFT,
 		MAX_ENTRY_POINTS
 	};
-	friend EntryPoint& operator++(EntryPoint& ep)
+	static EntryPoint& operator++(EntryPoint& ep)
 	{
 		ep = static_cast<EntryPoint>(static_cast<int>(ep) + 1);
 
@@ -51,7 +49,7 @@ public:
 
 		return ep;
 	}
-	friend EntryPoint operator+(const EntryPoint& ep, int num)
+	static EntryPoint operator+(const EntryPoint& ep, int num)
 	{
 		EntryPoint newEp = ep;
 		for (int i = 0; i < num; ++i)
@@ -59,25 +57,24 @@ public:
 
 		return newEp;
 	}
-	
-	static bool entryPointOpposite(EntryPoint e1, EntryPoint e2);
+	static bool entryPointOpposite(const EntryPoint& e1, const EntryPoint& e2);
 	static bool entryPointOfXAxis(const EntryPoint& e);
 	static bool entryPointOfZAxis(const EntryPoint& e);
+}
+
+class BasicRoad :
+	public SimulationAreaObjectStatic
+{
+public:
 	static void connectRoads(BasicRoad& lhs, BasicRoad& rhs);
 	static bool canConnect(const BasicRoad& lhs, const BasicRoad& rhs);
 	static bool alreadyConnected(const BasicRoad& lhs, const BasicRoad& rhs);
 
 	BasicRoad();
 
-	virtual std::vector<EntryPoint> getEntryPoints() const;
-	BasicRoad* getConnectedRoad(EntryPoint entry) const;
+	virtual std::vector<EP::EntryPoint> getEntryPoints() const;
+	BasicRoad* getConnectedRoad(EP::EntryPoint entry) const;
 
-	const std::vector<Models::TexturedVertex>& getVertices() const override;
-	const std::vector<uint32_t>& getIndices() const override;
-	GridTile::ObjectType getObjectType() const override;
-	std::string getTexturePath() const override;
-	glm::dvec3 getRelativePosition() const override;
-	void placeOnGridAction() override;
 
 	virtual std::vector<Lane> generateLanes();
 	virtual Path getPath(bool rightLane = true);
@@ -85,6 +82,8 @@ public:
 
 protected:
 	//std::vector<EntryPoint> entryPoints;
+	std::string getModelPath() const override;
+
 	friend Connection;
 	std::vector<Connection> m_connections;
 
@@ -98,6 +97,6 @@ protected:
 struct Connection
 {
 	BasicRoad* connected;
-	BasicRoad::EntryPoint entryPoint;
+	EP::EntryPoint entryPoint;
 };
 #endif // !BASIC_ROAD_H

@@ -5,8 +5,6 @@
 #include <map>
 #include <iostream>
 
-#include "Grid.h"
-#include "GridTileObject.h"
 #include "BasicRoad.h"
 #include "BasicBuilding.h"
 #include "RoadCurve.h"
@@ -18,9 +16,10 @@ namespace MaxAllocations
 
 namespace
 {
-	using GridTileResource = GridTile::ObjectType;
+	//using GridTileResource = GridTile::ObjectType;
 }
 
+// [[deprecated("Usefulness of this object?")]]
 class resourceCreator
 {
 public:
@@ -30,6 +29,7 @@ public:
 	resourceCreator(const resourceCreator&&) = delete;
 	resourceCreator operator ==(const resourceCreator&&) = delete;
 
+	/*
 	~resourceCreator()
 	{
 		for (const auto& vector : m_gridTileObject)
@@ -41,7 +41,7 @@ public:
 		}
 	}
 
-
+	
 	GridTileObject* createGridTileResource(GridTileResource createType)
 	{
 		GridTileObject* newObject = getPrototype(createType);
@@ -129,7 +129,8 @@ public:
 	{
 		return m_gridTileObject[type];
 	}
-
+	*/
+	/*
 	size_t getMaxAllocations(const GridTileResource type)
 	{
 		return m_maxAllocations[type];
@@ -138,18 +139,20 @@ public:
 	{
 		return m_gridTileObject[type].size();
 	}
-
+	*/
 private:
 	// experimental
+
 	resourceCreator()
 	{
-		initResourceCrator();
+		//initResourceCrator();
 	}
-	enum idEnum { EN };
+	
 	static friend resourceCreator& CreateResourceCreator();
+	/*enum idEnum { EN };
 
 	std::map<GridTileResource, std::vector<GridTileObject*>> m_gridTileObject;
-	std::map<GridTileResource, size_t> m_maxAllocations;
+	std::map<GridTileResource, size_t> m_maxAllocations;*/
 };
 
 static resourceCreator& CreateResourceCreator()

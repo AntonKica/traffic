@@ -13,19 +13,19 @@
 #include <stb/stb_image_write.h>
 
 
-bool BasicRoad::entryPointOpposite(EntryPoint e1, EntryPoint e2)
+bool EP::entryPointOpposite(const EP::EntryPoint& e1, const EP::EntryPoint& e2)
 {
 	// according to enum order
 	return static_cast<int>(e1) % 2 == static_cast<int>(e2) % 2;
 }
 
-bool BasicRoad::entryPointOfXAxis(const EntryPoint& e)
+bool EP::entryPointOfXAxis(const EP::EntryPoint& e)
 {
-	return e == EntryPoint::LEFT || e == EntryPoint::RIGHT;
+	return e == EP::EntryPoint::LEFT || e == EP::EntryPoint::RIGHT;
 }
-bool BasicRoad::entryPointOfZAxis(const EntryPoint& e)
+bool EP::entryPointOfZAxis(const EP::EntryPoint& e)
 {
-	return e == EntryPoint::FRONT || e == EntryPoint::BACK;
+	return e == EP::EntryPoint::FRONT || e == EP::EntryPoint::BACK;
 }
 
 BasicRoad::BasicRoad()
@@ -36,92 +36,17 @@ BasicRoad::BasicRoad()
 	m_connections.clear();
 	m_connections.reserve(numberOfEntryPoints);
 
-//createPath();
+	//createPath();
 }
 
-std::vector<BasicRoad::EntryPoint> BasicRoad::getEntryPoints() const
+std::vector<EP::EntryPoint> BasicRoad::getEntryPoints() const
 {
-	if (m_rotation == 0 || m_rotation == 180)
-		return { EntryPoint::FRONT, EntryPoint::BACK };
+	if (m_rotation.x == 0 || m_rotation.x == 180)
+		return { EP::EntryPoint::FRONT, EP::EntryPoint::BACK };
 	else
-		return { EntryPoint::LEFT, EntryPoint::RIGHT };
+		return { EP::EntryPoint::LEFT, EP::EntryPoint::RIGHT };
 }
 
-BasicRoad* BasicRoad::getConnectedRoad(EntryPoint entry) const
-{
-	for (const auto& connection : m_connections)
-	{
-		if (connection.entryPoint == entry)
-		{
-			return connection.connected;
-		}
-	}
-
-	return nullptr;
-}
-
-const std::vector<Models::TexturedVertex>& BasicRoad::getVertices() const
-{
-	static std::vector<Models::TexturedVertex> s_vertices =
-	{
-		{-0.5f, 0.0f,-0.5f, 0.0, 0.0},
-		{ 0.5f, 0.0f,-0.5f, 1.0, 0.0},
-		{ 0.5f, 0.0f, 0.5f, 1.0, 1.0},
-		{-0.5f, 0.0f, 0.5f, 0.0, 1.0}
-	};
-
-
-	return s_vertices;
-}
-
-const std::vector<uint32_t>& BasicRoad::getIndices() const
-{
-	static std::vector<uint32_t> s_indices =
-	{
-		// bottom plane
-		0,1,2,
-		2,3,0
-	};
-
-	return s_indices;
-}
-
-GridTile::ObjectType BasicRoad::getObjectType() const
-{
-	return GridTile::ObjectType::ROAD;
-}
-
-std::string BasicRoad::getTexturePath() const
-{
-	static std::string s_texturePath = "resources/materials/road.png";
-	return s_texturePath;
-}
-
-glm::dvec3 BasicRoad::getRelativePosition() const
-{
-	return glm::dvec3(0, 0, 0);
-}
-
-void BasicRoad::placeOnGridAction()
-{
-	GridTileObject::placeOnGridAction();
-
-	/*
-	glm::dvec3 pos = getWorldPosition();
-	auto surroundingTiles = App::Scene.m_grid.getSurroundingTiles({ pos.x, pos.z });
-	for (const auto& tile : surroundingTiles)
-	{
-		if (tile->getStatus() == GridTile::ObjectType::ROAD || tile->getStatus() == GridTile::ObjectType::CURVE)
-		{
-			GridTileObject* object = tile->getPlacedObject();
-			if (object)
-			{
-				connectRoads(*this, *dynamic_cast<BasicRoad*>(object));
-			}
-		}
-	}
-	*/
-}
 
 std::vector<Lane> BasicRoad::generateLanes()
 {
@@ -148,7 +73,7 @@ Path BasicRoad::getPath(bool rightLane)
 	static std::vector<Lane> lanes = generateLanes();
 
 	// take rotation into account
-	bool switchCoords = (m_rotation == 90.0 || m_rotation == 270.0);
+	bool switchCoords = (m_rotation.x == 180.0 || m_rotation.x == 180.0);
 
 	Lane retPath;
 	for (const auto& lane : lanes)
@@ -158,7 +83,7 @@ Path BasicRoad::getPath(bool rightLane)
 		{
 			retPath = lane;
 			break;
-		}	
+		}
 		else if (!rightLane)
 		{
 			retPath = lane;
@@ -167,9 +92,9 @@ Path BasicRoad::getPath(bool rightLane)
 	}
 
 	// transform to word coords
-	auto transform = [&](const glm::dvec2& point) 
+	auto transform = [&](const glm::dvec2& point)
 	{
-		auto pos = getWorldPosition();
+		auto pos = getPosition();
 		auto newPoint = point;
 		if (switchCoords)
 			newPoint = glm::dvec2(point.y, point.x);
@@ -183,6 +108,13 @@ Path BasicRoad::getPath(bool rightLane)
 	}
 
 	return retPath;
+}
+
+std::string BasicRoad::getModelPath() const
+{
+	static const std::string modelPath("resources/models/road/road.obj");
+
+	return modelPath;
 }
 
 
@@ -207,7 +139,7 @@ void BasicRoad::createPath()
 
 	int width, height, channels;
 	pixel data = stbi_load(s_Path.c_str(), &width, &height, &channels, 0);
-	
+
 	// analyza image
 
 	std::vector<glm::ivec2> points;
@@ -303,60 +235,60 @@ void BasicRoad::createPath()
 
 }
 
-std::vector<EntryPoint> BasicRoad::getEntryPoints()
+std::vector<EP::EntryPoint> BasicRoad::getEP::EntryPoints()
 {
-	return std::vector<EntryPoint>();
+	return std::vector<EP::EntryPoint>();
 }
 */
 
 void BasicRoad::connectRoads(BasicRoad& lhs, BasicRoad& rhs)
 {
-	if (alreadyConnected(lhs, rhs) || !canConnect(lhs,rhs))
+	if (alreadyConnected(lhs, rhs) || !canConnect(lhs, rhs))
 	{
 		return;
 	}
 	auto lhsEntryPoints = lhs.getEntryPoints();
 	auto rhsEntryPoints = rhs.getEntryPoints();
-	glm::ivec3 diff = rhs.getWorldPosition() - lhs.getWorldPosition();
-	
+	glm::ivec3 diff = rhs.getPosition() - lhs.getPosition();
+
 	Connection lhsConnection{ &rhs, {} };
 	Connection rhsConnection{ &lhs, {} };
 
-	AdjacencyFlags adjacency = getAdjacency(lhs, rhs);
-	if ((adjacency & AdjacencyBits::Diagonal) == Diagonal)
+	StaticAdjacencyFlags adjacency = lhs.getObjectAdjacency(rhs);
+	if ((adjacency & StaticAdjacencyBits::Diagonal) == Diagonal)
 	{
 		throw;
 	}
 
 	static int conncount = 0;
-	if (adjacency & AdjacencyBits::LinearX)
+	if (adjacency & StaticAdjacencyBits::AxialX)
 	{
 		if (diff.x == -1)
 		{
-			lhsConnection.entryPoint = BasicRoad::EntryPoint::LEFT;
-			rhsConnection.entryPoint = BasicRoad::EntryPoint::RIGHT;
+			lhsConnection.entryPoint = EP::EntryPoint::LEFT;
+			rhsConnection.entryPoint = EP::EntryPoint::RIGHT;
 		}
 		else if (diff.x == 1)
 		{
-			lhsConnection.entryPoint = BasicRoad::EntryPoint::RIGHT;
-			rhsConnection.entryPoint = BasicRoad::EntryPoint::LEFT;
+			lhsConnection.entryPoint = EP::EntryPoint::RIGHT;
+			rhsConnection.entryPoint = EP::EntryPoint::LEFT;
 		}
 
 		lhs.m_connections.push_back(lhsConnection);
 		rhs.m_connections.push_back(rhsConnection);
 		std::cout << "Total connections = " << ++conncount << '\n';
 	}
-	else if (adjacency & AdjacencyBits::LinearZ)
+	else if (adjacency & StaticAdjacencyBits::AxialZ)
 	{
 		if (diff.z == -1)
 		{
-			lhsConnection.entryPoint = BasicRoad::EntryPoint::FRONT;
-			rhsConnection.entryPoint = BasicRoad::EntryPoint::BACK;
+			lhsConnection.entryPoint = EP::EntryPoint::FRONT;
+			rhsConnection.entryPoint = EP::EntryPoint::BACK;
 		}
 		else
 		{
-			lhsConnection.entryPoint = BasicRoad::EntryPoint::BACK;
-			rhsConnection.entryPoint = BasicRoad::EntryPoint::FRONT;
+			lhsConnection.entryPoint = EP::EntryPoint::BACK;
+			rhsConnection.entryPoint = EP::EntryPoint::FRONT;
 		}
 		lhs.m_connections.push_back(lhsConnection);
 		rhs.m_connections.push_back(rhsConnection);
@@ -367,22 +299,22 @@ void BasicRoad::connectRoads(BasicRoad& lhs, BasicRoad& rhs)
 bool BasicRoad::canConnect(const BasicRoad& lhs, const BasicRoad& rhs)
 {
 	//check for diagonal
-	AdjacencyFlags adjacency = getAdjacency(lhs, rhs);
-	AdjacencyFlags restriction = AdjacencyBits::Diagonal;
+	StaticAdjacencyFlags adjacency = lhs.getObjectAdjacency(rhs);
+	StaticAdjacencyFlags restriction = StaticAdjacencyBits::Diagonal;
 
 	if ((adjacency & restriction) == restriction)
 	{
 		return false;
 	}
-	glm::ivec3 diff = glm::abs(lhs.getWorldPosition() - rhs.getWorldPosition());
+	glm::ivec3 diff = glm::abs(lhs.getPosition() - rhs.getPosition());
 
 	auto lhsEntryPoints = lhs.getEntryPoints();
 	auto rhsEntryPoints = rhs.getEntryPoints();
 
 	// zbytocne?
-	for (auto lhsEntryPoint : lhsEntryPoints)
+	for (const auto lhsEntryPoint : lhsEntryPoints)
 	{
-		for (auto rhsEntryPoint : rhsEntryPoints)
+		for (const auto rhsEntryPoint : rhsEntryPoints)
 		{
 			if (entryPointOpposite(lhsEntryPoint, rhsEntryPoint))
 			{

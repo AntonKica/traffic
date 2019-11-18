@@ -4,6 +4,13 @@ BasicBuilding::BasicBuilding()
 {
 }
 
+std::string BasicBuilding::getModelPath() const
+{
+	static const std::string modelPath("resources/models/house/house.obj");
+
+	return modelPath;
+}
+/*
 const std::vector<Models::TexturedVertex>& BasicBuilding::getVertices() const
 {
 	static std::vector<Models::TexturedVertex> s_vertices = 
@@ -66,4 +73,4 @@ std::string BasicBuilding::getTexturePath() const
 glm::dvec3 BasicBuilding::getRelativePosition() const
 {
 	return glm::dvec3(0, 0.5, 0);
-}
+}*/

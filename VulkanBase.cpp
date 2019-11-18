@@ -156,7 +156,7 @@ static void mouseButtonCallback(GLFWwindow* window, int button, int action, int 
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
 	{
-		//App::Scene.m_simArea.clickEvent();
+		App::Scene.m_simArea.clickEvent();
 	}
 }
 
@@ -183,7 +183,7 @@ static void keyboardInputCallback(GLFWwindow* window, int key, int scanCode, int
 	}
 
 	// weird
-	//App::Scene.m_grid.m_creator.processKeyInput(key, action);
+	App::Scene.m_simArea.m_creator.processKeyInput(key, action);
 }
 
 VkResult CreteDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
@@ -403,6 +403,8 @@ GraphicsModule VulkanBase::createGraphicsModule(const Info::GraphicsComponentCre
 
 pGraphicsComponent VulkanBase::getGraphicsComponent()
 {
+	std::cout << "Added graphics component" << '\n';
+
 	GraphicsComponent* gComp = m_graphicsComponents.top();
 	m_graphicsComponents.pop();
 
@@ -1493,12 +1495,12 @@ void VulkanBase::processInput()
 	// process ui input
 	//static int previousSelection;
 	int selection = m_selectionUI.getSelection();
-	GridTileResource resourceType = static_cast<GridTileResource>(selection);
+	//GridTileResource resourceType = static_cast<GridTileResource>(selection);
 
-	//App::Scene.m_grid.m_creator.setCreateObject(resourceType);
+	App::Scene.m_simArea.m_creator.setCreateObject(selection);
 	
 	bool enableMouse = !m_selectionUI.mouseOverlap();
-	//App::Scene.m_grid.setMouseEnable(enableMouse);
+	App::Scene.m_simArea.setEnableMouse(enableMouse);
 }
 
 void VulkanBase::destroyGraphicsComponents()

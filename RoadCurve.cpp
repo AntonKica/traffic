@@ -1,18 +1,18 @@
 #include "RoadCurve.h"
 
-std::vector<BasicRoad::EntryPoint> RoadCurve::getEntryPoints() const
+std::vector<EP::EntryPoint> RoadCurve::getEntryPoints() const
 {
-	int nOfRotations = m_rotation / 90.0;
+	int nOfRotations = m_rotation.x / 90.0;
 
 	if (nOfRotations == 4)
 		nOfRotations = 0;
 
-	auto ep1 = EntryPoint::RIGHT + nOfRotations;
+	auto ep1 = EP::EntryPoint::RIGHT + nOfRotations;
 	auto ep2 = ep1 + 1;
 
 	return { ep1, ep2 };
 }
-
+/*
 GridTile::ObjectType RoadCurve::getObjectType() const
 {
 	return GridTile::ObjectType::CURVE;
@@ -22,6 +22,12 @@ std::string RoadCurve::getTexturePath() const
 {
 	static std::string s_texturePath = "resources/materials/curved-road.png";
 	return s_texturePath;
+}
+*/
+
+std::string RoadCurve::getModelPath() const
+{
+	return std::string();
 }
 
 std::vector<Lane> RoadCurve::generateLanes()
@@ -64,7 +70,7 @@ Path RoadCurve::getPath(bool rightLane)
 {
 	static std::vector<Path> paths = generateLanes();
 
-	bool switchCoords = (m_rotation == 90.0 || m_rotation == 270.0);
+	bool switchCoords = (m_rotation.x == 90.0 || m_rotation.x == 270.0);
 
 	Lane retPath;
 	for (const auto& lane : paths)
@@ -85,7 +91,7 @@ Path RoadCurve::getPath(bool rightLane)
 	// transform to word coords
 	auto transform = [&](const glm::dvec2& point)
 	{
-		auto pos = getWorldPosition();
+		auto pos = getPosition();
 		auto newPoint = point;
 		if (switchCoords)
 			newPoint = glm::dvec2(point.y, point.x);

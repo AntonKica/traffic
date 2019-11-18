@@ -53,9 +53,13 @@ void ModelLoader::processMesh(const aiScene* scene, aiMesh* mesh, Model& model)
 	{
 		vertexType = VertexType::TEXTURED;
 	}
+	auto vertexSize = getVertexSize(vertexType);
 
-	VariantVertex variantVertex;
-	vertices.vertices.resize(mesh->mNumVertices);
+	vertices.type = vertexType;
+	vertices.type = VertexType::DEFAULT;
+	vertices.vertices.resize(mesh->mNumVertices * vertexSize);
+	auto vData = vertices.vertices.data();
+
 	for (size_t i = 0; i < mesh->mNumVertices; ++i)
 	{
 		glm::vec3 vector;
@@ -63,6 +67,8 @@ void ModelLoader::processMesh(const aiScene* scene, aiMesh* mesh, Model& model)
 		vector.x = mesh->mVertices[i].x;
 		vector.y = mesh->mVertices[i].y;
 		vector.z = mesh->mVertices[i].z;
+
+		VariantVertex variantVertex;
 		variantVertex.vertex.position = vector;
 
 		// normals
@@ -76,7 +82,8 @@ void ModelLoader::processMesh(const aiScene* scene, aiMesh* mesh, Model& model)
 			variantVertex.texturedVertex.texCoord = vec;
 		}
 
-		std::memcpy(vertices.vertices.data() + i, &variantVertex, getVertexSize(vertexType));
+		std::memcpy(vData, &variantVertex, vertexSize);
+		vData += vertexSize;
 	}
 	model.vertices = vertices;
 
@@ -88,6 +95,8 @@ void ModelLoader::processMesh(const aiScene* scene, aiMesh* mesh, Model& model)
 		indices.insert(indices.end(), face.mIndices, face.mIndices + face.mNumIndices);
 	}
 	model.indices = indices;
+	return;
+
 	// texture
 	if (mesh->mMaterialIndex >= 0)
 	{
