@@ -16,6 +16,7 @@ private:
 	GUI::ImGuiInfo imgui;
 	bool hidden;
 	
+	std::string selectedName;
 	int selectedNum;
 public:
 	void initUI(VulkanBase* pVulkanBase);

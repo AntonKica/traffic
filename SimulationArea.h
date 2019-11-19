@@ -49,7 +49,7 @@ namespace SimulationAreaStructs
 
 	struct SimulationAreaData
 	{
-		std::vector<std::unique_ptr<SimulationAreaObject>> objects;
+		std::vector<SimulationAreaObject*> objects;
 
 
 		//std::vector<SimulationAreaObject*> buildings;

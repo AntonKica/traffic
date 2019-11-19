@@ -164,12 +164,11 @@ bool SimulationArea::placeSelectedObject()
 	{
 		if (isInArea(newObject->getPosition()))
 		{
-			BasicRoad* newRoad = new BasicRoad;
-			*newRoad = *dynamic_cast<const BasicRoad*>(newObject);
+			SimulationAreaObject* newObj = m_creator.getRawPointerFromType(m_creator.getCurrentType());
 			// HERE
-			static_assert("HERE" && false);
-			newRoad->setPosition(newRoad->getPosition());
-			auto it = m_data.objects.insert(m_data.objects.begin(), std::make_unique<BasicRoad>(*newRoad));
+			newObj->place(newObject->getPosition(), newObject->getRotation());
+			//static_assert("HERE" && false);
+			auto it = m_data.objects.insert(m_data.objects.begin(), newObj);
 			
 			std::cout << "Placed at " << glm::to_string((*it)->getPosition()) << '\n';
 

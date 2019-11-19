@@ -1,6 +1,7 @@
 #include "UI.h"
 #include "VulkanBase.h"
 #include "GlobalObjects.h"
+#include "SimulationAreaObjectCreator.h"
 
 void UI::initUI(VulkanBase* pVulkanBase)
 {
@@ -96,15 +97,19 @@ void UI::createBoxes()
 
 		ImGui::Begin("Menu window!");
 
-		if (ImGui::Button("Road"))
-			selectedNum = 0;
-		if (ImGui::Button("Curved road"))
-			selectedNum = 1;
-		if (ImGui::Button("Building"))
-			selectedNum = 2;
+		auto creationObjects = SimulationAreaObjectCreator::s_identificator.getIdentificators();
 
+		int num = 0;
+		for (const auto& identificator : creationObjects)
+		{
+			if (ImGui::Button(identificator.name.c_str()))
+			{
+				selectedName = identificator.name;
+				selectedNum = num++;
+			}
+		}
 		//ImGui::SameLine();
-		ImGui::Text("Currently selected = %i", selectedNum);
+		ImGui::Text("Currently selected = %i %s", selectedNum, selectedName.c_str());
 		/*auto tile = App::Scene.m_grid.getSelectedTile();
 		if (tile)
 		{

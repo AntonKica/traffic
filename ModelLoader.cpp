@@ -51,7 +51,7 @@ void ModelLoader::processMesh(const aiScene* scene, aiMesh* mesh, Model& model)
 	bool containsTexture = mesh->mTextureCoords[0] != nullptr;
 	if (containsTexture)
 	{
-		vertexType = VertexType::TEXTURED;
+		//vertexType = VertexType::TEXTURED;
 	}
 	auto vertexSize = getVertexSize(vertexType);
 

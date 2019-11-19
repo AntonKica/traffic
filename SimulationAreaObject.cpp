@@ -86,7 +86,7 @@ void SimulationAreaObject::rotate(Rotation::RotationDirection direction)
 
 void SimulationAreaObject::updateGraphics()
 {
-	if (!m_graphicsComponent)
+	if (m_graphicsComponent == nullptr)
 		setupModel();
 
 	m_graphicsComponent->setPosition(m_position + getModelPositionOffset());

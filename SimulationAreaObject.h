@@ -37,6 +37,6 @@ protected:
 
 	glm::vec3 m_position;
 	glm::vec3 m_rotation;
-	GraphicsComponent* m_graphicsComponent;
+	GraphicsComponent* m_graphicsComponent = nullptr;
 };
 
