@@ -86,26 +86,36 @@ void SimulationAreaObject::rotate(Rotation::RotationDirection direction)
 
 void SimulationAreaObject::updateGraphics()
 {
-	if (m_graphicsComponent == nullptr)
+	if (!m_graphicsComponent.initialized())
 		setupModel();
 
-	m_graphicsComponent->setPosition(m_position + getModelPositionOffset());
-	m_graphicsComponent->setRotation(m_rotation);
+	m_graphicsComponent.setPosition(m_position + getModelPositionOffset());
+	m_graphicsComponent.setRotation(m_rotation);
 }
 
 void SimulationAreaObject::setupModel()
 {
-	Info::GraphicsComponentCreateInfo createInfo;
 	Info::DrawInfo dInfo{};
 	dInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
 	Info::ModelInfo mInfo{};
+	GO::TypedVertices vvs;
+	vvs.first = GO::VertexType::DEFAULT;
+	for (float i = 0; i <= 6.28; i+= 6.28/4)
+	{
+		GO::VariantVertex vv;
+		vv.vertex.position = { sin(i),0,cos(i)};
+		vvs.second.push_back(vv);
+	}
+	mInfo.vertices = &vvs;
+
 	mInfo.modelPath = getModelPath();
 
+	Info::GraphicsComponentCreateInfo createInfo;
 	createInfo.drawInfo = &dInfo;
 	createInfo.modelInfo = &mInfo;
 
-	m_graphicsComponent = App::Scene.vulkanBase->createGrahicsComponent(createInfo);
+	m_graphicsComponent = App::Scene.vulkanBase.createGrahicsComponent(createInfo);
 }
 
 glm::vec3 SimulationAreaObject::getModelPositionOffset() const

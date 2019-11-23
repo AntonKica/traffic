@@ -27,7 +27,9 @@ std::string RoadCurve::getTexturePath() const
 
 std::string RoadCurve::getModelPath() const
 {
-	return std::string();
+	static std::string file ("resources/models/curvedRoad/curvedRoad.obj");
+
+	return file;
 }
 
 std::vector<Lane> RoadCurve::generateLanes()

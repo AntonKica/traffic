@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <glm/glm.hpp>
+#include "GraphicsComponent.h"
 
 namespace Rotation
 {
@@ -14,9 +15,9 @@ namespace Rotation
 		UP
 	};
 }
-class GraphicsComponent;
 class SimulationAreaObject
 {
+	friend class SimulationArea;
 public:
 	SimulationAreaObject();
 	virtual ~SimulationAreaObject();
@@ -28,8 +29,9 @@ public:
 	void setRotation(const glm::vec3& newRotation);
 
 	void rotate(Rotation::RotationDirection direction);
-protected:
 
+	GraphicsComponent m_graphicsComponent;
+protected:
 	void updateGraphics();
 	void setupModel();
 	virtual std::string getModelPath() const = 0;
@@ -37,6 +39,5 @@ protected:
 
 	glm::vec3 m_position;
 	glm::vec3 m_rotation;
-	GraphicsComponent* m_graphicsComponent = nullptr;
 };
 

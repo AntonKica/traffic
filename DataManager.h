@@ -63,8 +63,10 @@ namespace Comparators
 							lessIndices = IndicesCompLess()(*lhs->pIndices.value(), *rhs->pIndices.value());
 						else if (!lhs->pIndices && rhs->pIndices)
 							lessIndices = false;
-						else
+						else if (lhs->pIndices && !rhs->pIndices)
 							lessIndices = true;
+						else
+							lessIndices = false;
 					}
 					bool lessTexture = false;
 					{
@@ -72,8 +74,10 @@ namespace Comparators
 							lessTexture = lhs->texture.value() < rhs->texture.value();
 						else if (!lhs->texture && rhs->texture)
 							lessTexture = false;
-						else
+						else if (lhs->texture && !rhs->texture)
 							lessTexture = true;
+						else
+							lessTexture = false;
 					}
 
 					returnVal = lessIndices || lessTexture;
@@ -154,6 +158,7 @@ private:
 
 public:
 	const ModelReference* getModelReference(const Info::ModelInfo& info);
+	const ModelReference* copyModelReference(const ModelReference* copyReference);
 	void removeModelReference(const ModelReference* reference);
 
 	size_t getLoadedVerticesByteSize(GO::VertexType type) const;
@@ -269,5 +274,5 @@ inline bool DataManager::canRemove(const type& t, container& c) const
 		static_assert("Non const");
 
 	typename container::iterator iter = c.find(t);
-	return iter != std::end(c);
+	return iter == std::end(c);
 }

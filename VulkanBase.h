@@ -16,7 +16,6 @@
 
 #include "Models.h"
 #include "GraphicsObjects.h"
-#include "resource_creator.h"
 #include "GraphicsComponent.h"
 #include "DataManager.h"
 #include "DescriptorManager.h"
@@ -156,15 +155,19 @@ class VulkanBase
 		std::vector<vkh::structs::Buffer> uniform;
 	} m_buffers;
 
-	std::stack<GraphicsComponent*>  m_graphicsComponents;
+	bool m_changedActiveComponentsSize = false;
 	std::vector<GraphicsComponent*> m_activeGraphicsComponents;
-	bool createdGraphicsComponent = false;
+
+	//std::vector<pGraphicsModule> m_activeGraphicsModules;
+	std::stack<pGraphicsModule>  m_graphicsModules;
+
 	// helperFunctions
 	friend void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 	std::vector<const char*> getRequiredExtensions() const;
 	bool checkValidationLayerSupport() const;
 	std::vector<char> readFile(const char* fileName);
 public:
+	~VulkanBase();
 	void run();
 
 	vkh::structs::VulkanDevice* getDevice();
@@ -173,17 +176,22 @@ public:
 	VkRenderPass getRenderPass() const;
 	uint16_t getSwapchainImageCount() const;
 
-	pGraphicsComponent createGrahicsComponent(const Info::GraphicsComponentCreateInfo& info);
-	//GraphicsModule* copyGraphicsModule(const GraphicsModule* src);
-	void destroyGraphicsComponent(const pGraphicsComponent& comp);
+	GraphicsComponent createGrahicsComponent(const Info::GraphicsComponentCreateInfo& info);
+	void copyGrahicsComponent(const GraphicsComponent& srcGraphicsComponent, GraphicsComponent& dstGraphicsComponent);
+	void destroyGraphicsComponent(const GraphicsComponent& comp);
+
+	void activateGraphicsComponent(GraphicsComponent* toActivate);
+	void deactivateGraphicsComponent(GraphicsComponent* toActivate);
 private:
 	Info::DescriptorSetCreateInfo generateSetCreatInfo(const Info::GraphicsComponentCreateInfo& info,
 		const ModelReference& modelRef) const;
 	Info::PipelineInfo generatePipelineCreateInfo(const Info::GraphicsComponentCreateInfo& info,
 		const ModelReference& modelRef, GO::ID descriptorSetRefID) const;
-	GraphicsModule createGraphicsModule(const Info::GraphicsComponentCreateInfo& info);
-	pGraphicsComponent getGraphicsComponent();
-	void removeGraphicsComponent(const pGraphicsComponent& graphicsModule);
+
+	pGraphicsModule createGraphicsModule(const Info::GraphicsComponentCreateInfo& info);
+	pGraphicsModule copyGraphicsModule(const GraphicsModule& copyModule);
+	pGraphicsModule getNewGraphicsModule();
+	void removeGraphicsModule(const pGraphicsModule& copyModule);
 
 	// textureManager?
 	const vkh::structs::Image* getImage(const std::string& loadPath);
@@ -194,7 +202,7 @@ private:
 	void initWindow();
 	void initVulkan();
 	void initModules();
-	void initGraphicsComponents();
+	void initGraphicsMoudules();
 	void initUI();
 	void mainLoop();
 	// Foundation

@@ -76,10 +76,6 @@ void DataManager::removeUsage(const ModelReference* model)
 
 const ModelReference* DataManager::getModelReference(const Info::ModelInfo& info)
 {
-	static int i = 0;
-	++i;
-	if (i == 3)
-		std::cout << '\n';
 	const ModelReference* retModel;
 	GO::Model model = processModelInfo(info);
 
@@ -112,12 +108,21 @@ const ModelReference* DataManager::getModelReference(const Info::ModelInfo& info
 	return retModel;
 }
 
+const ModelReference* DataManager::copyModelReference(const ModelReference* copyReference)
+{
+	addUsage(copyReference);
+
+	return copyReference;
+}
+
 void DataManager::removeModelReference(const ModelReference* reference)
 {
+	// find berore nulling
+	auto mIter = loaded.models.find(*reference);
+
 	removeUsage(reference);
 	if (canRemove(reference, usageCounts.models))
 	{
-		auto mIter = loaded.models.find(*reference);
 		loaded.models.erase(mIter);
 	}
 }

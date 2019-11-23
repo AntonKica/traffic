@@ -97,7 +97,7 @@ void UI::createBoxes()
 
 		ImGui::Begin("Menu window!");
 
-		auto creationObjects = SimulationAreaObjectCreator::s_identificator.getIdentificators();
+		auto creationObjects = App::Scene.m_simArea.m_creator.getIdentifications();
 
 		int num = 0;
 		for (const auto& identificator : creationObjects)
@@ -105,11 +105,12 @@ void UI::createBoxes()
 			if (ImGui::Button(identificator.name.c_str()))
 			{
 				selectedName = identificator.name;
-				selectedNum = num++;
+				selectedNum = num;
 			}
+			++num;
 		}
 		//ImGui::SameLine();
-		ImGui::Text("Currently selected = %i %s", selectedNum, selectedName.c_str());
+		ImGui::Text("Currently selected = %i %s", selectedNum + 1, selectedName.c_str());
 		/*auto tile = App::Scene.m_grid.getSelectedTile();
 		if (tile)
 		{

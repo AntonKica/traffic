@@ -110,11 +110,14 @@ void SimulationAreaVisualizer::createVisuals(size_t xCount, size_t zCount, doubl
 	info.drawInfo = &drawInfo;
 	info.modelInfo = &modelInfo;
 
-	graphics = App::Scene.vulkanBase->createGrahicsComponent(info);
+	graphics = App::Scene.vulkanBase.createGrahicsComponent(info);
 }
 
 void SimulationAreaVisualizer::update()
 {	
+	if (!graphics.initialized())
+		return;
+
 	glm::vec3 camPos = App::Scene.m_camera.getPosition();
 	camPos.y = 0;
 
@@ -123,7 +126,7 @@ void SimulationAreaVisualizer::update()
 		// no stutter
 		position = glm::ivec3(App::Scene.m_simArea.getNearestPoint(camPos));
 
-		graphics->setPosition(App::Scene.m_simArea.getNearestPoint(position));
+		graphics.setPosition(App::Scene.m_simArea.getNearestPoint(position));
 	}
 }
 
@@ -138,7 +141,7 @@ void SimulationArea::initArea()
 
 	const auto [xCount, zCount] = getPointsCount();
 
-	m_visuals.createVisuals(xCount, zCount, getDirectPointDistance());
+	//m_visuals.createVisuals(xCount, zCount, getDirectPointDistance());
 }
 
 void SimulationArea::loadData()
@@ -165,13 +168,13 @@ bool SimulationArea::placeSelectedObject()
 		if (isInArea(newObject->getPosition()))
 		{
 			SimulationAreaObject* newObj = m_creator.getRawPointerFromType(m_creator.getCurrentType());
-			// HERE
-			newObj->place(newObject->getPosition(), newObject->getRotation());
-			//static_assert("HERE" && false);
+			*newObj = *newObject;
+			newObj->updateGraphics();
+			newObj->m_graphicsComponent.setActive(true);
+
 			auto it = m_data.objects.insert(m_data.objects.begin(), newObj);
 			
-			std::cout << "Placed at " << glm::to_string((*it)->getPosition()) << '\n';
-
+			std::cout << "Created obj\n";
 			return true;
 		}
 	}

@@ -19,12 +19,9 @@ void runGraphics(VulkanBase& base)
 int main()
 {
 	std::ios_base::sync_with_stdio(false);
-	VulkanBase base;
-
-	App::Scene.vulkanBase = &base;
 	// experimental, might be unstable
 
-	std::thread graphicsThread(runGraphics, std::ref(base));
+	std::thread graphicsThread(runGraphics, std::ref(App::Scene.vulkanBase));
 	{
 		static_assert("TU");
 		std::cout << "NIeco fix alebo checknut, uz si nepamatam\n";

@@ -68,7 +68,7 @@ public:
 	void update();
 private:
 	glm::vec3 position;
-	pGraphicsComponent graphics;
+	GraphicsComponent graphics;
 };
 
 class SimulationArea final

@@ -7,9 +7,10 @@
 class SimulationArea;
 class SimulationAreaObject;
 
-class StaticObjectIdentificators
+
+// shoul be called staticObjectCreator
+class SimulationAreaObjectCreator
 {
-	// idk, not liking that
 public:
 	enum class SimulationObjectType
 	{
@@ -18,35 +19,15 @@ public:
 		CURVED_ROAD,
 		MAX_TYPES
 	};
+	friend SimulationObjectType& operator++(SimulationObjectType& type);
+
 	struct ObjectIdentification
 	{
 		SimulationObjectType type;
 		std::string name;
-		SimulationAreaObject* object;
+		std::shared_ptr<SimulationAreaObject> object;
 	};
 
-	StaticObjectIdentificators();
-	~StaticObjectIdentificators();
-
-	const std::vector<ObjectIdentification>& getIdentificators() const;
-	//std::vector<uint32_t> getIDs() const;
-	SimulationAreaObject* getObject(SimulationObjectType type);
-	SimulationObjectType getType(const std::string& name) const;
-	std::string getName(SimulationObjectType ID) const;
-	size_t getObjectCount() const;
-
-private:
-	void setup();
-	void cleanup();
-
-	//static const constexpr size_t ObjectCount = 8;
-	std::vector<ObjectIdentification> identifications;
-};
-
-// shoul be called staticObjectCreator
-class SimulationAreaObjectCreator
-{
-public:
 	SimulationAreaObjectCreator();
 	~SimulationAreaObjectCreator();
 
@@ -54,24 +35,27 @@ public:
 
 	void processKeyInput(int key, int value);
 	void setCreateObject(int id);
-	void setCreateObject(StaticObjectIdentificators::SimulationObjectType type);
-	const SimulationAreaObject* const getObjectFromType(StaticObjectIdentificators::SimulationObjectType type) const;
-	const SimulationAreaObject* const getCurrentObject() const;
-	StaticObjectIdentificators::SimulationObjectType getCurrentType() const;
-	SimulationAreaObject* getRawPointerFromType(StaticObjectIdentificators::SimulationObjectType type) const;
+	void setCreateObject(SimulationObjectType type);
 
-	static StaticObjectIdentificators s_identificator;
+	const std::vector<ObjectIdentification>& getIdentifications() const;
+	std::shared_ptr<SimulationAreaObject> getObjectFromType(SimulationObjectType type) const;
+
+	std::shared_ptr<SimulationAreaObject> getCurrentObject() const;
+	SimulationObjectType getCurrentType() const;
+	SimulationAreaObject* getRawPointerFromType(SimulationObjectType type) const;
+
 private:
 	void initResources();
 	void releaseResources();
 
 	void updateCreateObjectPos();
+	std::shared_ptr<SimulationAreaObject> getObjectFromType(SimulationObjectType type);
 
-	std::map<StaticObjectIdentificators::SimulationObjectType, SimulationAreaObject*> m_prototypes;
+	std::vector<ObjectIdentification> m_identifications;
 
 	SimulationArea* m_simulationAreaPtr;
-	SimulationAreaObject* m_currentObject;
+	std::shared_ptr<SimulationAreaObject> m_currentObject;
 
-	StaticObjectIdentificators::SimulationObjectType m_currentType;
+	SimulationObjectType m_currentType;
 	int m_prototypesCount;
 };

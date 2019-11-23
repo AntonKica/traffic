@@ -12,66 +12,117 @@
 #include <iostream>
 
 
-GraphicsModule::GraphicsModule()
-{
-}
-
-void GraphicsModule::setBufferOffset(size_t offset)
-{
-	dynamicBufferOffset = offset;	
-}
-
-size_t GraphicsModule::getBufferOffset() const
-{
-	return dynamicBufferOffset;
-}
-
 
 GraphicsComponent::GraphicsComponent()
 {
+	static int count = 0;
 }
 
 GraphicsComponent::~GraphicsComponent()
 {
-	freeGraphicsModule();
+	freeGraphics();
 }
 
-void GraphicsComponent::freeGraphicsModule()
+static int otherCnt = 0;
+GraphicsComponent::GraphicsComponent(const GraphicsComponent& other)
 {
-	if(initialized())
-	{
-		App::Scene.vulkanBase->destroyGraphicsComponent(this);
+	App::Scene.vulkanBase.copyGrahicsComponent(other, *this);
+}
 
-		graphicsModule = {};
-		init = false;
+GraphicsComponent::GraphicsComponent(GraphicsComponent&& other) noexcept
+{
+	graphicsModule = other.graphicsModule;
+	setActive(other.active);
+
+	other.setActive(false);
+	other.graphicsModule = {};
+}
+GraphicsComponent& GraphicsComponent::operator=(const GraphicsComponent& other)
+{
+	App::Scene.vulkanBase.copyGrahicsComponent(other, *this);
+
+	return *this;
+}
+
+GraphicsComponent& GraphicsComponent::operator=(GraphicsComponent&& other) noexcept
+{
+	graphicsModule = other.graphicsModule;
+	setActive(other.active);
+
+	other.setActive(false);
+	other.graphicsModule = {};
+
+	return *this;
+}
+
+const GraphicsModule& GraphicsComponent::getGraphicsModule() const
+{
+	return *graphicsModule;
+}
+
+void GraphicsComponent::setBufferOffset(size_t offset)
+{
+	graphicsModule->dynamicBufferOffset = offset;
+}
+
+size_t GraphicsComponent::getBufferOffset() const
+{
+	return graphicsModule->dynamicBufferOffset;
+}
+
+void GraphicsComponent::setActive(bool value)
+{
+	if (active != value)
+	{
+		active = value;
+		updateActiveState();
 	}
 }
-
-void GraphicsComponent::recreateGraphics(const Info::GraphicsComponentCreateInfo& info)
-{
-	freeGraphicsModule();
-
-	*this = *App::Scene.vulkanBase->createGrahicsComponent(info);
-}
-
 void GraphicsComponent::setPosition(const glm::vec3& pos)
 {
-	graphicsModule.position = pos;
+	graphicsModule->position = pos;
 }
 
 void GraphicsComponent::setRotation(const glm::vec3& rotation)
 {
-	graphicsModule.rotation = rotation;
+	graphicsModule->rotation = rotation;
 }
 
-void GraphicsComponent::setGraphicsModule(const GraphicsModule& gModule)
+glm::vec3 GraphicsComponent::getPosition() const
 {
+	return graphicsModule->position;
+}
+
+glm::vec3 GraphicsComponent::getRotation() const
+{
+	return graphicsModule->rotation;
+}
+
+void GraphicsComponent::freeGraphics()
+{
+	if (initialized())
+	{
+		App::Scene.vulkanBase.destroyGraphicsComponent(*this);
+	}
+	setActive(false);
+}
+
+void GraphicsComponent::setGraphicsModule(const pGraphicsModule& gModule)
+{
+	// aware of copy
 	graphicsModule = gModule;
-	init = true;
+}
+
+void GraphicsComponent::updateActiveState()
+{
+	if (active)
+		App::Scene.vulkanBase.activateGraphicsComponent(this);
+	else
+		App::Scene.vulkanBase.deactivateGraphicsComponent(this);
 }
 
 bool GraphicsComponent::initialized() const
 {
-	return init;
+	return graphicsModule != nullptr;
 }
 

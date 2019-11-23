@@ -11,7 +11,6 @@
 #include <glm/gtx/string_cast.hpp>
 
 #include "camera.h"
-#include "resource_creator.h"
 #include "SimulationArea.h"
 #include "VulkanBase.h"
 
@@ -78,13 +77,12 @@ static std::string keepOnlyNumbers(const std::string& str)
 class scene
 {
 public:
+	// dont change order, stack favours this :)
 	camera m_camera;
-	resourceCreator& m_resourceCreator;
+	VulkanBase vulkanBase;
 	SimulationArea m_simArea;
-	VulkanBase* vulkanBase;
 
 	scene()
-		:m_resourceCreator(CreateResourceCreator())
 	{
 		m_camera = camera();
 	}
