@@ -32,6 +32,7 @@ public:
 	~SimulationAreaObjectCreator();
 
 	void update();
+	void disable(bool value);
 
 	void processKeyInput(int key, int value);
 	void setCreateObject(int id);
@@ -58,4 +59,5 @@ private:
 
 	SimulationObjectType m_currentType;
 	int m_prototypesCount;
+	bool m_disable = false;
 };

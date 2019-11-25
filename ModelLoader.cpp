@@ -14,7 +14,7 @@ Model ModelLoader::loadModel(const std::string& path)
 		throw std::runtime_error("Unknfown texture path: " + path);
 	}
 	Model newModel;
-	newModel.directory = path;
+	newModel.directory = path.substr(0, path.find_last_of('/'));
 
 	processNode(scene, scene->mRootNode, newModel);
 
@@ -51,12 +51,11 @@ void ModelLoader::processMesh(const aiScene* scene, aiMesh* mesh, Model& model)
 	bool containsTexture = mesh->mTextureCoords[0] != nullptr;
 	if (containsTexture)
 	{
-		//vertexType = VertexType::TEXTURED;
+		vertexType = VertexType::TEXTURED;
 	}
 	auto vertexSize = getVertexSize(vertexType);
 
 	vertices.type = vertexType;
-	vertices.type = VertexType::DEFAULT;
 	vertices.vertices.resize(mesh->mNumVertices * vertexSize);
 	auto vData = vertices.vertices.data();
 
@@ -95,7 +94,6 @@ void ModelLoader::processMesh(const aiScene* scene, aiMesh* mesh, Model& model)
 		indices.insert(indices.end(), face.mIndices, face.mIndices + face.mNumIndices);
 	}
 	model.indices = indices;
-	return;
 
 	// texture
 	if (mesh->mMaterialIndex >= 0)
@@ -105,10 +103,9 @@ void ModelLoader::processMesh(const aiScene* scene, aiMesh* mesh, Model& model)
 		for (int i = aiTextureType_DIFFUSE; i <= aiTextureType_UNKNOWN; ++i)
 		{
 			std::string path = getTexturePath(material, static_cast<aiTextureType>(i));
-
 			if (!path.empty())
 			{
-				model.texturePath = path;
+				model.texturePath = model.directory.value() + '/' + path;
 				break;
 			}
 		}

@@ -294,9 +294,15 @@ GraphicsComponent VulkanBase::createGrahicsComponent(const Info::GraphicsCompone
 	return comp;
 }
 
+void VulkanBase::recreateGrahicsComponent(GraphicsComponent& gp, const Info::GraphicsComponentCreateInfo& info)
+{
+	m_dataManager.removeModelReference(gp.graphicsModule->pModelReference);
+
+	gp.graphicsModule->pModelReference = m_dataManager.getModelReference(*info.modelInfo);
+}
+
 void VulkanBase::copyGrahicsComponent(const GraphicsComponent& srcGraphicsComponent, GraphicsComponent& dstGraphicsComponent)
 {
-	std::cout << "Copying gComp\n";
 	if (srcGraphicsComponent.graphicsModule)
 	{
 		pGraphicsModule gModule = copyGraphicsModule(srcGraphicsComponent.getGraphicsModule());
@@ -423,9 +429,6 @@ Info::PipelineInfo VulkanBase::generatePipelineCreateInfo(const Info::GraphicsCo
 
 pGraphicsModule VulkanBase::createGraphicsModule(const Info::GraphicsComponentCreateInfo& info)
 {
-	static int i = 0;
-	if (i++ > 1)
-		std::cout << '\n';
 	auto pModelReference = m_dataManager.getModelReference(*info.modelInfo);
 
 	static_assert(true && "MAke IMAGE module, omg");
@@ -479,7 +482,7 @@ const vkh::structs::Image* VulkanBase::getImage(const std::string& loadPath)
 	if (!data)
 		throw std::runtime_error("Failed to load texture " + loadPath);
 
-	vkh::structs::Buffer stagingBuffer = m_device.createStaginBuffer(width * height * 4, data);
+	vkh::structs::Buffer& stagingBuffer = m_device.getStagingBuffer(width * height * 4, data);
 	stbi_image_free(data);
 
 	vkh::structs::Image newImage;
@@ -499,7 +502,7 @@ const vkh::structs::Image* VulkanBase::getImage(const std::string& loadPath)
 
 	m_device.createImageView(newImage);
 	newImage.setupDescriptor(m_sampler);
-	stagingBuffer.cleanup(m_device, nullptr);
+	m_device.freeStagingBuffer(stagingBuffer);
 
 	//std::string file = std::filesystem::path(loadPath).filename().string();
 	m_images[loadPath] = newImage;
@@ -600,6 +603,7 @@ void VulkanBase::mainLoop()
 
 	//just for testing puproses
 	App::Scene.initComponents();
+
 	while (!glfwWindowShouldClose(m_window))
 	{
 		std::chrono::time_point currentFrame = std::chrono::high_resolution_clock::now();
@@ -617,7 +621,6 @@ void VulkanBase::mainLoop()
 
 		glfwSwapBuffers(m_window);
 		glfwPollEvents();
-		//std::this_thread::sleep_for(std::chrono::seconds(1));
 	}
 
 	vkDeviceWaitIdle(m_device);
@@ -1146,7 +1149,7 @@ void VulkanBase::updateVertexBuffer()
 		if (requiredBufferSize > currentBufer.size)
 			createVertexBuffer(currentBufer, requiredBufferSize * 1.25);
 
-		vkh::structs::Buffer stagingBuffer = m_device.createStaginBuffer(requiredBufferSize);
+		vkh::structs::Buffer& stagingBuffer = m_device.getStagingBuffer(requiredBufferSize);
 		uint8_t* data = static_cast<uint8_t*>(stagingBuffer.map());
 
 		uint64_t byteOffset = 0;
@@ -1164,7 +1167,7 @@ void VulkanBase::updateVertexBuffer()
 		stagingBuffer.unmap();
 		m_device.copyBuffer(stagingBuffer, currentBufer);
 
-		stagingBuffer.cleanup(m_device, nullptr);
+		m_device.freeStagingBuffer(stagingBuffer);
 	}
 	m_dataManager.setState(DataManager::Flags::VERTICES_LOADED, false);
 }
@@ -1172,6 +1175,7 @@ void VulkanBase::updateVertexBuffer()
 void VulkanBase::updateIndexBuffer()
 {
 	vkQueueWaitIdle(m_device.queues.graphics);
+
 	auto strideSize = sizeof(uint32_t);
 	VkDeviceSize requiredBufferSize =
 		m_dataManager.getLoadedIndicesSize() * strideSize;
@@ -1182,7 +1186,7 @@ void VulkanBase::updateIndexBuffer()
 	if (requiredBufferSize > m_buffers.index.size)
 		createVertexBuffer(m_buffers.index, requiredBufferSize * 1.25);
 
-	vkh::structs::Buffer stagingBuffer = m_device.createStaginBuffer(requiredBufferSize);
+	vkh::structs::Buffer& stagingBuffer = m_device.getStagingBuffer(requiredBufferSize);
 	uint8_t* data = static_cast<uint8_t*>(stagingBuffer.map());
 
 	uint64_t offset = 0;
@@ -1196,10 +1200,10 @@ void VulkanBase::updateIndexBuffer()
 		offset = indices.size();
 		data += copySize;
 	}
-	stagingBuffer.unmap();
 	m_device.copyBuffer(stagingBuffer, m_buffers.index);
 
-	stagingBuffer.cleanup(m_device, nullptr);
+	m_device.freeStagingBuffer(stagingBuffer);
+
 	m_dataManager.setState(DataManager::Flags::INDICES_LOADED, false);
 }
 
@@ -1537,10 +1541,7 @@ void VulkanBase::cleanupBuffers()
 
 void VulkanBase::processInput()
 {
-	// process ui input
-	//static int previousSelection;
 	int selection = m_selectionUI.getSelection();
-	//GridTileResource resourceType = static_cast<GridTileResource>(selection);
 
 	App::Scene.m_simArea.m_creator.setCreateObject(selection);
 	

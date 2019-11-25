@@ -57,14 +57,15 @@ void SimulationAreaVisualizer::createVisuals(size_t xCount, size_t zCount, doubl
 {
 	const int maxXCount = 150;
 	const int maxZCount = 150;
-	size_t xPointsCount = std::clamp<size_t>(xCount, 0, maxXCount);
-	size_t zPointsCount = std::clamp<size_t>(zCount, 0, maxZCount);
+	const size_t xPointsCount = std::clamp<size_t>(xCount, 0, maxXCount);
+	const size_t zPointsCount = std::clamp<size_t>(zCount, 0, maxZCount);
+	const float sinkYCoord = -0.01;
 
 	GO::TypedVertices points;
 	GO::Indices indices;
 	auto& [vertType, variantVertices] = points;
 
-	const auto [circleVertices, circleIndices] = generateCircleVerticesAndIndices(0.1, 5);
+	const auto [circleVertices, circleIndices] = generateCircleVerticesAndIndices(0.05, 4);
 
 	variantVertices.resize(xPointsCount * zPointsCount * circleVertices.size());
 	vertType = GO::VertexType::DEFAULT;
@@ -78,9 +79,9 @@ void SimulationAreaVisualizer::createVisuals(size_t xCount, size_t zCount, doubl
 		for (int z = 0; z < zPointsCount; ++z)
 		{
 			glm::vec3 point;
-			point.x = -(float(xPointsCount) / 2.0f) + x;
-			point.y = 0;
-			point.z = -(float(zPointsCount) / 2.0f) + z;
+			point.x = (-(float(xPointsCount) / 2.0f) + x) * distanceBetweenPoints;
+			point.y = sinkYCoord;
+			point.z = (-(float(zPointsCount) / 2.0f) + z) * distanceBetweenPoints;
 
 			for (const auto& circlePoint : circleVertices)
 			{
@@ -91,7 +92,7 @@ void SimulationAreaVisualizer::createVisuals(size_t xCount, size_t zCount, doubl
 				variantVertices[currentIndex++] = varVert;
 			}
 			{
-				indIt = std::transform(circleIndices.begin(), circleIndices.end(), indIt, [currentIndex](const uint32_t& i) {return i + currentIndex; });
+				indIt = std::transform(circleIndices.rbegin(), circleIndices.rend(), indIt, [currentIndex](const uint32_t& i) {return i + currentIndex; });
 			}
 
 		}
@@ -111,6 +112,7 @@ void SimulationAreaVisualizer::createVisuals(size_t xCount, size_t zCount, doubl
 	info.modelInfo = &modelInfo;
 
 	graphics = App::Scene.vulkanBase.createGrahicsComponent(info);
+	graphics.setActive(true);
 }
 
 void SimulationAreaVisualizer::update()
@@ -133,6 +135,7 @@ void SimulationAreaVisualizer::update()
 
 SimulationArea::SimulationArea()
 {
+	m_creator.disable(true);
 }
 
 void SimulationArea::initArea()
@@ -141,7 +144,7 @@ void SimulationArea::initArea()
 
 	const auto [xCount, zCount] = getPointsCount();
 
-	//m_visuals.createVisuals(xCount, zCount, getDirectPointDistance());
+	m_visuals.createVisuals(xCount, zCount, getDirectPointDistance());
 }
 
 void SimulationArea::loadData()
@@ -152,7 +155,8 @@ void SimulationArea::update()
 {
 	updateMousePosition();
 	m_visuals.update();
-	m_creator.update();
+	m_roadCreator.update();
+	//m_creator.update();
 }
 
 bool SimulationArea::placeObject()
@@ -174,7 +178,6 @@ bool SimulationArea::placeSelectedObject()
 
 			auto it = m_data.objects.insert(m_data.objects.begin(), newObj);
 			
-			std::cout << "Created obj\n";
 			return true;
 		}
 	}
@@ -197,8 +200,16 @@ void SimulationArea::setEnableMouse(bool value)
 
 void SimulationArea::clickEvent()
 {
+	
+	if (m_enableMouse)
+	{
+		m_roadCreator.clickEvent();
+		return;
+	}
+	/*
 	if(m_enableMouse)
 		placeSelectedObject();
+	*/
 }
 
 std::pair<size_t, size_t> SimulationArea::getPointsCount() const
@@ -264,8 +275,7 @@ inline glm::vec3 SimulationArea::getNearestPoint(const glm::vec3& position) cons
 	auto spacedNumber = [](const float number, const float spaceSize) -> float
 	{
 		if (spaceSize <= 0 )
-			assert("negative or null space size");
-		//const float negCompensator = number >= 0 ? 1 : -1;
+			throw std::runtime_error("negative or null space size");
 
 		const int nearestDivider = std::round(number / spaceSize);
 		const float nearestSpacedNumber = nearestDivider * spaceSize;

@@ -55,6 +55,9 @@ public:
 	GraphicsComponent& operator=(const GraphicsComponent& other);
 	GraphicsComponent& operator=(GraphicsComponent&& other) noexcept;
 
+	void createGraphicsComponent(const Info::GraphicsComponentCreateInfo& info);
+	void recreateGraphicsComponent(const Info::GraphicsComponentCreateInfo& info);
+
 	//void recreateGraphics(const Info::GraphicsComponentCreateInfo& info);
 	const GraphicsModule& getGraphicsModule() const;
 	void setBufferOffset(size_t offset);

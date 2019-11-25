@@ -21,7 +21,7 @@
 #include "DescriptorManager.h"
 #include "PipelinesManager.h"
 
-#define ENABLE_VSYNC true
+#define ENABLE_VSYNC false
 
 using GraphicsObjects::ID;
 
@@ -177,6 +177,7 @@ public:
 	uint16_t getSwapchainImageCount() const;
 
 	GraphicsComponent createGrahicsComponent(const Info::GraphicsComponentCreateInfo& info);
+	void recreateGrahicsComponent(GraphicsComponent& gp, const Info::GraphicsComponentCreateInfo& info);
 	void copyGrahicsComponent(const GraphicsComponent& srcGraphicsComponent, GraphicsComponent& dstGraphicsComponent);
 	void destroyGraphicsComponent(const GraphicsComponent& comp);
 

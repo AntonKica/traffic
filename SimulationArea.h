@@ -8,6 +8,7 @@
 #include "GraphicsComponent.h"
 #include "SimulationAreaObject.h"
 #include "SimulationAreaObjectCreator.h"
+#include "RoadCreator.h"
 
 namespace Settings
 {
@@ -21,7 +22,7 @@ namespace Settings
 		const glm::vec3 origin = glm::vec3(0.0);
 
 		constexpr float unitLength = 1.0;
-		constexpr int pointsPerUnit = 4;
+		constexpr int pointsPerUnit = 2;
 
 		static_assert(pointsPerUnit > 1 && pointsPerUnit < 32 && multipleOfTwo(pointsPerUnit)
 			&& "Tile per one unit > 1 and < 32 and is multiple of 2");
@@ -94,6 +95,7 @@ public:
 
 	//[Obsolete("Should be refactored")]
 	SimulationAreaObjectCreator m_creator;
+	RoadCreator m_roadCreator;
 private:
 	void initTraits();
 	void updateMousePosition();

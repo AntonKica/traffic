@@ -27,6 +27,7 @@ static int otherCnt = 0;
 GraphicsComponent::GraphicsComponent(const GraphicsComponent& other)
 {
 	App::Scene.vulkanBase.copyGrahicsComponent(other, *this);
+	setActive(other.active);
 }
 
 GraphicsComponent::GraphicsComponent(GraphicsComponent&& other) noexcept
@@ -40,6 +41,7 @@ GraphicsComponent::GraphicsComponent(GraphicsComponent&& other) noexcept
 GraphicsComponent& GraphicsComponent::operator=(const GraphicsComponent& other)
 {
 	App::Scene.vulkanBase.copyGrahicsComponent(other, *this);
+	setActive(other.active);
 
 	return *this;
 }
@@ -53,6 +55,21 @@ GraphicsComponent& GraphicsComponent::operator=(GraphicsComponent&& other) noexc
 	other.graphicsModule = {};
 
 	return *this;
+}
+
+void GraphicsComponent::createGraphicsComponent(const Info::GraphicsComponentCreateInfo& info)
+{
+	*this = App::Scene.vulkanBase.createGrahicsComponent(info);
+}
+
+void GraphicsComponent::recreateGraphicsComponent(const Info::GraphicsComponentCreateInfo& info)
+{
+	// tune up
+	//std::cout << "Tune up recreateGraphicsComponent\n";i
+	if (initialized())
+		App::Scene.vulkanBase.recreateGrahicsComponent(*this, info);
+	else
+		createGraphicsComponent(info);
 }
 
 const GraphicsModule& GraphicsComponent::getGraphicsModule() const

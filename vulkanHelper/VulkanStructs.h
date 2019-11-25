@@ -127,6 +127,9 @@ namespace vkh
 			} queues;
 
 			std::vector<std::string> supportedExtensions;
+			bool stagingBufferInUse = false;
+			//relatively unsfe
+			vkh::structs::Buffer stagingBuffer;
 
 			VkCommandPool commandPool;
 
@@ -163,9 +166,11 @@ namespace vkh
 				vkh::structs::Buffer& buffer,
 				const void* data = nullptr) const;
 
-			vkh::structs::Buffer createStaginBuffer(
+			vkh::structs::Buffer& getStagingBuffer(
 				VkDeviceSize size,
 				const void* data = nullptr);
+
+			void freeStagingBuffer(vkh::structs::Buffer& stagingBuffer);
 
 			// copy via src buffer size
 			void copyBuffer(

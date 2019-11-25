@@ -215,6 +215,8 @@ void vkh::structs::VulkanDevice::initVulkanDevice(VkPhysicalDevice physicalDevic
 
 void vkh::structs::VulkanDevice::destroyVulkanDevice()
 {
+	if (stagingBuffer.initialized())
+		stagingBuffer.cleanup(logicalDevice, nullptr);
 	if (commandPool)
 		vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
 	if (logicalDevice)
@@ -439,14 +441,42 @@ VkResult vkh::structs::VulkanDevice::createBuffer(VkBufferUsageFlags usage, VkMe
 	return buffer.bind();
 }
 
-vkh::structs::Buffer vkh::structs::VulkanDevice::createStaginBuffer(VkDeviceSize size, const void* data)
+vkh::structs::Buffer& vkh::structs::VulkanDevice::getStagingBuffer(VkDeviceSize size, const void* data)
 {
-	vkh::structs::Buffer stagingBuffer;
+	if (stagingBufferInUse)
+		throw std::runtime_error("Forgot to free staging buffer!\n");
 
-	createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | 
-		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, size, stagingBuffer, data);
-	
+	if (stagingBuffer.size < size || !stagingBuffer.initialized())
+	{
+		createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, size, stagingBuffer, data);
+	}
+	else
+	{
+		if (data)
+		{
+			memcpy(stagingBuffer.map(), data, size);
+			stagingBuffer.unmap();
+		}
+	}
+
+	stagingBufferInUse = true;
 	return stagingBuffer;
+	/*
+	vkh::structs::Buffer sBuf;
+	createBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+		VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, size, sBuf, data);
+
+	return sBuf;*/
+}
+
+void vkh::structs::VulkanDevice::freeStagingBuffer(vkh::structs::Buffer& stagingBuffer)
+{
+	
+	stagingBufferInUse = false;
+	stagingBuffer.unmap();
+
+	//stagingBuffer.cleanup(logicalDevice, nullptr);
 }
 
 // copy via src buffer size

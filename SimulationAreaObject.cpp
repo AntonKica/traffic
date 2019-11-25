@@ -56,12 +56,6 @@ void SimulationAreaObject::rotate(Rotation::RotationDirection direction)
 	case Rotation::RotationDirection::RIGHT:
 		m_rotation.x += angleQuantum;
 		break;
-		/*case Rotation::RotationDirection::FORWARD:
-			m_rotation.x -= angleQuantum;
-			break;
-		case Rotation::RotationDirection::BACKWARD:
-			m_rotation.x += angleQuantum;
-			break;*/
 	case Rotation::RotationDirection::UP:
 		m_rotation.y -= angleQuantum;
 		break;
@@ -97,18 +91,9 @@ void SimulationAreaObject::setupModel()
 {
 	Info::DrawInfo dInfo{};
 	dInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+	dInfo.polygon = VK_POLYGON_MODE_FILL;
 
 	Info::ModelInfo mInfo{};
-	GO::TypedVertices vvs;
-	vvs.first = GO::VertexType::DEFAULT;
-	for (float i = 0; i <= 6.28; i+= 6.28/4)
-	{
-		GO::VariantVertex vv;
-		vv.vertex.position = { sin(i),0,cos(i)};
-		vvs.second.push_back(vv);
-	}
-	mInfo.vertices = &vvs;
-
 	mInfo.modelPath = getModelPath();
 
 	Info::GraphicsComponentCreateInfo createInfo;

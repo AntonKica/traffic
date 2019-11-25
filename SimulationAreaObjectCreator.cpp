@@ -42,7 +42,7 @@ void SimulationAreaObjectCreator::processKeyInput(int key, int value)
 {
 	if (key == GLFW_KEY_Q && value == GLFW_PRESS)
 		m_currentObject->rotate(Rotation::RotationDirection::LEFT);
-	else if (key == GLFW_KEY_R && value == GLFW_PRESS)
+	else if (key == GLFW_KEY_E && value == GLFW_PRESS)
 		m_currentObject->rotate(Rotation::RotationDirection::RIGHT);
 }
 
@@ -56,6 +56,9 @@ void SimulationAreaObjectCreator::setCreateObject(int id)
 
 void SimulationAreaObjectCreator::setCreateObject(SimulationObjectType type)
 {
+	if (m_disable)
+		return;
+
 	if(m_currentObject)
 		m_currentObject->m_graphicsComponent.setActive(false);
 
@@ -109,7 +112,17 @@ void SimulationAreaObjectCreator::releaseResources()
 
 void SimulationAreaObjectCreator::update()
 {
-	updateCreateObjectPos();
+	if(!m_disable)
+		updateCreateObjectPos();
+}
+
+void SimulationAreaObjectCreator::disable(bool value)
+{
+	m_disable = value;
+	if (m_disable)
+	{
+		m_currentObject->m_graphicsComponent.setActive(false);
+	}
 }
 
 
