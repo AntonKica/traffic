@@ -28,6 +28,7 @@ GraphicsComponent::GraphicsComponent(const GraphicsComponent& other)
 {
 	App::Scene.vulkanBase.copyGrahicsComponent(other, *this);
 	setActive(other.active);
+	graphicsModule->transformations = other.graphicsModule->transformations;
 }
 
 GraphicsComponent::GraphicsComponent(GraphicsComponent&& other) noexcept
@@ -42,6 +43,7 @@ GraphicsComponent& GraphicsComponent::operator=(const GraphicsComponent& other)
 {
 	App::Scene.vulkanBase.copyGrahicsComponent(other, *this);
 	setActive(other.active);
+	graphicsModule->transformations = other.graphicsModule->transformations;
 
 	return *this;
 }
@@ -97,22 +99,22 @@ void GraphicsComponent::setActive(bool value)
 }
 void GraphicsComponent::setPosition(const glm::vec3& pos)
 {
-	graphicsModule->position = pos;
+	graphicsModule->transformations.position = pos;
 }
 
 void GraphicsComponent::setRotation(const glm::vec3& rotation)
 {
-	graphicsModule->rotation = rotation;
+	graphicsModule->transformations.rotation = rotation;
 }
 
 glm::vec3 GraphicsComponent::getPosition() const
 {
-	return graphicsModule->position;
+	return graphicsModule->transformations.position;
 }
 
 glm::vec3 GraphicsComponent::getRotation() const
 {
-	return graphicsModule->rotation;
+	return graphicsModule->transformations.rotation;
 }
 
 void GraphicsComponent::freeGraphics()

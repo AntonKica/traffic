@@ -8,10 +8,12 @@
 using Point = glm::vec3;
 class Road
 {
+private:
+	glm::vec3 centralisePointsToPosition(std::vector<Point>& pts);
 public:
 	Road();
 
-	void createGraphics(const std::vector<Point>& pts);
+	void createGraphics(std::vector<Point> pts);
 
 	std::vector<Point> roadPoints;
 	GraphicsComponent graphics;

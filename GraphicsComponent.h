@@ -28,9 +28,12 @@ public:
 	GO::ID m_pipelineReference = {};
 
 	size_t dynamicBufferOffset;
-	glm::vec3 position = {};
-	glm::vec3 rotation = {};
-	glm::vec3 size = { 1.0, 1.0, 1.0 };
+	struct
+	{
+		glm::vec3 position = {};
+		glm::vec3 rotation = {};
+		glm::vec3 size = { 1.0, 1.0, 1.0 };
+	} transformations;
 };
 using pGraphicsModule = GraphicsModule*;
 

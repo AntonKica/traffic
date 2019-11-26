@@ -1,6 +1,7 @@
 #include "RoadCreator.h"
 #include "GlobalObjects.h"
 #include <glm/gtx/perpendicular.hpp>
+#include <numeric>
 
 constexpr int pointForLine = 2;
 std::vector<Point> genTriangles(const std::vector<Point>& points)
@@ -9,40 +10,45 @@ std::vector<Point> genTriangles(const std::vector<Point>& points)
 		return points;
 
 	//formula
-	uint32_t triangleCount = 3 * (points.size() - 2);
-	std::vector<Point> shapeTrianglesPoints(triangleCount);
-	auto insertIter = shapeTrianglesPoints.begin();
+	std::vector<Point> shapeTrianglesPoints;
 
-	for (int i = 2; i < points.size(); ++i)
+	// duplicate last two points
+	for (int i = 0; i + 3 <= points.size(); ++i)
 	{
-		// copy two previsous points and current
-		insertIter = shapeTrianglesPoints.insert(std::end(shapeTrianglesPoints), insertIter + i - 2, insertIter + i);
+		auto copyPos = std::begin(points) + i;
+		std::copy(copyPos, copyPos + 3, std::back_inserter(shapeTrianglesPoints));
 	}
 
 	return shapeTrianglesPoints;
 }
 
-std::vector<Point> buildSimpleShape(const std::vector<Point>& points, int width)
+std::vector<Point> buildSimpleShapeOutline(const std::vector<Point>& points, int width)
 {
 	if (points.size() < 2)
 		return points;
 
+	const glm::vec3 vectorUp(0.0f, 1.0f, 0.0f);
+
 	std::vector<Point> leftPoints;
 	std::vector<Point> rightPoints;
-	glm::vec3 normal = glm::normalize(points[0] - points[1]);
+
+	glm::vec3 dirVec;
 	for (int i =0; i < points.size(); ++i)
 	{	
 		//update normal
-		if(i + 1 < points.size())
-			normal = glm::normalize(points[i + 1] - points[i]);
+		if (i + 1 < points.size())
+			dirVec = glm::normalize(points[i + 1] - points[i]);
 
-		std::cout << i << ' ' <<glm::to_string(normal) << '\n';
+		// add little beauty
+		//if (i == 0 || i == points.size() - 1)
+		//	dirVec = glm::round(dirVec);
+
+		glm::vec3 rightVec = glm::normalize(glm::cross(dirVec, vectorUp));
+
 		const auto& curPoint = points[i];
 
-		const auto perpVec = glm::normalize(glm::perp(curPoint, normal));
-
-		Point right = curPoint + perpVec * (width / 2.0f);
-		Point left = curPoint - perpVec * (width / 2.0f);
+		Point right = curPoint + rightVec * (width / 2.0f);
+		Point left = curPoint - rightVec * (width / 2.0f);
 
 		// dont duplicate first and last
 		if (i == 0 || i == points.size() - 1)
@@ -62,13 +68,114 @@ std::vector<Point> buildSimpleShape(const std::vector<Point>& points, int width)
 
 	return shapePoints;
 }
+float calculateLength(const std::vector<Point>& points)
+{
+	float length = 0;
+	auto ptIt = points.begin();
+	while (ptIt != points.end() - 1)
+	{
+		length += glm::length(*ptIt - *(ptIt + 1));
+		++ptIt;
+	}
+
+	return length;
+}
+std::pair<GO::TypedVertices, GO::Indices> buildSimpleShape(const std::vector<Point>& points, int width)
+{
+	GO::Indices indices;
+	GO::TypedVertices typedVts;
+	auto& [type, vertices] = typedVts;
+	type = GO::VertexType::TEXTURED;
+	//if (points.size() < 2)
+	//	return points;
+	const glm::vec3 vectorUp(0.0f, 1.0f, 0.0f);
+
+	float shapeLength = calculateLength(points);
+
+	float textureDistance = 0;
+
+	glm::vec3 dirVec;
+	glm::vec3 pointsVec;
+	for (int i = 0; i < points.size(); ++i)
+	{
+		if (i + 1 < points.size())
+			pointsVec = glm::normalize(points[i + 1] - points[i]);
+
+		// vertices
+		std::array<GO::VariantVertex,2> variantVertex;
+		{
+			const auto& curPoint = points[i];
+
+			//update normal
+			if (i + 1 < points.size())
+				dirVec = glm::normalize(pointsVec);
+
+			glm::vec3 rightVec = glm::normalize(glm::cross(dirVec, vectorUp));
+
+			Point right = curPoint + rightVec * (width / 2.0f);
+			Point left = curPoint - rightVec * (width / 2.0f);
+			variantVertex[0].texturedVertex.position = left;
+			variantVertex[1].texturedVertex.position = right;
+		}
+		// textures
+		{
+			textureDistance += glm::length(pointsVec) / shapeLength;
+			glm::vec2 rightCoord = glm::vec2(1, textureDistance / shapeLength);
+			glm::vec2 leftCoord = glm::vec2(0, textureDistance / shapeLength);
+
+			variantVertex[0].texturedVertex.texCoord = leftCoord;
+			variantVertex[1].texturedVertex.texCoord = rightCoord;
+		}
+		vertices.insert(vertices.end(), { variantVertex[0], variantVertex[1] });
+	}
+
+	// indices
+	for (int i = 0; i < vertices.size(); ++i)
+	{
+		if (i > 1)
+		{
+			std::array<uint32_t, 3> triplets = { i - 2, i - 1, i };
+			indices.insert(std::end(indices), std::begin(triplets), std::end(triplets));
+		}
+	}
+
+	return std::make_pair(typedVts, indices);
+}
+
+struct MinMaxCoords
+{
+	float minX = std::numeric_limits<float>::max(), maxX =  std::numeric_limits<float>::min();
+	float minY = std::numeric_limits<float>::max(), maxY =  std::numeric_limits<float>::min();
+	float minZ = std::numeric_limits<float>::max(), maxZ =  std::numeric_limits<float>::min();
+};
+
+MinMaxCoords getMinMaxCoordsFromPoints(const std::vector<Point>& points)
+{
+	MinMaxCoords minMax{};
+
+	auto updateMinMax = [](float& min, float& max, const float& val)
+	{
+		min = std::min(min, val);
+		max = std::max(max, val);
+	};
+
+	for (const auto& point : points)
+	{
+		updateMinMax(minMax.minX, minMax.maxX, point.x);
+		updateMinMax(minMax.minY, minMax.maxY, point.y);
+		updateMinMax(minMax.minZ, minMax.maxZ, point.z);
+	}
+
+	return minMax;
+}
 
 std::vector<Point> generateCurveFromThreePoints(const std::array<Point, 3>& points)
 {
-	if (points[0] != points[1] && points[1] != points[2])
-		std::cout << '\n';
+	// on same line
+	if (points[0] == points[1] && points[1] == points[2])
+		return std::vector(points.begin(), points.end());
 
-	const float precision = 5;
+	const float precision = 20;
 	std::vector<Point> curvePoints(precision + 1);
 
 	const glm::vec3 firstDir = glm::normalize(points[1] - points[0]);
@@ -128,42 +235,46 @@ void RoadCreator::clickEvent()
 	setPoint();
 }
 
+glm::vec3 Road::centralisePointsToPosition(std::vector<Point>& pts)
+{
+	glm::vec3 avgPos = std::accumulate(std::begin(pts), std::end(pts), glm::vec3()) / float(pts.size());
+	std::transform(std::begin(pts), std::end(pts), std::begin(pts), [&avgPos](const Point& point)
+		{
+			return point - avgPos;
+		});
+
+	return avgPos;
+}
+
 Road::Road()
 {
 }
 
-void Road::createGraphics(const std::vector<Point>& pts)
+void Road::createGraphics(std::vector<Point> pts)
 {
-	GO::TypedVertices typedVts;
-	auto& [type, vvts] = typedVts;
+	glm::vec3 newPosition = centralisePointsToPosition(pts);
 
-	type = GO::VertexType::COLORED;
-	glm::vec3 color = glm::vec3(1.0, 0.2, 0.1);
-	auto transformPointToVtx = [&color](const Point& pt)
-	{
-		GO::VariantVertex vvtx;
-		vvtx.coloredVertex.position = pt;
-		vvtx.coloredVertex.color = color;
-		return vvtx;
-	};
-	std::vector<Point> drawPoints;
-	if (pts.size() == 2)
-	{
-		drawPoints = buildSimpleShape(pts, 1);
-	}
-	else if(pts.size() == 3)
-	{
-		drawPoints = buildSimpleShape(generateCurveFromThreePoints({ pts[0], pts[1], pts[2] }), 1);
-	}
-	std::transform(std::begin(drawPoints), std::end(drawPoints), std::back_inserter(vvts), transformPointToVtx);
+	GO::Indices indices;
+	GO::TypedVertices typedVertices;
+	auto& [type, vvts] = typedVertices;
+
+	if (pts.size() == 3)
+		pts = generateCurveFromThreePoints({ pts[0], pts[1], pts[2] });
+
+	auto [typedVertices_, indices_] = buildSimpleShape(pts, 1);
+	typedVertices = typedVertices_;
+	indices = indices_;
+	//typedVts = texturizePoints(drawPoints);
 
 	Info::DrawInfo dInfo;
-	dInfo.lineWidth = 2.0f;
-	dInfo.polygon = VK_POLYGON_MODE_LINE;
-	dInfo.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+	dInfo.lineWidth = 1.0f;
+	dInfo.polygon = VK_POLYGON_MODE_FILL;
+	dInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
 	Info::ModelInfo mInfo;
-	mInfo.vertices = &typedVts;
+	mInfo.vertices = &typedVertices;
+	mInfo.indices = &indices;
+	mInfo.texturePath = "resources/materials/road.png";
 
 	Info::GraphicsComponentCreateInfo gInfo;
 	gInfo.drawInfo = &dInfo;
@@ -171,6 +282,7 @@ void Road::createGraphics(const std::vector<Point>& pts)
 
 	graphics = App::Scene.vulkanBase.createGrahicsComponent(gInfo);
 	graphics.setActive(true);
+	graphics.setPosition(newPosition);
 }
 
 void CreatorVisualizer::update()
@@ -278,12 +390,12 @@ void CreatorVisualizer::updateGraphics()
 		std::vector<Point> drawPoints;
 		if (points.size() == 2)
 		{
-			drawPoints = buildSimpleShape(points, 1.0);
+			drawPoints = buildSimpleShapeOutline(points, 1.0);
 		}
 		else if (points.size() == 3)
 		{
 			auto temp = generateCurveFromThreePoints({ points[0], points[1], points[2] });
-			drawPoints = buildSimpleShape(temp, 1);
+			drawPoints = buildSimpleShapeOutline(temp, 1);
 		}
 
 		lineGraphics.setActive(true);

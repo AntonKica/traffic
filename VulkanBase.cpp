@@ -1474,11 +1474,13 @@ void VulkanBase::updateUniformBuffer(uint32_t currentImage)
 
 		UniformBufferObject ubo;
 		auto model = glm::mat4(1.0);
-		model = glm::translate(model, graphicsModule->position);
-		model = glm::rotate(model, glm::radians(graphicsModule->rotation.x), (glm::vec3)Transformations::VectorUp);
-		model = glm::rotate(model, glm::radians(graphicsModule->rotation.y), (glm::vec3)Transformations::VectorRight);
-		model = glm::rotate(model, glm::radians(graphicsModule->rotation.z), (glm::vec3)Transformations::VectorForward);
-		model = glm::scale(model, graphicsModule->size);
+		const auto& [position, rotation, size] = graphicsModule->transformations;
+
+		model = glm::translate(model, position);
+		model = glm::rotate(model, glm::radians(rotation.x), (glm::vec3)Transformations::VectorUp);
+		model = glm::rotate(model, glm::radians(rotation.y), (glm::vec3)Transformations::VectorRight);
+		model = glm::rotate(model, glm::radians(rotation.z), (glm::vec3)Transformations::VectorForward);
+		model = glm::scale(model, size);
 		ubo.model = model;
 
 		memcpy(data + graphicsModule->dynamicBufferOffset, &ubo, dynamicAligment);
