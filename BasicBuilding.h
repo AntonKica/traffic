@@ -9,7 +9,7 @@ public:
 	BasicBuilding();
 
 protected:
-	std::string getModelPath() const override;
+	//std::string getModelPath() const override;
 //private:
 
 };

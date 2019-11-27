@@ -1,23 +1,13 @@
 #pragma once
 #include "GraphicsComponent.h"
+#include "Road.h"
 
 #include <glm/glm.hpp>
 #include <vector>
-#include <set>
+#include <map>
 
 using Point = glm::vec3;
-class Road
-{
-private:
-	glm::vec3 centralisePointsToPosition(std::vector<Point>& pts);
-public:
-	Road();
-
-	void createGraphics(std::vector<Point> pts);
-
-	std::vector<Point> roadPoints;
-	GraphicsComponent graphics;
-};
+using Points = std::vector<glm::vec3>;
 
 template<class vec1> class VComparator
 {
@@ -39,13 +29,14 @@ class CreatorVisualizer
 {
 public:
 	void update();
-	void setPoints(const std::vector<Point>& points);
+	void setDraw(const std::vector<Point>& points, float width);
 
 private:
 	std::vector<glm::vec3> generateLines();
 	std::vector<glm::vec3> generatePoints();
 	void updateGraphics();
 
+	float width = 0;
 	std::vector<Point> pointToDraw;
 	std::optional<Point> mousePoint;
 
@@ -53,18 +44,45 @@ private:
 	GraphicsComponent lineGraphics;
 };
 
+class RoadManager;
+
+namespace
+{
+	struct Prototypes
+	{
+		std::string name;
+		uint32_t laneCount;
+		float width;
+		std::string texture;
+	};
+}
 class RoadCreator
 {
 private:
-	CreatorVisualizer visualizer;
-	using pointComparator = VComparator<Point>;
-	std::vector<Point> currentPoints;
-	std::vector<Road> tempRoads;
-
+	void setupPrototypes();
 	void setPoint();
-	void createRoadFromCurrent();
+	void createRoadIfPossible();
+	enum class Mode
+	{
+		STRAIGHT_LINE,
+		CURVED_LINE
+	};
+	RoadManager* roadManager;
+
+	Mode creatorMode{};
+	CreatorVisualizer visualizer;
+	std::vector<Point> currentPoints;
+
+	std::map<int, ::Prototypes> hardcodedRoadPrototypes;
+	int currentPrototypeID = 0;
 public:
+	void initialize(RoadManager* roadManager);
 	void update();
 	void clickEvent();
+
+	// temp function
+	std::vector<std::string> getRoadNames() const;
+	void setMode(int mode);
+	void setPrototype(int prototype);
 };
 

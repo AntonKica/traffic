@@ -14,16 +14,6 @@ SimulationAreaObject::SimulationAreaObject()
 SimulationAreaObject::~SimulationAreaObject()
 {
 }
-
-void SimulationAreaObject::place(const glm::vec3& placementPosition, const glm::vec3& rotation)
-{
-	// use setX rather
-	m_position = placementPosition;
-	m_rotation = placementPosition;
-
-	updateGraphics();
-}
-
 glm::vec3 SimulationAreaObject::getPosition() const
 {
 	return m_position;
@@ -45,6 +35,7 @@ void SimulationAreaObject::setRotation(const glm::vec3& newRotation)
 	updateGraphics();
 }
 
+/*
 void SimulationAreaObject::rotate(Rotation::RotationDirection direction)
 {
 	static const float angleQuantum = 90.0;
@@ -76,34 +67,28 @@ void SimulationAreaObject::rotate(Rotation::RotationDirection direction)
 			return angle;
 	};
 	std::transform((float*)&m_rotation.x, (float*)&m_rotation.x + 3, (float*)&m_rotation.x, fixRotation);
-}
+}*/
 
 void SimulationAreaObject::updateGraphics()
 {
-	if (!m_graphicsComponent.initialized())
-		setupModel();
-
-	m_graphicsComponent.setPosition(m_position + getModelPositionOffset());
-	m_graphicsComponent.setRotation(m_rotation);
+	if (m_graphicsComponent.initialized())
+	{
+		m_graphicsComponent.setPosition(m_position);
+		m_graphicsComponent.setRotation(m_rotation);
+	}
 }
 
-void SimulationAreaObject::setupModel()
+void SimulationAreaObject::setupModel(const Info::ModelInfo& modelInfo, bool activateOnCreation)
 {
 	Info::DrawInfo dInfo{};
 	dInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	dInfo.polygon = VK_POLYGON_MODE_FILL;
 
-	Info::ModelInfo mInfo{};
-	mInfo.modelPath = getModelPath();
-
 	Info::GraphicsComponentCreateInfo createInfo;
 	createInfo.drawInfo = &dInfo;
-	createInfo.modelInfo = &mInfo;
+	createInfo.modelInfo = &modelInfo;
 
 	m_graphicsComponent = App::Scene.vulkanBase.createGrahicsComponent(createInfo);
-}
-
-glm::vec3 SimulationAreaObject::getModelPositionOffset() const
-{
-	return glm::vec3();
+	m_graphicsComponent.setActive(activateOnCreation);
+	updateGraphics();
 }

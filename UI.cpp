@@ -1,7 +1,6 @@
 #include "UI.h"
 #include "VulkanBase.h"
 #include "GlobalObjects.h"
-#include "SimulationAreaObjectCreator.h"
 
 void UI::initUI(VulkanBase* pVulkanBase)
 {
@@ -97,20 +96,26 @@ void UI::createBoxes()
 
 		ImGui::Begin("Menu window!");
 
-		auto creationObjects = App::Scene.m_simArea.m_creator.getIdentifications();
+		auto objectNames = App::Scene.m_simArea.m_roadCreator.getRoadNames();
 
 		int num = 0;
-		for (const auto& identificator : creationObjects)
+		for (const auto& name : objectNames)
 		{
-			if (ImGui::Button(identificator.name.c_str()))
+			if (ImGui::Button(name.c_str()))
 			{
-				selectedName = identificator.name;
-				selectedNum = num;
+				selectedName = name;
+				selectedNum = num + 1;
+
+				App::Scene.m_simArea.m_roadCreator.setPrototype(num);
 			}
 			++num;
 		}
+		static bool curvedRoads = false;
+		ImGui::Checkbox("Curved roads", &curvedRoads);
+
 		//ImGui::SameLine();
 		ImGui::Text("Currently selected = %i %s", selectedNum + 1, selectedName.c_str());
+		App::Scene.m_simArea.m_roadCreator.setMode(curvedRoads ? 1 : 0);
 		/*auto tile = App::Scene.m_grid.getSelectedTile();
 		if (tile)
 		{

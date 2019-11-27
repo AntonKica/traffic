@@ -1,4 +1,6 @@
 #include "RoadCreator.h"
+#include "RoadManager.h"
+
 #include "GlobalObjects.h"
 #include <glm/gtx/perpendicular.hpp>
 #include <numeric>
@@ -39,10 +41,6 @@ std::vector<Point> buildSimpleShapeOutline(const std::vector<Point>& points, int
 		if (i + 1 < points.size())
 			dirVec = glm::normalize(points[i + 1] - points[i]);
 
-		// add little beauty
-		//if (i == 0 || i == points.size() - 1)
-		//	dirVec = glm::round(dirVec);
-
 		glm::vec3 rightVec = glm::normalize(glm::cross(dirVec, vectorUp));
 
 		const auto& curPoint = points[i];
@@ -68,80 +66,6 @@ std::vector<Point> buildSimpleShapeOutline(const std::vector<Point>& points, int
 
 	return shapePoints;
 }
-float calculateLength(const std::vector<Point>& points)
-{
-	float length = 0;
-	auto ptIt = points.begin();
-	while (ptIt != points.end() - 1)
-	{
-		length += glm::length(*ptIt - *(ptIt + 1));
-		++ptIt;
-	}
-
-	return length;
-}
-std::pair<GO::TypedVertices, GO::Indices> buildSimpleShape(const std::vector<Point>& points, int width)
-{
-	GO::Indices indices;
-	GO::TypedVertices typedVts;
-	auto& [type, vertices] = typedVts;
-	type = GO::VertexType::TEXTURED;
-	//if (points.size() < 2)
-	//	return points;
-	const glm::vec3 vectorUp(0.0f, 1.0f, 0.0f);
-
-	float shapeLength = calculateLength(points);
-
-	float textureDistance = 0;
-
-	glm::vec3 dirVec;
-	glm::vec3 pointsVec;
-	for (int i = 0; i < points.size(); ++i)
-	{
-		if (i + 1 < points.size())
-			pointsVec = glm::normalize(points[i + 1] - points[i]);
-
-		// vertices
-		std::array<GO::VariantVertex,2> variantVertex;
-		{
-			const auto& curPoint = points[i];
-
-			//update normal
-			if (i + 1 < points.size())
-				dirVec = glm::normalize(pointsVec);
-
-			glm::vec3 rightVec = glm::normalize(glm::cross(dirVec, vectorUp));
-
-			Point right = curPoint + rightVec * (width / 2.0f);
-			Point left = curPoint - rightVec * (width / 2.0f);
-			variantVertex[0].texturedVertex.position = left;
-			variantVertex[1].texturedVertex.position = right;
-		}
-		// textures
-		{
-			textureDistance += glm::length(pointsVec) / shapeLength;
-			glm::vec2 rightCoord = glm::vec2(1, textureDistance / shapeLength);
-			glm::vec2 leftCoord = glm::vec2(0, textureDistance / shapeLength);
-
-			variantVertex[0].texturedVertex.texCoord = leftCoord;
-			variantVertex[1].texturedVertex.texCoord = rightCoord;
-		}
-		vertices.insert(vertices.end(), { variantVertex[0], variantVertex[1] });
-	}
-
-	// indices
-	for (int i = 0; i < vertices.size(); ++i)
-	{
-		if (i > 1)
-		{
-			std::array<uint32_t, 3> triplets = { i - 2, i - 1, i };
-			indices.insert(std::end(indices), std::begin(triplets), std::end(triplets));
-		}
-	}
-
-	return std::make_pair(typedVts, indices);
-}
-
 struct MinMaxCoords
 {
 	float minX = std::numeric_limits<float>::max(), maxX =  std::numeric_limits<float>::min();
@@ -200,6 +124,12 @@ std::vector<Point> generateCurveFromThreePoints(const std::array<Point, 3>& poin
 
 	return curvePoints;
 }
+void RoadCreator::setupPrototypes()
+{
+	hardcodedRoadPrototypes[0] = { "Basic 2-lane road", 2, 1.0f, "resources/materials/road.png" };
+	hardcodedRoadPrototypes[1] = { "Basic 4-lane road", 4, 2.0f, "resources/materials/road2.png" };
+	currentPrototypeID = 0;
+}
 void RoadCreator::setPoint()
 {
 	auto pointPos = App::Scene.m_simArea.getSelectedPointPos();
@@ -208,21 +138,44 @@ void RoadCreator::setPoint()
 	{
 		currentPoints.push_back(pointPos.value());
 
-		if (currentPoints.size() == 3)
-			createRoadFromCurrent();
+		createRoadIfPossible();
 
-		visualizer.setPoints(currentPoints);
+		visualizer.setDraw(currentPoints, hardcodedRoadPrototypes[currentPrototypeID].width);
 	}
 }
 
-void RoadCreator::createRoadFromCurrent()
+void RoadCreator::createRoadIfPossible()
 {
-	Road newRoad;
-	newRoad.createGraphics(std::vector(std::begin(currentPoints), std::end(currentPoints)));
+	// do not construct from one poin
+	if (currentPoints.size() <= 1)
+		return;
 
-	tempRoads.push_back(newRoad);
+	Points creationPoints;
+	if (creatorMode == Mode::STRAIGHT_LINE && currentPoints.size() == 2)
+	{
+		creationPoints = currentPoints;
+	}
+	else if (creatorMode == Mode::CURVED_LINE && currentPoints.size() == 3)
+	{
+		std::array<Point, 3> curvePoints = { currentPoints[0], currentPoints[1], currentPoints[2] };
+		creationPoints = generateCurveFromThreePoints(curvePoints);
+	}
+	if (creationPoints.size())
+	{
+		const auto& currentPrototype = hardcodedRoadPrototypes[currentPrototypeID];
+		Road newRoad;
+		newRoad.construct(creationPoints, currentPrototype.laneCount, currentPrototype.width, currentPrototype.texture);
 
-	currentPoints.clear();
+		roadManager->addRoad(newRoad);
+
+		currentPoints.clear();
+	}
+}
+
+void RoadCreator::initialize(RoadManager* roadManager)
+{
+	this->roadManager = roadManager;
+	setupPrototypes();
 }
 
 void RoadCreator::update()
@@ -235,54 +188,31 @@ void RoadCreator::clickEvent()
 	setPoint();
 }
 
-glm::vec3 Road::centralisePointsToPosition(std::vector<Point>& pts)
-{
-	glm::vec3 avgPos = std::accumulate(std::begin(pts), std::end(pts), glm::vec3()) / float(pts.size());
-	std::transform(std::begin(pts), std::end(pts), std::begin(pts), [&avgPos](const Point& point)
-		{
-			return point - avgPos;
-		});
 
-	return avgPos;
+std::vector<std::string> RoadCreator::getRoadNames() const
+{
+	auto extractFun = [](const std::map<int, ::Prototypes>& prototypes)
+	{
+		std::vector<std::string> names;
+		for (const auto& [id, prototype] : prototypes)
+			names.push_back(prototype.name);
+
+		return names;
+	};
+
+	static std::vector<std::string> names = extractFun(hardcodedRoadPrototypes);
+	
+	return names;
 }
 
-Road::Road()
+void RoadCreator::setMode(int mode)
 {
+	creatorMode = static_cast<Mode>(mode);
 }
 
-void Road::createGraphics(std::vector<Point> pts)
+void RoadCreator::setPrototype(int prototype)
 {
-	glm::vec3 newPosition = centralisePointsToPosition(pts);
-
-	GO::Indices indices;
-	GO::TypedVertices typedVertices;
-	auto& [type, vvts] = typedVertices;
-
-	if (pts.size() == 3)
-		pts = generateCurveFromThreePoints({ pts[0], pts[1], pts[2] });
-
-	auto [typedVertices_, indices_] = buildSimpleShape(pts, 1);
-	typedVertices = typedVertices_;
-	indices = indices_;
-	//typedVts = texturizePoints(drawPoints);
-
-	Info::DrawInfo dInfo;
-	dInfo.lineWidth = 1.0f;
-	dInfo.polygon = VK_POLYGON_MODE_FILL;
-	dInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-
-	Info::ModelInfo mInfo;
-	mInfo.vertices = &typedVertices;
-	mInfo.indices = &indices;
-	mInfo.texturePath = "resources/materials/road.png";
-
-	Info::GraphicsComponentCreateInfo gInfo;
-	gInfo.drawInfo = &dInfo;
-	gInfo.modelInfo = &mInfo;
-
-	graphics = App::Scene.vulkanBase.createGrahicsComponent(gInfo);
-	graphics.setActive(true);
-	graphics.setPosition(newPosition);
+	currentPrototypeID = prototype;
 }
 
 void CreatorVisualizer::update()
@@ -297,9 +227,10 @@ void CreatorVisualizer::update()
 	updateGraphics();
 }
 
-void CreatorVisualizer::setPoints(const std::vector<Point>& points)
+void CreatorVisualizer::setDraw(const std::vector<Point>& points, float width)
 {
 	pointToDraw = points;
+	this->width = width;
 }
 
 std::vector<glm::vec3> CreatorVisualizer::generateLines()
@@ -388,14 +319,15 @@ void CreatorVisualizer::updateGraphics()
 	if (points.size() > 1)
 	{
 		std::vector<Point> drawPoints;
+
 		if (points.size() == 2)
 		{
-			drawPoints = buildSimpleShapeOutline(points, 1.0);
+			drawPoints = buildSimpleShapeOutline(points, width);
 		}
 		else if (points.size() == 3)
 		{
 			auto temp = generateCurveFromThreePoints({ points[0], points[1], points[2] });
-			drawPoints = buildSimpleShapeOutline(temp, 1);
+			drawPoints = buildSimpleShapeOutline(temp, width);
 		}
 
 		lineGraphics.setActive(true);

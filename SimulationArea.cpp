@@ -135,7 +135,11 @@ void SimulationAreaVisualizer::update()
 
 SimulationArea::SimulationArea()
 {
-	m_creator.disable(true);
+	//m_creator.disable(true);
+}
+
+SimulationArea::~SimulationArea()
+{
 }
 
 void SimulationArea::initArea()
@@ -145,6 +149,7 @@ void SimulationArea::initArea()
 	const auto [xCount, zCount] = getPointsCount();
 
 	m_visuals.createVisuals(xCount, zCount, getDirectPointDistance());
+	m_roadCreator.initialize(&m_roadManager);
 }
 
 void SimulationArea::loadData()
@@ -166,7 +171,7 @@ bool SimulationArea::placeObject()
 
 bool SimulationArea::placeSelectedObject()
 {
-	auto newObject = m_creator.getCurrentObject();
+	/*auto newObject = m_creator.getCurrentObject();
 	if (newObject)
 	{
 		if (isInArea(newObject->getPosition()))
@@ -181,6 +186,7 @@ bool SimulationArea::placeSelectedObject()
 			return true;
 		}
 	}
+	*/
 	return false;
 }
 
@@ -200,16 +206,11 @@ void SimulationArea::setEnableMouse(bool value)
 
 void SimulationArea::clickEvent()
 {
-	
 	if (m_enableMouse)
 	{
 		m_roadCreator.clickEvent();
 		return;
 	}
-	/*
-	if(m_enableMouse)
-		placeSelectedObject();
-	*/
 }
 
 std::pair<size_t, size_t> SimulationArea::getPointsCount() const

@@ -455,7 +455,8 @@ vkh::structs::Buffer& vkh::structs::VulkanDevice::getStagingBuffer(VkDeviceSize 
 	{
 		if (data)
 		{
-			memcpy(stagingBuffer.map(), data, size);
+			stagingBuffer.map();
+			memcpy(stagingBuffer.mapped, data, size);
 			stagingBuffer.unmap();
 		}
 	}

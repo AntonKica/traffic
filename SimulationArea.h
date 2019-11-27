@@ -7,7 +7,8 @@
 #include <glm/glm.hpp>
 #include "GraphicsComponent.h"
 #include "SimulationAreaObject.h"
-#include "SimulationAreaObjectCreator.h"
+
+#include "RoadManager.h"
 #include "RoadCreator.h"
 
 namespace Settings
@@ -78,6 +79,7 @@ class SimulationArea final
 public:
 	// with default values
 	SimulationArea();
+	~SimulationArea();
 	void initArea();
 
 	void loadData();
@@ -94,8 +96,10 @@ public:
 	std::optional<glm::vec3> getSelectedPointPos() const;
 
 	//[Obsolete("Should be refactored")]
-	SimulationAreaObjectCreator m_creator;
+	//SimulationAreaObjectCreator m_creator;
+
 	RoadCreator m_roadCreator;
+	RoadManager m_roadManager;
 private:
 	void initTraits();
 	void updateMousePosition();
@@ -105,7 +109,6 @@ private:
 
 	SAS::SimulationAreaTraits m_traits;
 	SimulationAreaVisualizer m_visuals;
-	SAS::SimulationAreaData m_data;
 
 	// where mouse falls on area
 	

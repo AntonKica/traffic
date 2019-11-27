@@ -183,7 +183,7 @@ static void keyboardInputCallback(GLFWwindow* window, int key, int scanCode, int
 	}
 
 	// weird
-	App::Scene.m_simArea.m_creator.processKeyInput(key, action);
+	//App::Scene.m_simArea.m_creator.processKeyInput(key, action);
 }
 
 VkResult CreteDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
@@ -515,10 +515,9 @@ std::optional<const vkh::structs::Image*> VulkanBase::findImage(const std::strin
 {
 	std::optional<const vkh::structs::Image*> image;
 
-	std::string file = std::filesystem::path(filePath).filename().string();
 	for (const auto& [_file, _image] : m_images)
 	{
-		if (_file== file)
+		if (_file== filePath)
 		{
 			image = &_image;
 			break;
@@ -1537,15 +1536,15 @@ void VulkanBase::cleanupBuffers()
 	for (auto uniformBuffer : m_buffers.uniform)
 		uniformBuffer.cleanup(m_device, nullptr);
 
-	for (const auto image : m_images)
-		vkDestroyImage(m_device, image.second.image, nullptr);
+	for (auto& [path, image] : m_images)
+		image.cleanup(m_device, nullptr);
 }
 
 void VulkanBase::processInput()
 {
 	int selection = m_selectionUI.getSelection();
 
-	App::Scene.m_simArea.m_creator.setCreateObject(selection);
+	//App::Scene.m_simArea.m_creator.setCreateObject(selection);
 	
 	bool enableMouse = !m_selectionUI.mouseOverlap();
 	App::Scene.m_simArea.setEnableMouse(enableMouse);
