@@ -44,7 +44,6 @@ private:
 	GraphicsComponent lineGraphics;
 };
 
-class RoadManager;
 
 namespace
 {
@@ -56,6 +55,8 @@ namespace
 		std::string texture;
 	};
 }
+
+class RoadManager;
 class RoadCreator
 {
 private:

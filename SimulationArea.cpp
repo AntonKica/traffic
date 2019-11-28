@@ -149,7 +149,6 @@ void SimulationArea::initArea()
 	const auto [xCount, zCount] = getPointsCount();
 
 	m_visuals.createVisuals(xCount, zCount, getDirectPointDistance());
-	m_roadCreator.initialize(&m_roadManager);
 }
 
 void SimulationArea::loadData()
@@ -160,7 +159,7 @@ void SimulationArea::update()
 {
 	updateMousePosition();
 	m_visuals.update();
-	m_roadCreator.update();
+	m_roadManager.update();
 	//m_creator.update();
 }
 
@@ -208,7 +207,7 @@ void SimulationArea::clickEvent()
 {
 	if (m_enableMouse)
 	{
-		m_roadCreator.clickEvent();
+		m_roadManager.roadCreator.clickEvent();
 		return;
 	}
 }
@@ -228,6 +227,11 @@ std::optional<glm::vec3> SimulationArea::getSelectedPointPos() const
 		selectedPoint = getNearestPoint(m_mousePosition.value());
 
 	return selectedPoint;
+}
+
+std::optional<glm::vec3> SimulationArea::getMousePosition() const
+{
+	return m_mousePosition;
 }
 
 void SimulationArea::initTraits()

@@ -97,6 +97,8 @@ namespace
 	struct UniformBufferObject
 	{
 		glm::mat4 model;
+		glm::vec4 tint;
+		float transparency;
 	};
 }
 

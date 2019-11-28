@@ -4,12 +4,13 @@
 using Point = glm::vec3;
 using Points = std::vector<Point>;
 
+bool polygonPointCollision(const Points& polygon, const Point& point);
+bool polygonPointCollision(const Points& vertices, float px, float py);
+bool polygonPolygonCollision(const Points& polygonOne, const Points& polygonTwo);
 
 class Road :
 	public SimulationAreaObject
 {
-private:
-
 public:
 	static Points createLocalPoints(const Points& points, const glm::vec3& position);
 
@@ -18,11 +19,14 @@ protected:
 	struct RoadParameters
 	{
 		Points axis;
+		Points model;
 		uint32_t laneCount;
 		float width;
 		std::string texture;
 	};
 
 	RoadParameters parameters;
+public:
+	RoadParameters getRoadParameters() const;
 };
 

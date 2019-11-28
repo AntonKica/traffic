@@ -34,6 +34,12 @@ public:
 		glm::vec3 rotation = {};
 		glm::vec3 size = { 1.0, 1.0, 1.0 };
 	} transformations;
+
+	struct
+	{
+		glm::vec4 tint = {};
+		float transparency = 0;
+	} shaderInfo;
 };
 using pGraphicsModule = GraphicsModule*;
 
@@ -69,6 +75,8 @@ public:
 	void setActive(bool value);
 	void setPosition(const glm::vec3& pos);
 	void setRotation(const glm::vec3& rotation);
+	void setTint(const glm::vec4& tint);
+	void setTransparency(const float transparency);
 	glm::vec3 getPosition() const;
 	glm::vec3 getRotation() const;
 	//stupid

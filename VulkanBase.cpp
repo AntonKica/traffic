@@ -1481,6 +1481,8 @@ void VulkanBase::updateUniformBuffer(uint32_t currentImage)
 		model = glm::rotate(model, glm::radians(rotation.z), (glm::vec3)Transformations::VectorForward);
 		model = glm::scale(model, size);
 		ubo.model = model;
+		ubo.tint = graphicsModule->shaderInfo.tint;
+		ubo.transparency = graphicsModule->shaderInfo.transparency;
 
 		memcpy(data + graphicsModule->dynamicBufferOffset, &ubo, dynamicAligment);
 	}

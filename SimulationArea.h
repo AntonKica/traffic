@@ -94,11 +94,11 @@ public:
 
 	std::pair<size_t, size_t> getPointsCount() const;
 	std::optional<glm::vec3> getSelectedPointPos() const;
+	std::optional<glm::vec3> getMousePosition() const;
 
 	//[Obsolete("Should be refactored")]
 	//SimulationAreaObjectCreator m_creator;
 
-	RoadCreator m_roadCreator;
 	RoadManager m_roadManager;
 private:
 	void initTraits();

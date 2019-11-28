@@ -107,6 +107,16 @@ void GraphicsComponent::setRotation(const glm::vec3& rotation)
 	graphicsModule->transformations.rotation = rotation;
 }
 
+void GraphicsComponent::setTint(const glm::vec4& tint)
+{
+	graphicsModule->shaderInfo.tint = tint;
+}
+
+void GraphicsComponent::setTransparency(const float transparency)
+{
+	graphicsModule->shaderInfo.transparency = transparency;
+}
+
 glm::vec3 GraphicsComponent::getPosition() const
 {
 	return graphicsModule->transformations.position;

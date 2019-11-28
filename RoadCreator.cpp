@@ -5,24 +5,6 @@
 #include <glm/gtx/perpendicular.hpp>
 #include <numeric>
 
-constexpr int pointForLine = 2;
-std::vector<Point> genTriangles(const std::vector<Point>& points)
-{
-	if (points.size() <= 3)
-		return points;
-
-	//formula
-	std::vector<Point> shapeTrianglesPoints;
-
-	// duplicate last two points
-	for (int i = 0; i + 3 <= points.size(); ++i)
-	{
-		auto copyPos = std::begin(points) + i;
-		std::copy(copyPos, copyPos + 3, std::back_inserter(shapeTrianglesPoints));
-	}
-
-	return shapeTrianglesPoints;
-}
 
 std::vector<Point> buildSimpleShapeOutline(const std::vector<Point>& points, int width)
 {
@@ -124,6 +106,7 @@ std::vector<Point> generateCurveFromThreePoints(const std::array<Point, 3>& poin
 
 	return curvePoints;
 }
+
 void RoadCreator::setupPrototypes()
 {
 	hardcodedRoadPrototypes[0] = { "Basic 2-lane road", 2, 1.0f, "resources/materials/road.png" };
