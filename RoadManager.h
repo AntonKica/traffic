@@ -12,7 +12,12 @@ public:
 	void addRoad(Road road);
 
 	RoadCreator roadCreator;
+	
+	//gets first
+	std::optional<Road*> getSelectedRoad();
 private:
+	void updateSelectedRoads();
 	std::vector<Road> roads;
+	std::optional<Road*> selectedRoad;
 };
 

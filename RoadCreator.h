@@ -63,6 +63,7 @@ private:
 	void setupPrototypes();
 	void setPoint();
 	void createRoadIfPossible();
+	void updateMousePoint();
 	enum class Mode
 	{
 		STRAIGHT_LINE,
@@ -73,6 +74,7 @@ private:
 	Mode creatorMode{};
 	CreatorVisualizer visualizer;
 	std::vector<Point> currentPoints;
+	std::optional<Point> mousePoint;
 
 	std::map<int, ::Prototypes> hardcodedRoadPrototypes;
 	int currentPrototypeID = 0;

@@ -15,6 +15,8 @@ public:
 	static Points createLocalPoints(const Points& points, const glm::vec3& position);
 
 	void construct(const Points& points, uint32_t laneCount, float width, std::string texture);
+	bool isPointOnRoad(const Point& point) const;
+	Point getPointOnRoad(const Point& pointPosition) const;
 protected:
 	struct RoadParameters
 	{

@@ -115,15 +115,11 @@ void RoadCreator::setupPrototypes()
 }
 void RoadCreator::setPoint()
 {
-	auto pointPos = App::Scene.m_simArea.getSelectedPointPos();
-
-	if (pointPos)
+	if (mousePoint)
 	{
-		currentPoints.push_back(pointPos.value());
+		currentPoints.push_back(mousePoint.value());
 
 		createRoadIfPossible();
-
-		visualizer.setDraw(currentPoints, hardcodedRoadPrototypes[currentPrototypeID].width);
 	}
 }
 
@@ -155,6 +151,24 @@ void RoadCreator::createRoadIfPossible()
 	}
 }
 
+void RoadCreator::updateMousePoint()
+{
+	auto mousePos = App::Scene.m_simArea.getMousePosition();
+
+	if (mousePos)
+	{
+		auto selectedRoad = roadManager->getSelectedRoad();
+
+		mousePoint = selectedRoad ? selectedRoad.value()->getPointOnRoad(mousePos.value()) : mousePos;
+
+		Points points = currentPoints;
+		points.push_back(mousePoint.value());
+
+		std::cout << points.size() << '\n';
+		visualizer.setDraw(points, hardcodedRoadPrototypes[currentPrototypeID].width);
+	}
+}
+
 void RoadCreator::initialize(RoadManager* roadManager)
 {
 	this->roadManager = roadManager;
@@ -163,6 +177,8 @@ void RoadCreator::initialize(RoadManager* roadManager)
 
 void RoadCreator::update()
 {
+	//here pause
+	updateMousePoint();
 	visualizer.update();
 }
 
@@ -200,13 +216,6 @@ void RoadCreator::setPrototype(int prototype)
 
 void CreatorVisualizer::update()
 {
-	auto mousePos = App::Scene.m_simArea.getSelectedPointPos();
-
-	if (mousePos)
-	{
-		mousePoint = mousePos.value();
-	}
-
 	updateGraphics();
 }
 
@@ -362,3 +371,4 @@ void CreatorVisualizer::updateGraphics()
 		pointGraphics.setActive(false);
 	}
 }
+

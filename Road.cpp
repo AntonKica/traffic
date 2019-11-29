@@ -21,9 +21,9 @@ float calculateLength(const Points& points)
 
 glm::vec3 getAveratePosition(const Points& points)
 {
-	glm::vec3 averatePosition = std::accumulate(std::begin(points), std::end(points), glm::vec3());
+	glm::vec3 averagePosition = std::accumulate(std::begin(points), std::end(points), glm::vec3());
 
-	return averatePosition;
+	return averagePosition / float(points.size());
 }
 
 
@@ -47,8 +47,6 @@ bool polygonPointCollision(const Points& polygon, const Point& point)
 			}
 		}
 	}
-	if (collision)
-		std::cout << "Hitted " << glm::to_string(hitPos) << '\n';
 
 	return collision;
 }
@@ -267,6 +265,64 @@ void Road::construct(const Points& points, uint32_t laneCount, float width, std:
 	modelInfo.texturePath = parameters.texture;
 
 	setupModel(modelInfo, true);
+}
+
+bool Road::isPointOnRoad(const Point& point) const
+{
+	return polygonPointCollision(parameters.model, point);
+}
+
+std::pair<Point,Point> findTwoClosestPoints (const Points& points, const Point& point)
+{
+	std::optional<Point> first, second;
+	for (const auto& point_ : points)
+	{
+		if (!first)
+		{
+			first = point_;
+			continue;
+		}
+
+		float currentDistance = glm::length(point - point_);
+		float firstPointDistance = glm::length(point - first.value());
+		if (currentDistance < firstPointDistance)
+		{
+			second = first;
+			first = point_;
+		}
+		else if (!second)
+		{
+			second = point_;
+		}
+		else if (float secondPointDistance = glm::length(point - second.value());
+			currentDistance < secondPointDistance)
+		{
+			second = point_;
+		}
+	}
+
+	return std::make_pair(first.value(), second.value());
+};
+
+Point Road::getPointOnRoad(const Point& pointPosition) const
+{
+	// in local coordinates
+	glm::vec3 localPosition = pointPosition - m_position;
+
+	const auto [pointOne, pointTwo] = findTwoClosestPoints(parameters.axis, localPosition);
+	glm::vec3 directionPoint = pointTwo - pointOne;
+	float lineLength = glm::length(directionPoint);
+
+	float alpha = glm::acos(glm::dot(glm::normalize(pointTwo - pointOne), glm::normalize(localPosition - pointOne)));
+	float lineDistanceFromPointOne = glm::length(pointOne - localPosition) * cos(alpha);
+	float percentageDistance = lineDistanceFromPointOne / lineLength;
+
+	return m_position + pointOne + directionPoint * percentageDistance;
+	/*
+	float linearCoeficient = (pointOne.z - pointTwo.z) / (pointOne.x - pointTwo.x);
+	float absoluteMember = pointOne.z - linearCoeficient * pointOne.x;
+	*/
+
 }
 
 Road::RoadParameters Road::getRoadParameters() const
