@@ -140,6 +140,8 @@ std::vector<VkVertexInputAttributeDescription> GraphicsObjects::getAttributeDesc
 	}
 }
 
+#include <iostream>
+#include <glm/gtx/string_cast.hpp>
 GO::ByteVertices GraphicsObjects::transformTypedVerticesToBytes(const TypedVertices& tTverts)
 {
 	const auto& [type, verts] = tTverts;

@@ -21,7 +21,7 @@ struct ModelReference;
 class GraphicsModule
 {
 public:
-	const ModelReference* pModelReference = nullptr;
+	std::shared_ptr<ModelReference> pModelReference = nullptr;
 	// create module
 	const vkh::structs::Image* pTexture = nullptr;
 	GO::ID m_descriptorSetReference = {};

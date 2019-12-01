@@ -2,6 +2,7 @@
 //#include "SimulationArea.h"
 #include "Road.h"
 #include "RoadCreator.h"
+#include <list>
 
 class RoadManager
 {
@@ -10,6 +11,9 @@ public:
 
 	void update();
 	void addRoad(Road road);
+	void addRoads(const std::vector<Road>& insertRoads);
+	void removeRoad(Road* toRemove);
+	void removeRoads(std::vector<Road*> toRemove);
 
 	RoadCreator roadCreator;
 	
@@ -17,7 +21,7 @@ public:
 	std::optional<Road*> getSelectedRoad();
 private:
 	void updateSelectedRoads();
-	std::vector<Road> roads;
+	std::list<Road> roads;
 	std::optional<Road*> selectedRoad;
 };
 

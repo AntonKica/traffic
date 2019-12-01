@@ -114,6 +114,7 @@ namespace VulkanSettings
 
 class VulkanBase
 {
+	friend class RoadCreator;
 	// visuals
 	GLFWwindow* m_window;
 	UI m_selectionUI;

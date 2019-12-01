@@ -115,57 +115,129 @@ void RoadCreator::setupPrototypes()
 }
 void RoadCreator::setPoint()
 {
-	if (mousePoint)
-	{
-		currentPoints.push_back(mousePoint.value());
+	placedPoints = currentPoints;
 
-		createRoadIfPossible();
-	}
+	createRoadIfPossible();
 }
+
+struct RoadCompare
+{
+	bool operator()(const Road& road1, const Road& road2) const
+	{
+		return std::memcmp(&road1, &road2, sizeof(Road)) == 0;
+	};
+};
 
 void RoadCreator::createRoadIfPossible()
 {
 	// do not construct from one poin
-	if (currentPoints.size() <= 1)
+	if (placedPoints.size() <= 1)
 		return;
 
 	Points creationPoints;
-	if (creatorMode == Mode::STRAIGHT_LINE && currentPoints.size() == 2)
+	if (creatorMode == Mode::STRAIGHT_LINE && placedPoints.size() == 2)
 	{
-		creationPoints = currentPoints;
+		creationPoints = { placedPoints[0].point, placedPoints[1].point};
 	}
-	else if (creatorMode == Mode::CURVED_LINE && currentPoints.size() == 3)
+	else if (creatorMode == Mode::CURVED_LINE && placedPoints.size() == 3)
 	{
-		std::array<Point, 3> curvePoints = { currentPoints[0], currentPoints[1], currentPoints[2] };
+		std::array<Point, 3> curvePoints = { placedPoints[0].point, placedPoints[1].point, placedPoints[2].point };
 		creationPoints = generateCurveFromThreePoints(curvePoints);
 	}
+
 	if (creationPoints.size())
 	{
 		const auto& currentPrototype = hardcodedRoadPrototypes[currentPrototypeID];
+		const auto& firstPoint = placedPoints.front();
+		const auto& lastPoint = placedPoints.back();
+
+		std::vector<Road> connectedRoads;
+		std::vector<Road> additionalRoads;
+		std::set<Road*> removeRoads;
+		if (firstPoint.road)
+		{
+			auto[connectRoad, splitRoad] = firstPoint.road->splitRoad(firstPoint.point);
+			if (splitRoad)
+			{
+				placedPoints.clear();
+				return;
+			}
+			removeRoads.insert(firstPoint.road);
+
+			connectedRoads.push_back(connectRoad);
+			//if (splitRoad)
+			//	additionalRoads.push_back(splitRoad.value());
+		}
+		if (lastPoint.road && firstPoint.road != lastPoint.road)
+		{
+			auto [connectRoad, splitRoad] = lastPoint.road->splitRoad(lastPoint.point);
+			if (splitRoad)
+			{
+				placedPoints.clear();
+				return;
+			}
+			removeRoads.insert(lastPoint.road);
+
+			connectedRoads.push_back(connectRoad);
+			//if(splitRoad)
+			//	additionalRoads.push_back(splitRoad.value());
+		}
+
 		Road newRoad;
 		newRoad.construct(creationPoints, currentPrototype.laneCount, currentPrototype.width, currentPrototype.texture);
+		for (const auto& connectedRoad : connectedRoads)
+		{
+			newRoad = newRoad.mergeRoads(std::pair(newRoad,connectedRoad));
+		}
 
+
+		roadManager->removeRoads(std::vector(std::begin(removeRoads), std::end(removeRoads)));
 		roadManager->addRoad(newRoad);
 
-		currentPoints.clear();
+		roadManager->addRoads(additionalRoads);
+
+		placedPoints.clear();
 	}
 }
 
-void RoadCreator::updateMousePoint()
+void RoadCreator::updatePoints()
 {
-	auto mousePos = App::Scene.m_simArea.getMousePosition();
-
-	if (mousePos)
+	if (currentPoints.size() - 1 != placedPoints.size())
 	{
+		currentPoints = placedPoints;
+		currentPoints.push_back(SittingPoint());
+	}
+
+	auto mousePosition = App::Scene.m_simArea.getMousePosition();
+	if (mousePosition)
+	{
+		SittingPoint sittingPoint{};
+
 		auto selectedRoad = roadManager->getSelectedRoad();
+		if (selectedRoad)
+		{
+			sittingPoint.point = selectedRoad.value()->getPointOnRoad(mousePosition.value());
+			sittingPoint.road = selectedRoad.value();
+		}
+		else
+		{
+			sittingPoint.point = mousePosition.value();
+		}
+		// add to visalize drawing
+		currentPoints.back() = sittingPoint;
 
-		mousePoint = selectedRoad ? selectedRoad.value()->getPointOnRoad(mousePos.value()) : mousePos;
+		Points drawPoints;
+		std::transform(std::begin(currentPoints), std::end(currentPoints), std::back_inserter(drawPoints), [](const SittingPoint& sittingPoint)
+			{
+				return sittingPoint.point;
+			});
 
-		Points points = currentPoints;
-		points.push_back(mousePoint.value());
-
-		std::cout << points.size() << '\n';
-		visualizer.setDraw(points, hardcodedRoadPrototypes[currentPrototypeID].width);
+		visualizer.setDraw(drawPoints, hardcodedRoadPrototypes[currentPrototypeID].width);
+	}
+	// erase back
+	else
+	{
+		currentPoints.erase(currentPoints.end() - 1);
 	}
 }
 
@@ -178,13 +250,18 @@ void RoadCreator::initialize(RoadManager* roadManager)
 void RoadCreator::update()
 {
 	//here pause
-	updateMousePoint();
+	updatePoints();
 	visualizer.update();
 }
 
 void RoadCreator::clickEvent()
 {
 	setPoint();
+}
+
+void RoadCreator::rollBackEvent()
+{
+	placedPoints.erase(placedPoints.end() - 1, placedPoints.end());
 }
 
 

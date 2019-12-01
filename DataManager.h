@@ -3,6 +3,7 @@
 #include <optional>
 #include <bitset>
 #include <set>
+#include <memory>
 #include <string>
 #include "GraphicsObjects.h"
 #include "GraphicsComponent.h"
@@ -30,13 +31,13 @@ struct ModelReference
 {
 	std::optional<std::string> file;
 
-	const GO::ByteVertices* pVertices;
-	std::optional<const GO::Indices*> pIndices;
-	std::optional<const std::string> texture;
+	std::shared_ptr<GO::ByteVertices> pVertices;
+	std::shared_ptr<GO::Indices> pIndices;
+	std::optional<std::string> texture;
 };
 namespace Comparators
 {
-	struct ModelReferenceCompLess
+	/*struct ModelReferenceCompLess
 	{
 		bool compare(const ModelReference* lhs, const ModelReference* rhs) const
 		{
@@ -108,7 +109,7 @@ namespace Comparators
 
 			return false;
 		}
-	};
+	};*/
 }
 class DataManager
 {
@@ -117,14 +118,17 @@ private:
 	bool sizeContentCompare(const c1& c1, const c2& c2) const;
 	template <typename c1, typename c2, typename pr>
 	bool sizeContentCompare(const c1& c1, const c2& c2, pr pred) const;
-	using ByteVerticesSet = std::set<GO::ByteVertices, Comparators::ByteVerticesCompLess>;
-	using IndicesSet = std::set<GO::Indices, Comparators::IndicesCompLess>;
-	using ModelReferenceSet = std::set<ModelReference, Comparators::ModelReferenceCompLess>;
+	//using ByteVerticesSet = std::multiset<GO::ByteVertices, Comparators::ByteVerticesCompLess>;
+	//using IndicesSet = std::multiset<GO::Indices, Comparators::IndicesCompLess>;
+	//using ModelReferenceSet = std::multiset<ModelReference, Comparators::ModelReferenceCompLess>;
 
 	GO::Model processModelInfo(const Info::ModelInfo& info) const;
-	std::optional<const ModelReference*> modelLoaded(const GO::Model& model) const;
-	const GO::ByteVertices* loadVertices(const GO::ByteVertices& vertices);
-	const GO::Indices* loadIndices(const GO::Indices& indices);
+	//std::optional<const ModelReference*> modelLoaded(const GO::Model& model) const;
+	//const GO::ByteVertices* loadVertices(const GO::ByteVertices& vertices);
+	//const GO::Indices* loadIndices(const GO::Indices& indices);
+	//std::string loadTexture(const std::string& textureFile);
+	std::shared_ptr<GO::ByteVertices> loadVertices(const GO::ByteVertices& vertices);
+	std::shared_ptr<GO::Indices> loadIndices(const GO::Indices& indices);
 	std::string loadTexture(const std::string& textureFile);
 
 	void removeVertices(const GO::ByteVertices* vertices);
@@ -134,11 +138,11 @@ private:
 	const GO::ByteVertices* findVertices(const GO::ByteVertices& toFind) const;
 	const GO::Indices* findIndices(const GO::Indices& toFind) const;
 	const std::string* findTexture(const std::string& file) const;
-	std::optional<const ModelReference*> findSuitableModelReference(
+	/*std::optional<const ModelReference*> findSuitableModelReference(
 		const GO::ByteVertices* verts, 
 		const GO::Indices* inds, 
 		const std::string* text) const;
-
+		*/
 	struct
 	{
 		std::map<const GO::Indices*, size_t> indices;
@@ -147,9 +151,9 @@ private:
 		std::map<const std::string, size_t> textures;
 
 	} usageCounts;
-	void addUsage(const ModelReference* model);
+	//void addUsage(const ModelReference* model);
 	template<class type, class container>
-	void addUsage(const type& t, container& c);
+	//void addUsage(const type& t, container& c);
 	void removeUsage(const ModelReference* model);
 	template<class type, class container>
 	void removeUsage(const type& t, container& c);
@@ -157,20 +161,27 @@ private:
 	bool canRemove(const type& t, container& c) const;
 
 public:
-	const ModelReference* getModelReference(const Info::ModelInfo& info);
-	const ModelReference* copyModelReference(const ModelReference* copyReference);
-	void removeModelReference(const ModelReference* reference);
+	std::shared_ptr<ModelReference> getModelReference(const Info::ModelInfo& info);
+	std::shared_ptr<ModelReference> copyModelReference(std::shared_ptr<ModelReference> reference);
+	//void removeModelReference(const ModelReference* reference);
 
 	size_t getLoadedVerticesByteSize(GO::VertexType type) const;
 	size_t getLoadedIndicesSize() const;
 	//std::pair<size_t, size_t> getIndicesCountAndOffsetFromModelReference(const ModelReference* modelRef) const;
 	//std::pair<size_t, size_t> getVerticesCountAndOffsetFromModelReference(const ModelReference* modelRef) const;
 	//private:
-	struct
+	/*struct
 	{
 		ModelReferenceSet models;
 		ByteVerticesSet vertices;
 		IndicesSet indices;
+		std::set<std::string> textures;
+	} loaded;*/
+	struct
+	{
+		std::vector<std::shared_ptr<ModelReference>> models;
+		std::vector<std::shared_ptr<GO::ByteVertices>> vertices;
+		std::vector<std::shared_ptr<GO::Indices>>  indices;
 		std::set<std::string> textures;
 	} loaded;
 
@@ -221,7 +232,7 @@ bool DataManager::sizeContentCompare(const c1& c1, const c2& c2, pr pred) const
 	return false;
 }
 
-
+/*ò/
 template<class type, class container>
 void DataManager::addUsage(const type& t, container& c)
 {
@@ -241,7 +252,7 @@ void DataManager::addUsage(const type& t, container& c)
 	{
 		++(iter->second);
 	}
-}
+}*/
 
 template<class type, class container>
 void DataManager::removeUsage(const type& t, container& c)

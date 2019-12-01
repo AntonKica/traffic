@@ -63,7 +63,7 @@ private:
 	void setupPrototypes();
 	void setPoint();
 	void createRoadIfPossible();
-	void updateMousePoint();
+	void updatePoints();
 	enum class Mode
 	{
 		STRAIGHT_LINE,
@@ -73,8 +73,14 @@ private:
 
 	Mode creatorMode{};
 	CreatorVisualizer visualizer;
-	std::vector<Point> currentPoints;
-	std::optional<Point> mousePoint;
+
+	struct SittingPoint
+	{
+		Point point = {};
+		Road* road = nullptr;
+	};
+	std::vector<SittingPoint> currentPoints;
+	std::vector<SittingPoint> placedPoints;
 
 	std::map<int, ::Prototypes> hardcodedRoadPrototypes;
 	int currentPrototypeID = 0;
@@ -82,6 +88,7 @@ public:
 	void initialize(RoadManager* roadManager);
 	void update();
 	void clickEvent();
+	void rollBackEvent();
 
 	// temp function
 	std::vector<std::string> getRoadNames() const;

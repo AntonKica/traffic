@@ -181,6 +181,10 @@ static void keyboardInputCallback(GLFWwindow* window, int key, int scanCode, int
 	{
 		renderGrid = !renderGrid;
 	}
+	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+	{
+		App::Scene.m_simArea.m_roadManager.roadCreator.rollBackEvent();
+	}
 
 	// weird
 	//App::Scene.m_simArea.m_creator.processKeyInput(key, action);
@@ -296,7 +300,7 @@ GraphicsComponent VulkanBase::createGrahicsComponent(const Info::GraphicsCompone
 
 void VulkanBase::recreateGrahicsComponent(GraphicsComponent& gp, const Info::GraphicsComponentCreateInfo& info)
 {
-	m_dataManager.removeModelReference(gp.graphicsModule->pModelReference);
+	//m_dataManager.removeModelReference(gp.graphicsModule->pModelReference);
 
 	gp.graphicsModule->pModelReference = m_dataManager.getModelReference(*info.modelInfo);
 }
@@ -313,7 +317,7 @@ void VulkanBase::copyGrahicsComponent(const GraphicsComponent& srcGraphicsCompon
 
 void VulkanBase::destroyGraphicsComponent(const GraphicsComponent& comp)
 {
-	m_dataManager.removeModelReference(comp.graphicsModule->pModelReference);
+	//m_dataManager.removeModelReference(comp.graphicsModule->pModelReference);
 
 	removeGraphicsModule(comp.graphicsModule);
 }
@@ -1154,14 +1158,14 @@ void VulkanBase::updateVertexBuffer()
 		uint64_t byteOffset = 0;
 		for (const auto& vertices : m_dataManager.loaded.vertices)
 		{
-			if (type != vertices.type)
+			if (type != vertices->type)
 				continue;
 
-			memcpy(data, vertices.vertices.data(), vertices.vertices.size());
-			data += vertices.vertices.size();
+			memcpy(data, vertices->vertices.data(), vertices->vertices.size());
+			data += vertices->vertices.size();
 
-			m_dataManager.setVerticesOffset(&vertices, byteOffset);
-			byteOffset += vertices.vertices.size();
+			m_dataManager.setVerticesOffset(&(*vertices), byteOffset);
+			byteOffset += vertices->vertices.size();
 		}
 		stagingBuffer.unmap();
 		m_device.copyBuffer(stagingBuffer, currentBufer);
@@ -1191,12 +1195,12 @@ void VulkanBase::updateIndexBuffer()
 	uint64_t offset = 0;
 	for (const auto& indices : m_dataManager.loaded.indices)
 	{
-		size_t copySize = indices.size() * strideSize;
-		memcpy(data, indices.data(), copySize);
+		size_t copySize = indices->size() * strideSize;
+		memcpy(data, indices->data(), copySize);
 
-		m_dataManager.setIndicesOffset(&indices, offset);
+		m_dataManager.setIndicesOffset(&(*indices), offset);
 
-		offset = indices.size();
+		offset += indices->size();
 		data += copySize;
 	}
 	m_device.copyBuffer(stagingBuffer, m_buffers.index);
@@ -1314,12 +1318,12 @@ void VulkanBase::recreateCommandBuffer(uint32_t currentImage)
 		vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayot, 0, 
 			1, &descriptorSet, 1, descriptorOffsets);
 
-		auto [vCnt, vOff] = std::make_pair(GO::getVerticesCountFromByteVertices(modelRef->pVertices),
-			m_dataManager.getVerticesOffset(modelRef->pVertices));
+		auto [vCnt, vOff] = std::make_pair(GO::getVerticesCountFromByteVertices(&*modelRef->pVertices),
+			m_dataManager.getVerticesOffset(&*modelRef->pVertices));
 		if (modelRef->pIndices)
 		{
-			auto [iCnt, iOff] = std::make_pair(modelRef->pIndices.value()->size(), 
-				m_dataManager.getIndicesOffset(modelRef->pIndices.value()));
+			auto [iCnt, iOff] = std::make_pair(modelRef->pIndices->size(), 
+				m_dataManager.getIndicesOffset(&*modelRef->pIndices));
 			vkCmdBindIndexBuffer(cmdBuffer, m_buffers.index, 0, VK_INDEX_TYPE_UINT32);
 			vkCmdDrawIndexed(cmdBuffer, iCnt, 1, iOff, vOff, 0);
 		}
