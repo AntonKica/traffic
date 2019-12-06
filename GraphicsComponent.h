@@ -75,10 +75,12 @@ public:
 	void setActive(bool value);
 	void setPosition(const glm::vec3& pos);
 	void setRotation(const glm::vec3& rotation);
+	void setSize(const glm::vec3& size);
 	void setTint(const glm::vec4& tint);
 	void setTransparency(const float transparency);
 	glm::vec3 getPosition() const;
 	glm::vec3 getRotation() const;
+	glm::vec3 getSize() const;
 	//stupid
 	bool initialized() const;
 };

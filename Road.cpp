@@ -1,8 +1,11 @@
 #include "Road.h"
 #include "DataManager.h"
+#include "Utilities.h"
 
 #include <glm/gtx/string_cast.hpp>
 #include <numeric>
+#include <random>
+#include <chrono>
 
 
 float calculateLength(const Points& points)
@@ -96,35 +99,7 @@ bool polygonPolygonCollision(const Points& polygonOne, const Points& polygonTwo)
 	return collided;
 }
 
-// interesting names
-Point vectorIntersection(Point s1, Point e1, Point s2, Point e2)
-{
-	float a1 = e1.z - s1.z;
-	float b1 = s1.x - e1.x;
-	float c1 = a1 * s1.x + b1 * s1.z;
-
-	float a2 = e2.z - s2.z;
-	float b2 = s2.x - e2.x;
-	float c2 = a2 * s2.x + b2 * s2.z;
-
-	float delta = a1 * b2 - a2 * b1;
-
-	return delta == 0 ? s2 : Point((b2 * c1 - b1 * c2) / delta, 0.0f, (a1 * c2 - a2 * c1) / delta);
-
-	/*float a1 = e1.y - s1.y;
-	float b1 = s1.x - e1.x;
-	float c1 = a1 * s1.x + b1 * s1.y;
-
-	float a2 = e2.y - s2.y;
-	float b2 = s2.x - e2.x;
-	float c2 = a2 * s2.x + b2 * s2.y;
-
-	float delta = a1 * b2 - a2 * b1;
-	//If lines are parallel, the result will be (NaN, NaN).
-	return delta == 0 ? s1	: Point((b2 * c1 - b1 * c2) / delta, 0.0 , (a1 * c2 - a2 * c1) / delta);*/
-}
-
-Points createShape(const Points& points, int width)
+Points createShape(const Points& points, float width)
 {
 	const glm::vec3 vectorUp(0.0f, 1.0f, 0.0f);
 
@@ -142,31 +117,33 @@ Points createShape(const Points& points, int width)
 		{
 			const auto& curPoint = points[i];
 			previousPoint = curPoint;
-			if (i - 1 >= 0)
-			{
-				previousPoint = points[i - 1];
-			}
 			if (i + 1 < points.size())
 			{
 				nextPoint = points[i + 1];
-			}
-			//update direction
-			if (i + 1 < points.size())
 				currentDirection = glm::normalize(nextPoint - curPoint);
+			}
+			else if (points.front() == points.back())
+			{
+				nextPoint = *(points.begin() + 1);
+				currentDirection = glm::normalize(nextPoint - curPoint);
+			}
+
 			if (i - 1 >= 0)
+			{
+				previousPoint = points[i - 1];
 				previousDirection = glm::normalize(curPoint - previousPoint);
+			}
+			else if (points.front() == points.back())
+			{
+				previousPoint = *(points.end() - 2);
+				previousDirection = glm::normalize(curPoint - previousPoint);
+			}
 			else
+			{
 				previousDirection = currentDirection;
+			}
 
-			glm::vec3 previousRightVec = glm::normalize(glm::cross(previousDirection, vectorUp)) * float(width) / 2.0f;
-			glm::vec3 currentRightVec = glm::normalize(glm::cross(currentDirection, vectorUp)) * float(width) / 2.0f;
-
-
-			Point right = vectorIntersection(previousPoint + previousRightVec, curPoint + previousRightVec,
-				curPoint + currentRightVec, nextPoint + currentRightVec);
-
-			Point left = vectorIntersection(previousPoint - previousRightVec, curPoint - previousRightVec,
-				curPoint - currentRightVec, nextPoint - currentRightVec);
+			const auto [left, right] = getSidePoints(previousDirection, currentDirection, previousPoint, curPoint, nextPoint, width);
 
 			leftPoints.emplace_back(left);
 			rightPoints.emplace_back(right);
@@ -203,29 +180,33 @@ std::pair<GO::TypedVertices, GO::Indices> createTexturedShape(const Points& poin
 		{
 			const auto& curPoint = points[i];
 			previousPoint = curPoint;
-			if (i - 1 >= 0)
-			{
-				previousPoint = points[i - 1];
-			}
 			if (i + 1 < points.size())
 			{
 				nextPoint = points[i + 1];
-			}
-			if (i + 1 < points.size())
 				currentDirection = glm::normalize(nextPoint - curPoint);
+			}
+			else if (points.front() == points.back())
+			{
+				nextPoint = *(points.begin() + 1);
+				currentDirection = glm::normalize(nextPoint - curPoint);
+			}
+
 			if (i - 1 >= 0)
+			{
+				previousPoint = points[i - 1];
 				previousDirection = glm::normalize(curPoint - previousPoint);
+			}
+			else if (points.front() == points.back())
+			{
+				previousPoint = *(points.end() - 2);
+				previousDirection = glm::normalize(curPoint - previousPoint);
+			}
 			else
+			{
 				previousDirection = currentDirection;
+			}
 
-			glm::vec3 previousRightVec = glm::normalize(glm::cross(previousDirection, vectorUp)) * float(width) / 2.0f;
-			glm::vec3 currentRightVec = glm::normalize(glm::cross(currentDirection, vectorUp)) * float(width) / 2.0f;
-
-			Point right = vectorIntersection(previousPoint + previousRightVec, curPoint + previousRightVec,
-				curPoint + currentRightVec, nextPoint + currentRightVec);
-
-			Point left = vectorIntersection(previousPoint - previousRightVec, curPoint - previousRightVec,
-				curPoint - currentRightVec, nextPoint - currentRightVec);
+			const auto [left, right] = getSidePoints(previousDirection, currentDirection, previousPoint, curPoint, nextPoint, width);
 
 			variantVertex[0].texturedVertex.position = right;
 			variantVertex[1].texturedVertex.position = left;
@@ -268,19 +249,41 @@ std::vector<Point> createOutline(const std::vector<Point>& points, float outline
 	std::vector<Point> rightPoints;
 
 	glm::vec3 dirVec;
+	glm::vec3 currentDirection;
+	glm::vec3 previousDirection;
+	Point previousPoint;
+	Point nextPoint;
 	for (int i = 0; i < points.size(); ++i)
 	{
-			//update normal
-		if (i + 1 < points.size())
-			dirVec = glm::normalize(points[i + 1] - points[i]);
-
-		glm::vec3 rightVec = glm::normalize(glm::cross(dirVec, vectorUp));
-
 		const auto& curPoint = points[i];
+		previousPoint = curPoint;
+		if (i + 1 < points.size())
+		{
+			nextPoint = points[i + 1];
+			currentDirection = glm::normalize(nextPoint - curPoint);
+		}
+		else if (points.front() == points.back())
+		{
+			nextPoint = *(points.begin() + 1);
+			currentDirection = glm::normalize(nextPoint - curPoint);
+		}
 
-		Point right = curPoint + rightVec * (0.5f);
-		Point left = curPoint - rightVec * (0.5f);
+		if (i - 1 >= 0)
+		{
+			previousPoint = points[i - 1];
+			previousDirection = glm::normalize(curPoint - previousPoint);
+		}
+		else if (points.front() == points.back())
+		{
+			previousPoint = *(points.end() - 2);
+			previousDirection = glm::normalize(curPoint - previousPoint);
+		}
+		else
+		{
+			previousDirection = currentDirection;
+		}
 
+		const auto [left, right] = getSidePoints(previousDirection, currentDirection, previousPoint, curPoint, nextPoint, outlineSize);
 			// dont duplicate first and last
 		if (i == 0 || i == points.size() - 1)
 		{
@@ -303,91 +306,106 @@ std::vector<Point> createOutline(const std::vector<Point>& points, float outline
 		*outIt++ = point * outlineSize;
 	
 	return outline;
+
 }
 
-std::pair<Point, Point> findTwoClosestPoints(const Points& points, const Point& point)
+
+ std::optional<Road> Road::splitRoad(const Point& splitPoint)
 {
-	std::optional<Point> first, second;
-	for (const auto& point_ : points)
-	{
-		if (!first)
-		{
-			first = point_;
-			continue;
-		}
-
-		float currentDistance = glm::length(point - point_);
-		float firstPointDistance = glm::length(point - first.value());
-		if (currentDistance < firstPointDistance)
-		{
-			second = first;
-			first = point_;
-		}
-		else if (!second)
-		{
-			second = point_;
-		}
-		else if (float secondPointDistance = glm::length(point - second.value());
-			currentDistance < secondPointDistance)
-		{
-			second = point_;
-		}
-	}
-
-	return std::make_pair(first.value(), second.value());
-};
-
-template<class C, class T1, class T2, class T3> int insertElemementBetween(C& container, T1 first, T2 second, T3 element)
-{
-	for (int pointIndex = 0; pointIndex + 1 < container.size(); ++pointIndex)
-	{
-		if ((container[pointIndex] == first && container[pointIndex + 1] == second) ||
-			(container[pointIndex + 1] == first && container[pointIndex] == second))
-		{
-			container.insert(std::begin(container) + pointIndex + 1, element);
-			container.erase(std::unique(std::begin(container), std::end(container)), std::end(container));
-			return pointIndex + 1;
-		}
-	}
-
-
-	std::throw_with_nested("Supplied range, which doesnt exist in supplied container!");
-}
-
-std::pair<Road, std::optional<Road>> Road::splitRoad(const Point& splitPoint)
-{
-	auto localSplitPoint = splitPoint - m_position;
-
-	Road firstSplit;
 	std::optional<Road> optionalSplit;
 
-	if (glm::length(localSplitPoint - parameters.axis.front()) <= 0.01 || glm::length(localSplitPoint - parameters.axis.back()) <= 0.01)
+	if (!glm::length(splitPoint - parameters.worldAxis.front()) <= 0.01 && !glm::length(splitPoint - parameters.worldAxis.back()) <= 0.01)
 	{
-		firstSplit = *this;
-	}
-	else
-	{
-		const auto[firstPoint, secondPoint] = findTwoClosestPoints(parameters.axis, localSplitPoint);
+		const auto [firstPoint, secondPoint] = findTwoClosestPoints(parameters.worldAxis, splitPoint);
 
-		Points newAxis = parameters.axis;
-		int splitIndex = insertElemementBetween(newAxis, firstPoint, secondPoint, localSplitPoint);
+		Points newAxis = parameters.worldAxis;
+		int splitIndex = insertElemementBetween(newAxis, firstPoint, secondPoint, splitPoint);
 
 		auto positionTransform = [&](const Point& point) { return point + m_position; };
-		Points firstSplitAxis;
-		std::transform(std::begin(newAxis), std::begin(newAxis) + splitIndex + 1, std::back_inserter(firstSplitAxis), positionTransform);
-		Points secondSplitAxis;
-		std::transform(std::begin(newAxis) + splitIndex, std::end(newAxis), std::back_inserter(secondSplitAxis), positionTransform);
+		// recteate this worldAxis
+		parameters.worldAxis.clear();
+		std::copy(std::begin(newAxis), std::begin(newAxis) + splitIndex + 1, std::back_inserter(parameters.worldAxis));
+		Points secondSplitAxis(std::begin(newAxis) + splitIndex, std::end(newAxis));
 
 
-		firstSplit.construct(firstSplitAxis, parameters.laneCount, parameters.width, parameters.texture);
+		construct(parameters.worldAxis, parameters.laneCount, parameters.width, parameters.texture);
 
 		Road optRoad;
 		optRoad.construct(secondSplitAxis, parameters.laneCount, parameters.width, parameters.texture);
 		optionalSplit = optRoad;
-
 	}
 
-	return std::make_pair(firstSplit, optionalSplit);
+	return optionalSplit;
+}
+
+Point Road::shorten(Point endPoint, float cutSize)
+{
+	Point shortedPoint = {};
+	if (endPoint == parameters.worldAxis.front())
+	{
+		// find moste sutablePoint
+		auto firstPoint = parameters.worldAxis.begin();
+		auto secondPoint = firstPoint + 1;
+		int count = 0;
+		while (secondPoint != parameters.worldAxis.end())
+		{
+			float distance = glm::length(endPoint - *secondPoint);
+			if (cutSize > distance)
+				firstPoint = secondPoint++;
+			else //found
+				break;
+			++count;
+		}
+
+		float vecMagnutude = glm::length(*secondPoint - endPoint) - cutSize;
+		if (vecMagnutude != 0)
+		{
+			// reverse direction and go from second point
+			glm::vec3 direction = glm::normalize(*firstPoint - *secondPoint);
+			Point pointPos = *secondPoint + (direction * vecMagnutude);
+
+			// overwrite
+			*firstPoint = pointPos;
+		}
+
+		// remove unsuitable points
+		parameters.worldAxis.erase(parameters.worldAxis.begin(), firstPoint);
+		shortedPoint = parameters.worldAxis.front();
+	}
+	else
+	{
+		auto firstPoint = parameters.worldAxis.rbegin();
+		auto secondPoint = firstPoint + 1;
+		while (secondPoint != parameters.worldAxis.rend())
+		{
+			float distance = glm::length(endPoint - *secondPoint);
+			if (cutSize > distance)
+				firstPoint = secondPoint++;
+			else //found
+				break;
+		}
+
+		float vecMagnutude = glm::length(*secondPoint - *firstPoint) - cutSize;
+		if (vecMagnutude != 0)
+		{
+			glm::vec3 direction = glm::normalize(*secondPoint - *firstPoint);
+			Point pointPos = *firstPoint + (direction * vecMagnutude);
+
+			// overwrite
+			*firstPoint = pointPos;
+		}
+
+		// change to normal direction
+		auto normIter = firstPoint.base();
+		//std::advance(normIter, -1);
+		// remove unsuitable points
+		parameters.worldAxis.erase(normIter, parameters.worldAxis.end());
+		shortedPoint = parameters.worldAxis.back();
+	}
+	//glm::vec3 shiftPosition = getAveratePosition(parameters.worldAxis);
+
+	construct(parameters.worldAxis, parameters.laneCount, parameters.width, parameters.texture);
+	return shortedPoint;
 }
 
 
@@ -439,19 +457,20 @@ Point findEqalPoint(const Points& points1, const Points& points2)
 Road Road::mergeRoads(std::pair<Road, Road> roads)
 {
 	auto& [firstRoad, secondRoad] = roads;
-	auto& axisOne = firstRoad.parameters.axis;
-	auto& axisTwo = secondRoad.parameters.axis;
+	auto& worldAxisOne = firstRoad.parameters.worldAxis;
+	auto& worldAxisTwo = secondRoad.parameters.worldAxis;
 
-	//std::set_intersection(std::begin(axisOne), std::end(axisOne), std::begin(axisTwo), std::end(axisTwo))
+	//std::set_intersection(std::begin(worldAxisOne), std::end(worldAxisOne), std::begin(worldAxisTwo), std::end(worldAxisTwo))
 	Point intersection;
 	int intersectionCount = 0;
-	for (const Point& p1 : axisOne)
+	for (const Point& p1 : worldAxisOne)
 	{
-		for (const Point& p2 : axisTwo)
+		for (const Point& p2 : worldAxisTwo)
 		{
-			if (p1 + firstRoad.m_position == p2 + secondRoad.m_position)
+			// compare by length since inaccuate results
+			if (glm::length((p1) - (p2)) <= glm::epsilon<float>())
 			{
-				if(intersectionCount == 0)
+				if (intersectionCount == 0)
 					intersection = p1;
 				++intersectionCount;
 				break;
@@ -459,28 +478,21 @@ Road Road::mergeRoads(std::pair<Road, Road> roads)
 		}
 	}
 
-	if (intersection != axisOne.back())
+	if (intersection != worldAxisOne.back())
 	{
-		std::reverse(std::begin(axisOne), std::end(axisOne));
+		std::reverse(std::begin(worldAxisOne), std::end(worldAxisOne));
 	}
 
-	if (intersection + firstRoad.m_position != axisTwo.front() + secondRoad.m_position)
+	if (intersection + firstRoad.m_position != worldAxisTwo.front() + secondRoad.m_position)
 	{
-		std::reverse(std::begin(axisTwo), std::end(axisTwo));
+		std::reverse(std::begin(worldAxisTwo), std::end(worldAxisTwo));
 	}
 
 	//glm::vec3 averagePos = (m_position - road.m_position) / 2.0f;
 
-//	Points curvePoints = generateCurveFromThreePoints({ axisOne[axisOne.size() - 2] + firstRoad.m_position, axisOne[axisOne.size() - 1] + firstRoad.m_position, axisTwo[1] + secondRoad.m_position }, 3);
-	Points concatedAxis;
-	std::transform(std::begin(axisOne), std::end(axisOne), std::back_inserter(concatedAxis),
-		[&firstRoad](const Point& point) {	return point + firstRoad.m_position;	});
-	//concatedAxis.insert(concatedAxis.end(), std::begin(curvePoints), std::end(curvePoints));
-	std::transform(std::begin(axisTwo) + 1, std::end(axisTwo), std::back_inserter(concatedAxis),
-		[&secondRoad](const Point& point) {	return point + secondRoad.m_position;	});
-
-	if (intersectionCount == 2)
-		concatedAxis.insert(concatedAxis.end(), *(concatedAxis.begin() + 1));
+//	Points curvePoints = generateCurveFromThreePoints({ worldAxisOne[worldAxisOne.size() - 2] + firstRoad.m_position, worldAxisOne[worldAxisOne.size() - 1] + firstRoad.m_position, worldAxisTwo[1] + secondRoad.m_position }, 3);
+	Points concatedAxis(std::begin(worldAxisOne), std::end(worldAxisOne));
+	std::copy(std::begin(worldAxisTwo) + 1, std::end(worldAxisTwo), std::back_inserter(concatedAxis));
 
 	Road concatedRoad;
 	concatedRoad.construct(concatedAxis, firstRoad.parameters.laneCount, firstRoad.parameters.width, firstRoad.parameters.texture);
@@ -488,50 +500,59 @@ Road Road::mergeRoads(std::pair<Road, Road> roads)
 	return concatedRoad;
 }
 
+void Road::createPaths()
+{
+	auto& lanes = parameters.lanes;
+
+	float offsetPerLane = (parameters.laneCount / parameters.width) / 2.0f;
+	float startOffset = 0.25f;
+
+	// supposse we have two lanes
+	lanes.clear();
+	for (int i = 0; i < parameters.laneCount / 2.0; ++i)
+	{
+		auto pathLanes = createShape(parameters.localAxis, startOffset + offsetPerLane * i);
+
+		lanes.insert(lanes.begin(), std::vector(pathLanes.begin() + (pathLanes.size() / 2), pathLanes.end()));
+		lanes.insert(lanes.end(), std::vector(pathLanes.begin(), pathLanes.begin() + (pathLanes.size() / 2)));
+	}
+}
+
 Points Road::createLocalPoints(const Points& points, const glm::vec3& position)
 {
-	Points localPoints(points.size());
-	std::transform(std::begin(points), std::end(points), std::begin(localPoints),
+	Points endPoints(points.size());
+	std::transform(std::begin(points), std::end(points), std::begin(endPoints),
 		[&position](const Point& point)
 		{
 			return point - position;
 		});
 
-	return localPoints;
+	return endPoints;
 }
 
 
 void Road::construct(const Points& points, uint32_t laneCount, float width, std::string texture)
 {
-	m_position = getAveratePosition(points);
+	auto position = getAveratePosition(points);
+	auto endPoints = createLocalPoints(points, position);
 
-	parameters.axis = createLocalPoints(points, m_position);
-	parameters.model = createShape(points, width);
-	parameters.laneCount = laneCount;
-	parameters.width = width;
-	parameters.texture = texture;
-
-	const auto [typedVertices, indices] = createTexturedShape(parameters.axis, parameters.width);
-
-	Info::ModelInfo modelInfo;
-	modelInfo.vertices = &typedVertices;
-	modelInfo.indices = &indices;
-	modelInfo.texturePath = parameters.texture;
-
-	setupModel(modelInfo, true);
+	construct(endPoints, position, laneCount, width, texture);
 }
 
-void Road::construct(const Points& points, glm::vec3 position, uint32_t laneCount, float width, std::string texture)
+void Road::construct(const Points& localAxis, glm::vec3 position, uint32_t laneCount, float width, std::string texture)
 {
 	m_position = position;
 
-	parameters.axis = points;
-	parameters.model = createShape(points, width);
+	parameters.worldAxis.clear();
+	std::transform(begin(localAxis), end(localAxis), std::back_inserter(parameters.worldAxis), [&position](const Point& point) {return point + position; });
+
+	parameters.localAxis = localAxis;
+	parameters.model = createShape(localAxis, width);
 	parameters.laneCount = laneCount;
 	parameters.width = width;
 	parameters.texture = texture;
 
-	const auto [typedVertices, indices] = createTexturedShape(parameters.axis, parameters.width);
+	const auto [typedVertices, indices] = createTexturedShape(parameters.localAxis, parameters.width);
 
 	Info::ModelInfo modelInfo;
 	modelInfo.vertices = &typedVertices;
@@ -539,45 +560,58 @@ void Road::construct(const Points& points, glm::vec3 position, uint32_t laneCoun
 	modelInfo.texturePath = parameters.texture;
 
 	setupModel(modelInfo, true);
+	createPaths();
 }
 
 bool Road::isPointOnRoad(const Point& point) const
 {
-	return polygonPointCollision(parameters.model, point);
+	auto endPoint = point - m_position;
+	return polygonPointCollision(parameters.model, endPoint);
 }
 
 
 Point Road::getPointOnRoad(const Point& pointPosition) const
 {
-	// in local coordinates
-	glm::vec3 localPosition = pointPosition - m_position;
-
-	const auto [pointOne, pointTwo] = findTwoClosestPoints(parameters.axis, localPosition);
+	const auto [pointOne, pointTwo] = findTwoClosestPoints(parameters.worldAxis, pointPosition);
 	glm::vec3 directionPoint = pointTwo - pointOne;
 	float lineLength = glm::length(directionPoint);
 
-	float alpha = glm::acos(glm::dot(glm::normalize(pointTwo - pointOne), glm::normalize(localPosition - pointOne)));
-	float lineDistanceFromPointOne = glm::length(pointOne - localPosition) * cos(alpha);
+	float alpha = glm::acos(glm::dot(glm::normalize(pointTwo - pointOne), glm::normalize(pointPosition - pointOne)));
+	float lineDistanceFromPointOne = glm::length(pointOne - pointPosition) * cos(alpha);
 
 	// 
 	const float minDistanceFromEnd = 0.5f;
 	if (lineDistanceFromPointOne < minDistanceFromEnd)
 	{
-		return m_position + pointOne;
+		return pointOne;
 	}
 	else
 	{
 		float percentageDistance = lineDistanceFromPointOne / lineLength;
-		return m_position + pointOne + directionPoint * percentageDistance;
+		return pointOne + directionPoint * percentageDistance;
 	}
-	/*
-	float linearCoeficient = (pointOne.z - pointTwo.z) / (pointOne.x - pointTwo.x);
-	float absoluteMember = pointOne.z - linearCoeficient * pointOne.x;
-	*/
-
 }
 
 Road::RoadParameters Road::getRoadParameters() const
 {
 	return parameters;
+}
+
+Points Road::getPath(int pathIndex) const
+{
+	//static std::mt19937_64 engine(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+	//std::uniform_int_distribution<int> distributor(0, parameters.laneCount - 1);
+	auto path = parameters.lanes[pathIndex];
+
+	for (auto& point : path)
+		point += m_position;
+
+	return path;
+
+
+}
+
+uint32_t Road::getLaneCount() const
+{
+	return parameters.laneCount;
 }

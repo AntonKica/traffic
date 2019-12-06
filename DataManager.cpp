@@ -76,6 +76,8 @@ void DataManager::removeUsage(const ModelReference* model)
 
 std::shared_ptr<ModelReference> DataManager::getModelReference(const Info::ModelInfo& info)
 {
+	lazyCleanup();
+
 	std::shared_ptr<ModelReference> retModel;
 	GO::Model model = processModelInfo(info);
 
@@ -204,6 +206,23 @@ std::string DataManager::loadTexture(const std::string& textureFile)
 	*/
 	setState(TEXTURE_LOADED, true);
 	return textureFile;
+}
+
+template<class T> bool onlyOneReference (const std::shared_ptr<T>& sharedPtr) 
+{ 
+	return sharedPtr.use_count() <= 1;
+}
+
+void DataManager::lazyCleanup()
+{
+	loaded.models.erase(std::remove_if(std::begin(loaded.models), std::end(loaded.models),
+		onlyOneReference<ModelReference>), std::end(loaded.models));
+
+	loaded.vertices.erase(std::remove_if(std::begin(loaded.vertices), std::end(loaded.vertices),
+		onlyOneReference<GO::ByteVertices>), std::end(loaded.vertices));
+
+	loaded.indices.erase(std::remove_if(std::begin(loaded.indices), std::end(loaded.indices),
+		onlyOneReference<GO::Indices>), std::end(loaded.indices));
 }
 
 void DataManager::removeVertices(const GO::ByteVertices* vertices)

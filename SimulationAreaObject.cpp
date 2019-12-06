@@ -82,7 +82,7 @@ void SimulationAreaObject::setupModel(const Info::ModelInfo& modelInfo, bool act
 {
 	Info::DrawInfo dInfo{};
 	dInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-	dInfo.polygon = VK_POLYGON_MODE_FILL;
+	dInfo.polygon = VK_POLYGON_MODE_LINE;
 
 	Info::GraphicsComponentCreateInfo createInfo;
 	createInfo.drawInfo = &dInfo;

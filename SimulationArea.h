@@ -84,7 +84,7 @@ public:
 
 	void loadData();
 
-	void update();
+	void update(float deltaTime);
 	bool placeObject();
 	bool placeSelectedObject();
 	bool isInArea(const glm::vec3& position) const;

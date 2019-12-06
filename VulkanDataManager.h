@@ -1,91 +1,103 @@
 #pragma once
+#include <utility>
+#include <memory>
 #include <map>
-#include <optional>
-#include <bitset>
-#include "GraphicsObjects.h"
 
-class DataManager
+#include "Model.h"
+#include "vulkanHelper/VulkanStructs.h"
+#include "PipelinesManager.h"
+#include "DescriptorManager.h"
+
+namespace
 {
-private:
-	template <typename c1, typename c2> bool sizeContentCompare(c1 c1, c2 c2);
-	template <typename c1, typename c2, typename pr> bool sizeContentCompare(c1 c1, c2 c2, pr pred);
-
-	template <typename V> size_t generateNextContainerID(V c);
-
-public:
-	template <typename M_IDV> size_t getLoadedTotalSize(M_IDV c);
-
-	GO::ID loadModel(const std::string& modelPath);;
-	std::optional<GO::ID> modelLoaded(std::string_view modelPath) const;
-	GO::ID loadIndices(const GO::Indices& indices, bool checkLoaded = true);
-	GO::ID loadTexturedVertices(const GO::TexturedVertices& vertices, bool checkLoaded = true);
-	GO::ID loadTexture(const std::string& textureFile, bool checkLoaded = true);
-	//private:
-	struct
+	struct Texture
 	{
-		std::map<GO::ID, GO::ModelReference> models;
-		std::map<GO::ID, GO::TexturedVertices> texturedVertices;
-		std::map<GO::ID, GO::Indices> indices;
-		std::map<GO::ID, std::string> textures;
-	} m_loaded;
-
-	// for drawing purposes
-	void setIndicesOffset(GO::ID id, uint64_t offset);
-	void setTexturedVerticesOffset(GO::ID id, uint64_t offset);
-	struct
-	{
-		std::map<GO::ID, uint64_t> texturedVertices;
-		std::map<GO::ID, uint64_t> indices;
-	} m_offset;
-
-	enum Flags
-	{
-		MODEL_LOADED = 0,
-		TEXTURED_VERT_LOADED,
-		INDICES_LOADED,
-		TEXTURE_LOADED,
-		MAX_FLAGS
+		std::string path;
+		vkh::structs::Image image;
 	};
-	std::bitset<MAX_FLAGS> m_stateFlags;
-	bool getState(Flags flag) const;
-	//bool getState(Flags flag, bool switchValue);
-	void setState(Flags flag, bool value);
+
+	enum VertexType
+	{
+		POSITION = 0,
+		COLOR = 1 << 0,
+		NORMAL = 1 << 1,
+		TEXTURE = 1 << 2,
+	};
+	using VertexFlags = uint32_t;
+	using Bytes = std::vector<std::byte>;
+
+	struct ByteVertices
+	{
+		VertexFlags type;
+		Bytes data;
+	};
+	struct MeshData
+	{
+		std::shared_ptr<ByteVertices> vertices;
+		std::shared_ptr<Indices> indices;
+
+		std::map<TextureType, std::shared_ptr<Texture>> textures;
+
+		using ID = uint32_t;
+		ID m_descriptorSetReference = {};
+		ID m_pipelineReference = {};
+
+		size_t dynamicBufferOffset;
+	};
+	
+	
+	struct ModelData
+	{
+		std::vector<MeshData> meshDatas;
+	};
+}
+
+class VulkanBase;
+class VulkanDataManager
+{
+public:
+	void initialize(VulkanBase* vkBase);
+	void loadModel(const Model& model);
+
+private:
+	using SharedByteVertices = std::shared_ptr<ByteVertices>;
+	SharedByteVertices loadVerticesFromMesh(const Mesh& mesh);
+	VertexFlags deduceMeshVerticesType(const Mesh& mesh) const;
+	size_t deduceSizeFromVertexFlags(VertexFlags flags) const;
+	ByteVertices transformMeshVerticesToByteVertices(const Mesh& mesh, VertexFlags flags) const;
+
+	using SharedIndices = std::shared_ptr<Indices>;
+	SharedIndices loadIndicesFromMesh(const Mesh& mesh);
+
+	using SharedTexture = std::shared_ptr<Texture>;
+	std::map<TextureType, SharedTexture>  loadTexturesFromModel(const Mesh& mesh);
+	SharedTexture loadTexture(std::string path);
+
+
+	std::map<VertexFlags, std::vector<SharedByteVertices>> vertices;
+	std::vector<SharedIndices> indices;
+	std::vector<SharedTexture> textures;
+
+	struct RecordedBuffer
+	{
+		vkh::structs::Buffer buffer{};
+		size_t lastWrittenByte = 0;
+	};
+
+	std::map<VertexFlags, RecordedBuffer> vertexBuffers;
+	void addToVertexBuffer(const SharedByteVertices& byteVertices);
+	void recreateWholeVertexBuffer(VertexFlags vertexType);
+
+	RecordedBuffer indexBuffer;
+	void addToIndexBuffer(const SharedIndices& indices);
+	void recreateWholeIndexBuffer();
+
+	ModelData* uploadModelData(const ModelData& modelData);
+
+	VulkanBase* vkBase;
+	vkh::structs::VulkanDevice *device;
+
+	PipelinesManager pipelineManager;
+	DescriptorManager descriptorManager;
 };
 
-template<typename c1, typename c2>
-bool DataManager::sizeContentCompare(c1 c1, c2 c2)
-{
-	auto lmbd = [&](auto lhs, auto rhs) { return lhs == rhs; };
-	return sizeContentCompare(c1, c2, lmbd);
-}
-
-template<typename c1, typename c2, typename pr>
-bool DataManager::sizeContentCompare(c1 c1, c2 c2, pr pred)
-{
-	if (c1.size() == c2.size())
-	{
-		if (std::equal(c1.begin(), c1.end(), c2.begin(), pred))
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-template<typename V>
-size_t DataManager::generateNextContainerID(V c)
-{
-	return c.size();
-}
-
-template<typename M_IDV>
-inline size_t DataManager::getLoadedTotalSize(M_IDV c)
-{
-	size_t totalSize = 0;
-	for(const auto&[id, vector] : c)
-	{
-		totalSize += vector.size();
-	}
-	return totalSize;
-}

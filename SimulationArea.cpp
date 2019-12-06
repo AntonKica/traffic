@@ -155,11 +155,11 @@ void SimulationArea::loadData()
 {
 }
 
-void SimulationArea::update()
+void SimulationArea::update(float deltaTime)
 {
 	updateMousePosition();
 	m_visuals.update();
-	m_roadManager.update();
+	m_roadManager.update(deltaTime);
 	//m_creator.update();
 }
 

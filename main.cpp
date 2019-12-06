@@ -4,6 +4,9 @@
 #include "GlobalObjects.h"
 
 #include "GraphicsComponent.h"
+#include "VulkanDataManager.h"
+
+#include "Model.h"
 void runGraphics(VulkanBase& base)
 {
 	try
@@ -22,9 +25,16 @@ int main()
 	// experimental, might be unstable
 
 	std::thread graphicsThread(runGraphics, std::ref(App::Scene.vulkanBase));
+
 	{
-		static_assert("TU");
-		std::cout << "NIeco fix alebo checknut, uz si nepamatam\n";
+		std::this_thread::sleep_for(std::chrono::seconds(2));
+		Model model("resources/models/house/house.obj");
+
+		VulkanDataManager dm;
+		dm.initialize(&App::Scene.vulkanBase);
+
+		dm.loadModel(model);
+		return 0;
 	}
 
 	graphicsThread.join();

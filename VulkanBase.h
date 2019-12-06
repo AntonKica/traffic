@@ -174,6 +174,7 @@ public:
 	void run();
 
 	vkh::structs::VulkanDevice* getDevice();
+	VkSampler& getSampler();
 	GLFWwindow* getWindow();
 
 	VkRenderPass getRenderPass() const;
@@ -254,8 +255,7 @@ private:
 	void updateUniformBufferOffsets();
 //	void updateTextures();
 
-	void createTextureSamplers();
-	void createTextureSampler(VkSampler& sampler) const;
+	void createTextureSampler();
 	//drawing
 
 	void createCommandBuffers();

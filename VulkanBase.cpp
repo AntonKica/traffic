@@ -26,7 +26,7 @@ using namespace Utility;
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION    
 #include <stb/stb_image.h>
 
 #define SAMPLE_NAME "Sample name"
@@ -285,6 +285,7 @@ void VulkanBase::removeGraphicsModule(const pGraphicsModule& graphicsModule)
 	/*auto gIt = std::find(std::begin(m_activeGraphicsModules), std::end(m_activeGraphicsModules), graphicsModule);
 	m_activeGraphicsModules.erase(gIt);*/
 
+	*graphicsModule = {};
 	m_graphicsModules.push(graphicsModule);
 }
 
@@ -536,6 +537,11 @@ vkh::structs::VulkanDevice* VulkanBase::getDevice()
 	return &m_device;
 }
 
+VkSampler& VulkanBase::getSampler()
+{
+	return m_sampler;
+}
+
 GLFWwindow* VulkanBase::getWindow()
 {
 	return m_window;
@@ -552,7 +558,7 @@ void VulkanBase::initVulkan()
 
 	// presentation
 	createSwapchain();
-	createTextureSamplers();
+	createTextureSampler();
 //	createImages();
 
 	//pipeline
@@ -609,18 +615,18 @@ void VulkanBase::mainLoop()
 
 	while (!glfwWindowShouldClose(m_window))
 	{
-		std::chrono::time_point currentFrame = std::chrono::high_resolution_clock::now();
+		/*std::chrono::time_point currentFrame = std::chrono::high_resolution_clock::now();
 		deltaTime = (currentFrame - lastFrame).count() / std::pow(10, 9);
 		lastFrame = currentFrame;
 
 		glfwSetWindowTitle(m_window, (std::string("Sample title ") + std::to_string(int(1.0 / deltaTime))).c_str());
 
 		App::Scene.m_camera.update(deltaTime, getCursorPos(m_window));
-		App::Scene.m_simArea.update();
+		App::Scene.m_simArea.update(deltaTime);
 
 		prepareFrame();
 		drawFrame();
-		processInput();
+		processInput();*/
 
 		glfwSwapBuffers(m_window);
 		glfwPollEvents();
@@ -989,12 +995,8 @@ void VulkanBase::recreateSwapchain()
 
 	createCommandBuffers();
 }
-void VulkanBase::createTextureSamplers()
-{
-	createTextureSampler(m_sampler);
-}
 
-void VulkanBase::createTextureSampler(VkSampler& sampler) const
+void VulkanBase::createTextureSampler()
 {
 	VkSamplerCreateInfo samplerInfo = vkh::initializers::samplerCreateInfo(
 		VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_MIPMAP_MODE_LINEAR,
@@ -1002,7 +1004,7 @@ void VulkanBase::createTextureSampler(VkSampler& sampler) const
 	);
 
 
-	VK_CHECK_RESULT(vkCreateSampler(m_device, &samplerInfo, nullptr, &sampler));
+	VK_CHECK_RESULT(vkCreateSampler(m_device, &samplerInfo, nullptr, &m_sampler));
 }
 
 

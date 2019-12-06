@@ -2,6 +2,7 @@
 #include "RoadManager.h"
 
 #include "GlobalObjects.h"
+#include "RoadIntersection.h"
 #include <glm/gtx/perpendicular.hpp>
 #include <numeric>
 
@@ -151,47 +152,63 @@ void RoadCreator::createRoadIfPossible()
 		const auto& firstPoint = placedPoints.front();
 		const auto& lastPoint = placedPoints.back();
 
-		std::vector<Road> connectedRoads;
+		std::vector<Road*> connectedRoads;
+		// only one now
+		std::vector<std::pair<std::array<Road, 2>, Point>> intersectionRoads;
+		std::vector<Road*> removeRoads;
 		std::vector<Road> additionalRoads;
-		std::set<Road*> removeRoads;
 		if (firstPoint.road)
 		{
-			auto[connectRoad, splitRoad] = firstPoint.road->splitRoad(firstPoint.point);
+			auto& road = *firstPoint.road;
+			auto splitRoad = road.splitRoad(firstPoint.point);
 			if (splitRoad)
 			{
-				placedPoints.clear();
-				return;
+				std::array<Road, 2> roads{ road, splitRoad.value() };
+				intersectionRoads.push_back(std::pair(roads, firstPoint.point));
 			}
-			removeRoads.insert(firstPoint.road);
-
-			connectedRoads.push_back(connectRoad);
+			else
+			{
+				connectedRoads.push_back(firstPoint.road);
+				removeRoads.push_back(firstPoint.road);
+			}
 			//if (splitRoad)
 			//	additionalRoads.push_back(splitRoad.value());
 		}
 		if (lastPoint.road && firstPoint.road != lastPoint.road)
 		{
-			auto [connectRoad, splitRoad] = lastPoint.road->splitRoad(lastPoint.point);
+			auto& road = *lastPoint.road;
+			auto splitRoad = road.splitRoad(lastPoint.point);
 			if (splitRoad)
 			{
-				placedPoints.clear();
-				return;
+				std::array<Road, 2> roads{ road, splitRoad.value() };
+				intersectionRoads.push_back(std::pair(roads, lastPoint.point));
 			}
-			removeRoads.insert(lastPoint.road);
-
-			connectedRoads.push_back(connectRoad);
-			//if(splitRoad)
-			//	additionalRoads.push_back(splitRoad.value());
+			else
+			{
+				connectedRoads.push_back(lastPoint.road);
+				removeRoads.push_back(lastPoint.road);
+			}
 		}
+		Road newRoad;
+		newRoad.construct(creationPoints, currentPrototype.laneCount, currentPrototype.width, currentPrototype.texture);
 
+		if (intersectionRoads.size())
+		{
+			RoadIntersection ri;
+			ri.construct({ &intersectionRoads[0].first[0], &intersectionRoads[0].first[1], &newRoad }, intersectionRoads[0].second);
+
+			RoadIntersection* r = new RoadIntersection(ri);
+		}
+		
+		/*
 		Road newRoad;
 		newRoad.construct(creationPoints, currentPrototype.laneCount, currentPrototype.width, currentPrototype.texture);
 		for (const auto& connectedRoad : connectedRoads)
 		{
-			newRoad = newRoad.mergeRoads(std::pair(newRoad,connectedRoad));
-		}
+			newRoad = newRoad.mergeRoads(std::pair(newRoad, *connectedRoad));
+		}*/
 
-
-		roadManager->removeRoads(std::vector(std::begin(removeRoads), std::end(removeRoads)));
+		roadManager->removeRoads(removeRoads);
 		roadManager->addRoad(newRoad);
 
 		roadManager->addRoads(additionalRoads);
@@ -261,7 +278,8 @@ void RoadCreator::clickEvent()
 
 void RoadCreator::rollBackEvent()
 {
-	placedPoints.erase(placedPoints.end() - 1, placedPoints.end());
+	if(placedPoints.size())
+		placedPoints.erase(placedPoints.end() - 1);
 }
 
 

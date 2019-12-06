@@ -113,6 +113,11 @@ void UI::createBoxes()
 		static bool curvedRoads = false;
 		ImGui::Checkbox("Curved roads", &curvedRoads);
 
+		auto mousePos = App::Scene.m_simArea.getMousePosition();
+		if (mousePos)
+		{
+			ImGui::Text("Mouse position %s", glm::to_string(mousePos.value()).c_str());
+		}
 		//ImGui::SameLine();
 		ImGui::Text("Currently selected = %i %s", selectedNum + 1, selectedName.c_str());
 		App::Scene.m_simArea.m_roadManager.roadCreator.setMode(curvedRoads ? 1 : 0);

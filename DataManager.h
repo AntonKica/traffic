@@ -131,6 +131,8 @@ private:
 	std::shared_ptr<GO::Indices> loadIndices(const GO::Indices& indices);
 	std::string loadTexture(const std::string& textureFile);
 
+	void lazyCleanup();
+
 	void removeVertices(const GO::ByteVertices* vertices);
 	void removeIndices(const GO::Indices* indices);
 	void removeTexture(const std::string textureFile);

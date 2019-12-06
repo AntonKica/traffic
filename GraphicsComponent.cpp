@@ -61,7 +61,10 @@ GraphicsComponent& GraphicsComponent::operator=(GraphicsComponent&& other) noexc
 
 void GraphicsComponent::createGraphicsComponent(const Info::GraphicsComponentCreateInfo& info)
 {
-	*this = App::Scene.vulkanBase.createGrahicsComponent(info);
+	if (initialized())
+		App::Scene.vulkanBase.recreateGrahicsComponent(*this, info);
+	else
+		*this = App::Scene.vulkanBase.createGrahicsComponent(info);
 }
 
 void GraphicsComponent::recreateGraphicsComponent(const Info::GraphicsComponentCreateInfo& info)
@@ -107,6 +110,11 @@ void GraphicsComponent::setRotation(const glm::vec3& rotation)
 	graphicsModule->transformations.rotation = rotation;
 }
 
+void GraphicsComponent::setSize(const glm::vec3& size)
+{
+	graphicsModule->transformations.size = size;
+}
+
 void GraphicsComponent::setTint(const glm::vec4& tint)
 {
 	graphicsModule->shaderInfo.tint = tint;
@@ -125,6 +133,11 @@ glm::vec3 GraphicsComponent::getPosition() const
 glm::vec3 GraphicsComponent::getRotation() const
 {
 	return graphicsModule->transformations.rotation;
+}
+
+glm::vec3 GraphicsComponent::getSize() const
+{
+	return graphicsModule->transformations.size;
 }
 
 void GraphicsComponent::freeGraphics()
