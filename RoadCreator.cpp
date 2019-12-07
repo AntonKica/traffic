@@ -1,21 +1,24 @@
 #include "RoadCreator.h"
 #include "RoadManager.h"
+#include "RoadIntersection.h"
 
 #include "GlobalObjects.h"
-#include "RoadIntersection.h"
+#include "Model.h"
+#include "VulkanInfo.h"
+
 #include <glm/gtx/perpendicular.hpp>
 #include <numeric>
 
 
-std::vector<Point> buildSimpleShapeOutline(const std::vector<Point>& points, int width)
+VD::PositionVertices buildSimpleShapeOutline(const std::vector<Point>& points, int width)
 {
 	if (points.size() < 2)
 		return points;
 
 	const glm::vec3 vectorUp(0.0f, 1.0f, 0.0f);
 
-	std::vector<Point> leftPoints;
-	std::vector<Point> rightPoints;
+	VD::PositionVertices  leftPoints;
+	VD::PositionVertices  rightPoints;
 
 	glm::vec3 dirVec;
 	for (int i =0; i < points.size(); ++i)
@@ -43,7 +46,7 @@ std::vector<Point> buildSimpleShapeOutline(const std::vector<Point>& points, int
 			rightPoints.insert(rightPoints.end(), { right, right });
 		}
 	}
-	std::vector<Point> shapePoints(leftPoints.size() + rightPoints.size());
+	VD::PositionVertices shapePoints(leftPoints.size() + rightPoints.size());
 	auto insertIt = std::copy(std::begin(leftPoints), std::end(leftPoints), shapePoints.begin());
 	insertIt = std::copy(std::begin(rightPoints), std::end(rightPoints), insertIt);
 
@@ -320,9 +323,9 @@ void CreatorVisualizer::setDraw(const std::vector<Point>& points, float width)
 	this->width = width;
 }
 
-std::vector<glm::vec3> CreatorVisualizer::generateLines()
+VD::PositionVertices CreatorVisualizer::generateLines()
 {
-	std::vector<Point> points;
+	VD::PositionVertices points;
 	for (const auto& point : pointToDraw)
 		points.push_back(point);
 
@@ -332,13 +335,12 @@ std::vector<glm::vec3> CreatorVisualizer::generateLines()
 	return points;
 }
 
-std::vector<glm::vec3> CreatorVisualizer::generatePoints()
+std::pair<VD::PositionVertices, VD::ColorVertices> CreatorVisualizer::generatePoints()
 {
-	std::vector<Point> genPoints;
 	auto generateCircle = []()
 	{
 		const int step = 45;
-		std::vector<Point> points(3* 360 / step);
+		VD::PositionVertices points(3* 360 / step);
 		auto ptsIt = points.begin();
 		for (float i = 360; i > 0; i -= step)
 		{
@@ -369,35 +371,25 @@ std::vector<glm::vec3> CreatorVisualizer::generatePoints()
 	if (mousePoint)
 		ptsToDraw.push_back(mousePoint.value());
 
-	genPoints.resize(ptsToDraw.size() * circePoints.size());
-	auto genIt = genPoints.begin();
+	VD::PositionVertices vertices;
+	vertices.resize(ptsToDraw.size() * circePoints.size());
+	auto vIter = vertices.begin();
 	for (const auto point : ptsToDraw)
 	{
-		genIt = std::transform(std::begin(circePoints), std::end(circePoints), genIt,
+		vIter = std::transform(std::begin(circePoints), std::end(circePoints), vIter,
 			[&point](const Point& circlePoint)
 			{
 				return point + circlePoint;
 			});
 	}
+	VD::ColorVertex colorVertex (0.1, 0.8, 0.1, 1.0);
+	VD::ColorVertices colors(vertices.size(), colorVertex);
 
-	return genPoints;
+	return std::make_pair(vertices, colors);
 }
 
 void CreatorVisualizer::updateGraphics()
 {
-	glm::vec3 color = glm::vec3(0.1, 0.2, 1.0);
-	auto transformPointToVtx = [&color](const Point& pt)
-	{
-		GO::VariantVertex vvtx;
-		vvtx.coloredVertex.position = pt;
-		vvtx.coloredVertex.color = color;
-		return vvtx;
-	};
-
-	GO::TypedVertices typedVts;
-	auto& [type, vvts] = typedVts;
-
-	type = GO::VertexType::COLORED;
 
 	auto points = pointToDraw;
 	if (mousePoint)
@@ -405,7 +397,7 @@ void CreatorVisualizer::updateGraphics()
 
 	if (points.size() > 1)
 	{
-		std::vector<Point> drawPoints;
+		VD::PositionVertices drawPoints;
 
 		if (points.size() == 2)
 		{
@@ -417,49 +409,57 @@ void CreatorVisualizer::updateGraphics()
 			drawPoints = buildSimpleShapeOutline(temp, width);
 		}
 
-		lineGraphics.setActive(true);
-		std::transform(std::begin(drawPoints), std::end(drawPoints), std::back_inserter(vvts), transformPointToVtx);
-
 		Info::DrawInfo dInfo;
 		dInfo.lineWidth = 2.0f;
 		dInfo.polygon = VK_POLYGON_MODE_LINE;
 		dInfo.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
 
+		glm::vec4 color = glm::vec4(0.1, 0.2, 1.0, 1.0);
+		VD::ColorVertices colors(drawPoints.size(), color);
+		Mesh simpleMesh;
+		simpleMesh.vertices.positions = drawPoints;
+		simpleMesh.vertices.colors = colors;
+		Model model;
+		model.meshes.push_back(simpleMesh);
+
 		Info::ModelInfo mInfo;
-		mInfo.vertices = &typedVts;
+		mInfo.model = &model;
 
 		Info::GraphicsComponentCreateInfo gInfo;
 		gInfo.drawInfo = &dInfo;
 		gInfo.modelInfo = &mInfo;
 
 		lineGraphics.recreateGraphicsComponent(gInfo);
+		lineGraphics.setActive(true);
 	}
 	else
 	{
 		lineGraphics.setActive(false);
 	}
 
-	points = generatePoints();
+	const auto [vertices, colors] = generatePoints();
 	if (points.size() > 0)
 	{
-		pointGraphics.setActive(true);
-		color = glm::vec3(0.1, 0.8, 0.1);
-
 		Info::DrawInfo dInfo;
 		dInfo.lineWidth = 1.0f;
 		dInfo.polygon = VK_POLYGON_MODE_FILL;
 		dInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-		vvts.clear();
-		std::transform(std::begin(points), std::end(points), std::back_inserter(vvts), transformPointToVtx);
+
+		Mesh simpleMesh;
+		simpleMesh.vertices.positions = vertices;
+		simpleMesh.vertices.colors = colors;
+		Model model;
+		model.meshes.push_back(simpleMesh);
 
 		Info::ModelInfo mInfo;
-		mInfo.vertices = &typedVts;
+		mInfo.model = &model;
 
 		Info::GraphicsComponentCreateInfo gInfo;
 		gInfo.drawInfo = &dInfo;
 		gInfo.modelInfo = &mInfo;
 
 		pointGraphics.recreateGraphicsComponent(gInfo);
+		pointGraphics.setActive(true);
 	}
 	else
 	{

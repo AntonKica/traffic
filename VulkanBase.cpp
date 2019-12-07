@@ -30,20 +30,6 @@ using namespace Utility;
 #include <stb/stb_image.h>
 
 #define SAMPLE_NAME "Sample name"
-
-static VkDescriptorType bufferUsageTypeToDescriptorType(VkBufferUsageFlags bufferUsage)
-{
-	switch (bufferUsage)
-	{
-	case VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT:
-		return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	case VK_BUFFER_USAGE_STORAGE_BUFFER_BIT:
-		return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
-	default:
-		throw std::runtime_error("Unknown buffer usage!");
-	}
-}
-
 // old
 std::vector<const char*> VulkanBase::getRequiredExtensions() const
 {
@@ -272,6 +258,11 @@ uint16_t VulkanBase::getSwapchainImageCount() const
 	return m_swapchain.images.size();
 }
 
+std::vector<vkh::structs::Buffer>& VulkanBase::getUniformBuffers()
+{
+	return m_buffers.uniform;
+}
+
 pGraphicsModule VulkanBase::getNewGraphicsModule()
 {
 	pGraphicsModule gModule =  m_graphicsModules.top();
@@ -301,9 +292,14 @@ GraphicsComponent VulkanBase::createGrahicsComponent(const Info::GraphicsCompone
 
 void VulkanBase::recreateGrahicsComponent(GraphicsComponent& gp, const Info::GraphicsComponentCreateInfo& info)
 {
-	//m_dataManager.removeModelReference(gp.graphicsModule->pModelReference);
+	removeGraphicsModule(&gp.getGraphicsModule());
+	pGraphicsModule gModule = createGraphicsModule(info);
 
-	gp.graphicsModule->pModelReference = m_dataManager.getModelReference(*info.modelInfo);
+	gp.setGraphicsModule(gModule);
+
+	// for uniform buffer
+	if (gp.active)
+		m_changedActiveComponentsSize = true;
 }
 
 void VulkanBase::copyGrahicsComponent(const GraphicsComponent& srcGraphicsComponent, GraphicsComponent& dstGraphicsComponent)
@@ -312,6 +308,10 @@ void VulkanBase::copyGrahicsComponent(const GraphicsComponent& srcGraphicsCompon
 	{
 		pGraphicsModule gModule = copyGraphicsModule(srcGraphicsComponent.getGraphicsModule());
 		dstGraphicsComponent.setGraphicsModule(gModule);
+
+		// for uniform buffer
+		if (dstGraphicsComponent.active)
+			m_changedActiveComponentsSize = true;
 	}
 }
 
@@ -342,199 +342,45 @@ void VulkanBase::deactivateGraphicsComponent(GraphicsComponent* toActivate)
 	}
 }
 
-Info::DescriptorSetCreateInfo VulkanBase::generateSetCreatInfo(const Info::GraphicsComponentCreateInfo& info,
-	const ModelReference& modelRef) const
-{
-	//Info::DescriptorSetCreateInfo setInfo;
-	Info::DescriptorBindings bindings;
-	{
-		Info::DescriptorBinding uboBinding;
-		uboBinding.binding = 0;
-		uboBinding.stage = VK_SHADER_STAGE_VERTEX_BIT;;
-		uboBinding.type = bufferUsageTypeToDescriptorType(m_buffers.uniform[0].usage);
-
-		bindings.push_back(uboBinding);
-	}
-	if (modelRef.texture)
-	{
-		Info::DescriptorBinding imageBinding;
-		imageBinding.binding = 1;
-		imageBinding.stage = VK_SHADER_STAGE_FRAGMENT_BIT;;
-		imageBinding.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-
-		bindings.push_back(imageBinding);
-	}
-
-	Info::DescriptorSetCreateInfo setInfo;
-	setInfo.bindings = bindings;
-	setInfo.sampler = &m_sampler;
-	// copy buffer pointers
-	auto transformBuffer = [](const vkh::structs::Buffer& buffer) {	return &buffer;	};
-	std::transform(std::begin(m_buffers.uniform), std::end(m_buffers.uniform),
-		std::back_inserter(setInfo.dstBuffers), transformBuffer);
-
-	// guaranted that no exception is thrown
-	if (modelRef.texture)
-		setInfo.srcImage = &m_images.find(modelRef.texture.value())->second;
-
-	return setInfo;
-}
-
-Info::PipelineInfo VulkanBase::generatePipelineCreateInfo(const Info::GraphicsComponentCreateInfo& info,
-	const ModelReference& modelRef, GO::ID descriptorSetRefID) const
-{
-	using namespace Info;
-
-
-	VertexInfo vertexInfo;
-	vertexInfo.vertexType = modelRef.pVertices->type;
-	vertexInfo.attributes = GO::getAttributeDescriptionsFromType(vertexInfo.vertexType);
-	vertexInfo.bindingDescription = GO::getBindingDescriptionFromType(vertexInfo.vertexType);
-
-	ViewportInfo viewportInfo;
-	viewportInfo.minDepth = 0.0f;
-	viewportInfo.maxDepth = 1.0f;
-	viewportInfo.viewportExtent = m_swapchain.extent;
-	viewportInfo.scissorsExtent = m_swapchain.extent;
-	//drawinfo
-	MultisampleInfo multisampleInfo;
-	multisampleInfo.sampleShading = false;
-	multisampleInfo.minSampleShading = 0.0f;
-	multisampleInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-	multisampleInfo.sampleMask = nullptr;
-
-	ColorBlendingInfo colorBlendingInfo;
-#pragma message ("Pimp up blending!")
-	colorBlendingInfo.blendEnable = true;
-	colorBlendingInfo.writeAllMasks = true;
-	colorBlendingInfo.blendOp = VK_BLEND_OP_ADD;
-
-	DepthStencilInfo depthStencilInfo;
-	depthStencilInfo.enableDepth = true;
-	depthStencilInfo.minDepth = 0.0f;
-	depthStencilInfo.maxDepth = 1.0f;
-
-	Layouts layouts;
-	layouts.pushRanges = { &m_pushRange };
-	layouts.setLayout = 
-		&m_descriptorManager.getDescriptorLayoutFromRef(descriptorSetRefID);
-
-	Info::PipelineInfo pipelineInfo;
-	pipelineInfo.vertexInfo = vertexInfo;
-	pipelineInfo.viewportInfo = viewportInfo;
-	pipelineInfo.drawInfo = *info.drawInfo;
-	pipelineInfo.multisample = multisampleInfo;
-	pipelineInfo.colorBlending = colorBlendingInfo;
-	pipelineInfo.depthStencil = depthStencilInfo;
-	pipelineInfo.layouts = layouts;
-	pipelineInfo.renderPass = m_renderPass;
-
-	return pipelineInfo;
-}
 
 pGraphicsModule VulkanBase::createGraphicsModule(const Info::GraphicsComponentCreateInfo& info)
 {
-	auto pModelReference = m_dataManager.getModelReference(*info.modelInfo);
+	Model model;
 
-	static_assert(true && "MAke IMAGE module, omg");
-	const vkh::structs::Image* texture = nullptr;
-	if (pModelReference->texture)
-		texture = getImage(pModelReference->texture.value());
+	auto& modelVariant = info.modelInfo->model;
+	if (auto pVal = std::get_if<std::string>(&modelVariant))
+		model.loadModel(*pVal);
+	else
+		model = *std::get<Model*>(modelVariant);
 
-	Info::DescriptorSetCreateInfo bindingInfo =
-		generateSetCreatInfo(info, *pModelReference);
-	GO::ID descriptorSetRefID = m_descriptorManager.getDescriptorReference(bindingInfo);
+	auto modelData = m_dataManager.loadModel(model);
 
-	Info::PipelineInfo pipelineInfo =
-		generatePipelineCreateInfo(info, *pModelReference, descriptorSetRefID);
-	GO::ID pipelineRefID = m_pipelinesManager.getPipelineReference(pipelineInfo);
+	m_descriptorManager.processModelData(modelData);
+	m_pipelinesManager.processModelData(modelData, *info.drawInfo);
 
 
 	pGraphicsModule newModule = getNewGraphicsModule();
-	newModule->pModelReference = pModelReference;
-	newModule->m_descriptorSetReference = descriptorSetRefID;
-	newModule->pTexture = texture;
-	newModule->m_pipelineReference = pipelineRefID;
+	newModule->modelData = modelData;
 
 	return newModule;
 }
 
 pGraphicsModule VulkanBase::copyGraphicsModule(const GraphicsModule& copyModule)
 {
-	auto pModelRef = copyModule.pModelReference;
-
 	pGraphicsModule copiedModule = getNewGraphicsModule();
-	copiedModule->pModelReference = m_dataManager.copyModelReference(pModelRef);
-	copiedModule->m_descriptorSetReference = copyModule.m_descriptorSetReference;
-	copiedModule->pTexture = copyModule.pTexture;
-	copiedModule->m_pipelineReference = copyModule.m_pipelineReference;
+	copiedModule->modelData = copyModule.modelData;
 
 	return copiedModule;
-}
-
-const vkh::structs::Image* VulkanBase::getImage(const std::string& loadPath)
-{
-	{
-		auto image = findImage(loadPath);
-		if (image)
-			return image.value();
-	}
-
-	static_assert(true && "UGLY, rewriite..");
-	// ugly, 
-	int width, height, channels;
-	unsigned char* data = stbi_load(loadPath.c_str(), &width, &height, &channels, 0);
-	if (!data)
-		throw std::runtime_error("Failed to load texture " + loadPath);
-
-	vkh::structs::Buffer& stagingBuffer = m_device.getStagingBuffer(width * height * 4, data);
-	stbi_image_free(data);
-
-	vkh::structs::Image newImage;
-	m_device.createImage(width, height, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_TILING_OPTIMAL,
-		VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_IMAGE_ASPECT_COLOR_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, newImage, false);
-
-	auto cmdBuffer = m_device.createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
-	newImage.transitionLayout(m_device, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmdBuffer);
-	m_device.flushCommandBuffer(cmdBuffer, m_device.queues.graphics, false);
-
-	m_device.copyBufferToImage(stagingBuffer, newImage, width, height);
-
-	m_device.beginCommandBuffer(cmdBuffer);
-	newImage.transitionLayout(m_device, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmdBuffer);
-	m_device.flushCommandBuffer(cmdBuffer, m_device.queues.graphics);
-
-	m_device.createImageView(newImage);
-	newImage.setupDescriptor(m_sampler);
-	m_device.freeStagingBuffer(stagingBuffer);
-
-	//std::string file = std::filesystem::path(loadPath).filename().string();
-	m_images[loadPath] = newImage;
-
-
-	return &m_images[loadPath];
-}
-
-std::optional<const vkh::structs::Image*> VulkanBase::findImage(const std::string& filePath)
-{
-	std::optional<const vkh::structs::Image*> image;
-
-	for (const auto& [_file, _image] : m_images)
-	{
-		if (_file== filePath)
-		{
-			image = &_image;
-			break;
-		}
-	}
-
-	return image;
 }
 
 vkh::structs::VulkanDevice* VulkanBase::getDevice()
 {
 	return &m_device;
+}
+
+vkh::structs::Swapchain& VulkanBase::getSwapchain()
+{
+	return m_swapchain;
 }
 
 VkSampler& VulkanBase::getSampler()
@@ -545,6 +391,11 @@ VkSampler& VulkanBase::getSampler()
 GLFWwindow* VulkanBase::getWindow()
 {
 	return m_window;
+}
+
+VkPushConstantRange& VulkanBase::getPushRange()
+{
+	return m_pushRange;
 }
 
 void VulkanBase::initVulkan()
@@ -581,6 +432,7 @@ void VulkanBase::initVulkan()
 
 void VulkanBase::initModules()
 {
+	m_dataManager.initialize(this);
 	m_descriptorManager.init(this);
 	m_pipelinesManager.init(this);
 
@@ -591,7 +443,6 @@ void VulkanBase::initModules()
 void VulkanBase::initGraphicsMoudules()
 {
 	constexpr size_t maxGraphicsComponents = 100'000;
-
 	//GraphicsComponent* gm = new GraphicsComponent[maxGraphicsComponents];
 	//FIX THIS
 	for (int index = 0; index < maxGraphicsComponents; ++index)
@@ -615,19 +466,17 @@ void VulkanBase::mainLoop()
 
 	while (!glfwWindowShouldClose(m_window))
 	{
-		/*std::chrono::time_point currentFrame = std::chrono::high_resolution_clock::now();
+		std::chrono::time_point currentFrame = std::chrono::high_resolution_clock::now();
 		deltaTime = (currentFrame - lastFrame).count() / std::pow(10, 9);
 		lastFrame = currentFrame;
 
 		glfwSetWindowTitle(m_window, (std::string("Sample title ") + std::to_string(int(1.0 / deltaTime))).c_str());
-
 		App::Scene.m_camera.update(deltaTime, getCursorPos(m_window));
 		App::Scene.m_simArea.update(deltaTime);
 
 		prepareFrame();
 		drawFrame();
-		processInput();*/
-
+		processInput();
 		glfwSwapBuffers(m_window);
 		glfwPollEvents();
 	}
@@ -1090,13 +939,6 @@ void VulkanBase::createCommandPool()
 
 void VulkanBase::initBuffers()
 {
-	for (GO::VertexType type = static_cast<GO::VertexType>(0); type < GO::VertexType::MAX_TYPE; ++type)
-	{
-		createVertexBuffer(m_buffers.vertex[type], VulkanSettings::defaultVertexBufferSize);
-	}
-
-	createIndexBuffer(m_buffers.index, VulkanSettings::defaultIndexBufferSize);
-
 	m_buffers.uniform.resize(m_swapchain.images.size());
 	for (auto& uniformBuffer : m_buffers.uniform)
 	{
@@ -1139,93 +981,26 @@ void VulkanBase::createPushRanges()
 	m_pushRange.offset = 0;
 }
 
-void VulkanBase::updateVertexBuffer()
-{
-	vkQueueWaitIdle(m_device.queues.graphics);
-	for (GO::VertexType type = static_cast<GO::VertexType>(0); type < GO::VertexType::MAX_TYPE; ++type)
-	{
-		VkDeviceSize requiredBufferSize = 
-			m_dataManager.getLoadedVerticesByteSize(type);
-		//nothing to draw
-		if (requiredBufferSize <= 0)
-			continue;
-		// resize if needed
-		auto& currentBufer = m_buffers.vertex[type];
-		if (requiredBufferSize > currentBufer.size)
-			createVertexBuffer(currentBufer, requiredBufferSize * 1.25);
-
-		vkh::structs::Buffer& stagingBuffer = m_device.getStagingBuffer(requiredBufferSize);
-		uint8_t* data = static_cast<uint8_t*>(stagingBuffer.map());
-
-		uint64_t byteOffset = 0;
-		for (const auto& vertices : m_dataManager.loaded.vertices)
-		{
-			if (type != vertices->type)
-				continue;
-
-			memcpy(data, vertices->vertices.data(), vertices->vertices.size());
-			data += vertices->vertices.size();
-
-			m_dataManager.setVerticesOffset(&(*vertices), byteOffset);
-			byteOffset += vertices->vertices.size();
-		}
-		stagingBuffer.unmap();
-		m_device.copyBuffer(stagingBuffer, currentBufer);
-
-		m_device.freeStagingBuffer(stagingBuffer);
-	}
-	m_dataManager.setState(DataManager::Flags::VERTICES_LOADED, false);
-}
-
-void VulkanBase::updateIndexBuffer()
-{
-	vkQueueWaitIdle(m_device.queues.graphics);
-
-	auto strideSize = sizeof(uint32_t);
-	VkDeviceSize requiredBufferSize =
-		m_dataManager.getLoadedIndicesSize() * strideSize;
-
-	if (requiredBufferSize <= 0)
-		return;
-
-	if (requiredBufferSize > m_buffers.index.size)
-		createVertexBuffer(m_buffers.index, requiredBufferSize * 1.25);
-
-	vkh::structs::Buffer& stagingBuffer = m_device.getStagingBuffer(requiredBufferSize);
-	uint8_t* data = static_cast<uint8_t*>(stagingBuffer.map());
-
-	uint64_t offset = 0;
-	for (const auto& indices : m_dataManager.loaded.indices)
-	{
-		size_t copySize = indices->size() * strideSize;
-		memcpy(data, indices->data(), copySize);
-
-		m_dataManager.setIndicesOffset(&(*indices), offset);
-
-		offset += indices->size();
-		data += copySize;
-	}
-	m_device.copyBuffer(stagingBuffer, m_buffers.index);
-
-	m_device.freeStagingBuffer(stagingBuffer);
-
-	m_dataManager.setState(DataManager::Flags::INDICES_LOADED, false);
-}
-
 void VulkanBase::updateUniformBufferOffsets()
 {
 	auto strideSize = 
 		getRequiredAligment(sizeof(UniformBufferObject), m_device.properties.limits.minUniformBufferOffsetAlignment);
-	size_t totalBytes = m_activeGraphicsComponents.size() * strideSize;
+	size_t totalBytes = 0;
+	
+	for (auto& graphicsComponent : m_activeGraphicsComponents)
+		totalBytes = graphicsComponent->getGraphicsModule().modelData.meshDatas.size()* strideSize;
 
 	// pseudo warning
 	if (m_buffers.uniform[0].size < totalBytes)
 		throw std::runtime_error("Not engough space!");
 	VkDeviceSize offset = 0;
-	for (auto& graphicsModule : m_activeGraphicsComponents)
+	for (auto& graphicsComponent : m_activeGraphicsComponents)
 	{
-		graphicsModule->setBufferOffset(offset);
-		offset += strideSize;
+		for (auto& meshData : graphicsComponent->getGraphicsModule().modelData.meshDatas)
+		{
+			meshData.dynamicBufferOffset = offset;
+			offset += strideSize;
+		}
 	}
 
 	m_changedActiveComponentsSize = false;
@@ -1294,45 +1069,7 @@ void VulkanBase::recreateCommandBuffer(uint32_t currentImage)
 
 	for (const auto& graphicsComponent : m_activeGraphicsComponents)
 	{
-		const auto graphicsModule = graphicsComponent->graphicsModule;
-		if (graphicsPipeline != graphicsModule->m_pipelineReference)
-		{
-			graphicsPipeline = graphicsModule->m_pipelineReference;
-
-			vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-				m_pipelinesManager.getPipelineFromReference(graphicsPipeline));
-
-			// pushConstants
-			vkCmdPushConstants(cmdBuffer, m_pipelinesManager.getPipelineLayoutFromReference(graphicsModule->m_pipelineReference),
-				VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(m_pushConstants), &m_pushConstants);
-		}
-		const auto& modelRef = graphicsModule->pModelReference;
-		if (vertType != modelRef->pVertices->type)
-		{
-			vertType = modelRef->pVertices->type;
-
-			vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &m_buffers.vertex[vertType].buffer, vertexOffsets);
-		}
-
-		descriptorOffsets[0] = graphicsModule->dynamicBufferOffset;
-		auto& pipelineLayot = m_pipelinesManager.getPipelineLayoutFromReference(graphicsModule->m_pipelineReference);
-		auto& descriptorSet = m_descriptorManager.getDescriptorSetFromRef(graphicsModule->m_descriptorSetReference, currentImage);
-		vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayot, 0, 
-			1, &descriptorSet, 1, descriptorOffsets);
-
-		auto [vCnt, vOff] = std::make_pair(GO::getVerticesCountFromByteVertices(&*modelRef->pVertices),
-			m_dataManager.getVerticesOffset(&*modelRef->pVertices));
-		if (modelRef->pIndices)
-		{
-			auto [iCnt, iOff] = std::make_pair(modelRef->pIndices->size(), 
-				m_dataManager.getIndicesOffset(&*modelRef->pIndices));
-			vkCmdBindIndexBuffer(cmdBuffer, m_buffers.index, 0, VK_INDEX_TYPE_UINT32);
-			vkCmdDrawIndexed(cmdBuffer, iCnt, 1, iOff, vOff, 0);
-		}
-		else
-		{
-			vkCmdDraw(cmdBuffer, vCnt, 1, vOff, 0);
-		}
+		drawModelData(graphicsComponent->getGraphicsModule().modelData, cmdBuffer, currentImage);
 	}
 
 	// drawUI
@@ -1342,6 +1079,66 @@ void VulkanBase::recreateCommandBuffer(uint32_t currentImage)
 	if (res != VK_SUCCESS)
 	{
 		throw std::runtime_error("Failed to record command buffer!");
+	}
+}
+
+void VulkanBase::drawModelData(const VD::ModelData& modelData, VkCommandBuffer& cmdBuff, uint32_t currentImage)
+{
+	VD::Pipeline* currentPipeline = nullptr;
+	vkh::structs::Buffer* currentVertexBuffer = nullptr;
+	vkh::structs::Buffer* currentIndexBuffer = nullptr;
+
+	size_t vertexOffset = 0;
+	size_t vertecCount = 0;
+	size_t indexOffset = 0;
+	size_t indexCount = 0;
+	for (const auto& meshData : modelData.meshDatas)
+	{
+		if (&(*meshData.pipeline) != currentPipeline)
+		{
+			currentPipeline = &(*meshData.pipeline);
+
+			vkCmdBindPipeline(cmdBuff, VK_PIPELINE_BIND_POINT_GRAPHICS, currentPipeline->pipeline);
+			vkCmdPushConstants(cmdBuff, currentPipeline->pipelineLayout,
+				VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(m_pushConstants), &m_pushConstants);
+		}
+
+		if (currentVertexBuffer != meshData.vertexBuffer)
+		{
+			currentVertexBuffer = meshData.vertexBuffer;
+
+			VkBuffer vertexBuffers[] = { *currentVertexBuffer };
+			VkDeviceSize offsets[] = { 0 };
+			vkCmdBindVertexBuffers(cmdBuff, 0, 1, vertexBuffers, offsets);
+
+			const size_t vertexSize = VD::vertexSizeFromFlags(meshData.drawData.vertices.buffer->type);
+
+			vertexOffset = meshData.drawData.vertices.byteOffset / vertexSize;
+			vertecCount = meshData.drawData.vertices.buffer->data.size() / vertexSize;
+		}
+
+		if (currentIndexBuffer != meshData.indexBuffer && meshData.indexBuffer != nullptr)
+		{
+			currentIndexBuffer = meshData.indexBuffer;
+
+			VkDeviceSize offsets[] = { 0 };
+			vkCmdBindIndexBuffer(cmdBuff, *currentIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+			const size_t indexSize = sizeof(uint32_t);
+
+			indexOffset = meshData.drawData.indices.byteOffset / indexSize;
+			indexCount = meshData.drawData.indices.buffer->size();
+		}
+
+		VkDescriptorSet descriptorSets[] = { meshData.descriptorSet->sets[currentImage] };
+		uint32_t offsets[] = { meshData.dynamicBufferOffset };
+		vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_GRAPHICS, currentPipeline->pipelineLayout, 0,
+			1, descriptorSets, 1, offsets);
+
+		if (meshData.indexBuffer)
+			vkCmdDrawIndexed(cmdBuff, indexCount, 1, indexOffset, vertexOffset, 0);
+		else
+			vkCmdDraw(cmdBuff, vertecCount, 1, vertexOffset, 0);
 	}
 }
 
@@ -1373,16 +1170,6 @@ void VulkanBase::createSyncObjects()
 
 void VulkanBase::prepareFrame()
 {
-	bool modelLoaded = m_dataManager.getState(DataManager::Flags::MODEL_LOADED);
-	if (m_dataManager.getState(DataManager::Flags::VERTICES_LOADED) && modelLoaded)
-	{
-		updateVertexBuffer();
-	}
-	if (m_dataManager.getState(DataManager::Flags::INDICES_LOADED) && modelLoaded)
-	{
-		updateIndexBuffer();
-	}
-
 	if (m_changedActiveComponentsSize)
 	{
 		updateUniformBufferOffsets();
@@ -1473,24 +1260,28 @@ void VulkanBase::updateUniformBuffer(uint32_t currentImage)
 	const VkDeviceSize dynamicAligment = getRequiredAligment(sizeof(UniformBufferObject), 256);
 	uint8_t* const data = static_cast<uint8_t* const>(m_buffers.uniform[currentImage].map());
 
+	int count = 0;
 	for (const auto& graphicsComponent : m_activeGraphicsComponents)
 	{
 		const auto graphicsModule = graphicsComponent->graphicsModule;
 
-		UniformBufferObject ubo;
-		auto model = glm::mat4(1.0);
-		const auto& [position, rotation, size] = graphicsModule->transformations;
+		for (const auto& meshData : graphicsModule->modelData.meshDatas)
+		{
+			UniformBufferObject ubo;
+			auto model = glm::mat4(1.0);
+			const auto& [position, rotation, size] = graphicsModule->transformations;
 
-		model = glm::translate(model, position);
-		model = glm::rotate(model, glm::radians(rotation.x), (glm::vec3)Transformations::VectorUp);
-		model = glm::rotate(model, glm::radians(rotation.y), (glm::vec3)Transformations::VectorRight);
-		model = glm::rotate(model, glm::radians(rotation.z), (glm::vec3)Transformations::VectorForward);
-		model = glm::scale(model, size);
-		ubo.model = model;
-		ubo.tint = graphicsModule->shaderInfo.tint;
-		ubo.transparency = graphicsModule->shaderInfo.transparency;
+			model = glm::translate(model, position);
+			model = glm::rotate(model, glm::radians(rotation.x), (glm::vec3)Transformations::VectorUp);
+			model = glm::rotate(model, glm::radians(rotation.y), (glm::vec3)Transformations::VectorRight);
+			model = glm::rotate(model, glm::radians(rotation.z), (glm::vec3)Transformations::VectorForward);
+			model = glm::scale(model, size);
+			ubo.model = model;
+			ubo.tint = graphicsModule->shaderInfo.tint;
+			ubo.transparency = graphicsModule->shaderInfo.transparency;
 
-		memcpy(data + graphicsModule->dynamicBufferOffset, &ubo, dynamicAligment);
+			memcpy(data + meshData.dynamicBufferOffset, &ubo, dynamicAligment);
+		}
 	}
 	m_buffers.uniform[currentImage].unmap();
 }
@@ -1536,11 +1327,6 @@ void VulkanBase::cleanupSwapchain()
 
 void VulkanBase::cleanupBuffers()
 {
-	for (auto& vBuffer : m_buffers.vertex)
-		vBuffer.second.cleanup(m_device, nullptr);
-
-	m_buffers.index.cleanup(m_device, nullptr);
-
 	for (auto uniformBuffer : m_buffers.uniform)
 		uniformBuffer.cleanup(m_device, nullptr);
 

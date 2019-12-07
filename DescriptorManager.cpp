@@ -3,8 +3,299 @@
 #include "Utilities.h"
 using namespace Utility;
 
+VD::SharedDescriptorSet DescriptorManager::getDescriptorSet(const Info::DescriptorSetInfo& setInfo)
+{
+	auto possibleSet = findDescriptorSet(setInfo);
+	if (possibleSet)
+		return possibleSet.value();
+	else
+		return createDescriptorSet(setInfo);
+}
 
-GO::ID DescriptorManager::createDescriptorPool(const Info::DescriptorPoolInfo& poolInfo)
+VD::SharedDescriptorSet DescriptorManager::createDescriptorSet(const Info::DescriptorSetInfo& setInfo)
+{
+	// find pool
+	auto poolInfo = generatePoolInfo(setInfo);
+	auto descriptorPool = getDescriptorPool(poolInfo);
+
+	auto setLayoutInfo = genereateSetLayoutInfo(setInfo);
+	auto setLayout = getDescriptorSetLayout(setLayoutInfo);
+
+	// allocate
+	const int descriptorCount = setInfo.dstBuffers.size();
+	std::vector<VkDescriptorSetLayout> layouts(descriptorCount, setLayout->layout);
+
+	VkDescriptorSetAllocateInfo allocInfo = vkh::initializers::descriptorSetAllocateInfo(
+		*descriptorPool,
+		descriptorCount,
+		layouts.data()
+	);
+
+	std::vector<VkDescriptorSet> descriptors(descriptorCount);
+	VK_CHECK_RESULT(vkAllocateDescriptorSets(*device, &allocInfo, descriptors.data()));
+
+	//write
+
+	// and assing
+	VD::DescriptorSet set;
+	set.info = setInfo;
+	set.setLayout = setLayout;
+	set.sets = descriptors;
+
+	writeDescriptorSet(set);
+
+	descriptorSets.push_back(std::make_shared<VD::DescriptorSet>(set));
+
+	return descriptorSets.back();
+}
+
+std::optional<VD::SharedDescriptorSet> DescriptorManager::findDescriptorSet(const Info::DescriptorSetInfo& setInfo) const
+{
+	std::optional<VD::SharedDescriptorSet> set;
+
+	for (auto& descriptorSet : descriptorSets)
+	{
+		if (compareSetInfo(descriptorSet->info, setInfo))
+		{
+			set = descriptorSet;
+			break;
+		}
+	}
+
+	return set;
+}
+
+bool DescriptorManager::compareSetInfo(const Info::DescriptorSetInfo& lhs, const Info::DescriptorSetInfo& rhs) const
+{
+	if (lhs.dstBuffers[0] == rhs.dstBuffers[0] &&
+		rhs.srcImage == lhs.srcImage)
+	{
+		for (const auto& lhsBinding : lhs.bindings)
+		{
+			for (const auto& rhsBinding : rhs.bindings)
+			{
+				if (!compareBindings(lhsBinding, rhsBinding))
+					return false;
+			}
+		}
+
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool DescriptorManager::compareBindings(const Info::DescriptorBinding& lhs, const Info::DescriptorBinding& rhs) const
+{
+	const auto& [lhsBinding, lhsStage, lhsType] = lhs;
+	{
+		bool suitableRhs = false;
+		const auto& [rhsBinding, rhsStage, rhsType] = rhs;
+		{
+			if (lhsType == rhsType && lhsBinding == rhsBinding && lhsStage == rhsStage)
+			{
+				suitableRhs = true;
+			}
+		}
+
+		if (!suitableRhs)
+			return false;
+	}
+
+	return true;
+}
+
+VD::SharedDescriptorSetLayout DescriptorManager::getDescriptorSetLayout(const Info::DescriptorSetLayoutInfo& layoutInfo)
+{
+	auto possibleLayout = findDescriptorSetLayout(layoutInfo);
+	if (possibleLayout)
+		return possibleLayout.value();
+	else
+		return createDescriptorSetLayout(layoutInfo);
+}
+
+VD::SharedDescriptorSetLayout DescriptorManager::createDescriptorSetLayout(const Info::DescriptorSetLayoutInfo& setLayoutInfo)
+{
+	std::vector<VkDescriptorSetLayoutBinding> layoutBindings;
+	for (const auto& binding : setLayoutInfo.bindings)
+	{
+		VkDescriptorSetLayoutBinding layoutBinding = vkh::initializers::descritptorSetLayoutBinding(
+			binding.type,
+			binding.stage,
+			binding.binding);
+
+		if (setLayoutInfo.sampler)
+			layoutBinding.pImmutableSamplers = setLayoutInfo.sampler.value();
+
+		layoutBindings.push_back(layoutBinding);
+	}
+
+
+	VkDescriptorSetLayoutCreateInfo descriptorSetlayoutInfo =
+	{
+		vkh::initializers::descriptorSetLayoutCreateInfo(
+			layoutBindings.size(),
+			layoutBindings.data()
+		)
+	};
+
+	VkDescriptorSetLayout layout;
+	VK_CHECK_RESULT(vkCreateDescriptorSetLayout(*device, &descriptorSetlayoutInfo, nullptr, &layout));
+
+
+	VD::DescriptorSetLayout setLayout;
+	setLayout.info = setLayoutInfo;
+	setLayout.layout = layout;
+
+	descriptorSetLayouts.push_back(std::make_shared<VD::DescriptorSetLayout>(setLayout));
+
+	return descriptorSetLayouts.back();
+}
+
+std::optional<VD::SharedDescriptorSetLayout> DescriptorManager::findDescriptorSetLayout(const Info::DescriptorSetLayoutInfo& setInfo) const
+{
+	std::optional<VD::SharedDescriptorSetLayout> setLayout;
+	for (const auto& descriptorSetLayot : descriptorSetLayouts)
+	{
+		if (compareSetLayoutInfo(descriptorSetLayot->info, setInfo))
+		{
+			setLayout = descriptorSetLayot;
+			break;
+		}
+	}
+
+	return setLayout;
+}
+
+bool DescriptorManager::compareSetLayoutInfo(const Info::DescriptorSetLayoutInfo& lhs, const Info::DescriptorSetLayoutInfo& rhs) const
+{
+	if (compareOptionals(lhs.sampler, rhs.sampler))
+	{
+		for (const auto& lhsBinding : lhs.bindings)
+		{
+			for (const auto& rhsBinding : rhs.bindings)
+			{
+				if (!compareBindings(lhsBinding, rhsBinding))
+					return false;
+			}
+		}
+	}
+	else
+	{
+		return false;
+	}
+
+	return true;
+}
+
+Info::DescriptorPoolInfo DescriptorManager::generatePoolInfo(const Info::DescriptorSetInfo& info) const
+{
+	Info::DescriptorPoolInfo poolInfo;
+	poolInfo.maxSets = DescriptorSettings::defaultDescriptorPoolMaxSets;
+
+	auto copyVkDescriptorType = [](const Info::DescriptorBinding& info)
+	{	return info.type;	};
+
+	std::transform(std::begin(info.bindings), std::end(info.bindings),
+		std::back_inserter(poolInfo.supportedTypes), copyVkDescriptorType);
+
+	return poolInfo;
+}
+
+Info::DescriptorSetLayoutInfo DescriptorManager::genereateSetLayoutInfo(const Info::DescriptorSetInfo& setInfo)
+{
+	Info::DescriptorSetLayoutInfo layoutInfo;
+	layoutInfo.bindings = setInfo.bindings;
+	
+	return layoutInfo;
+}
+
+void DescriptorManager::processMeshData(VD::MeshData& meshData)
+{
+	auto descriptorSetInfo = generateSetInfoFromMeshData(meshData);
+
+	meshData.descriptorSet = getDescriptorSet(descriptorSetInfo);
+}
+
+static VkDescriptorType bufferUsageTypeToDescriptorType(VkBufferUsageFlags bufferUsage)
+{
+	switch (bufferUsage)
+	{
+	case VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT:
+		return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	case VK_BUFFER_USAGE_STORAGE_BUFFER_BIT:
+		return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+	default:
+		throw std::runtime_error("Unknown buffer usage!");
+	}
+}
+
+Info::DescriptorSetInfo DescriptorManager::generateSetInfoFromMeshData(const VD::MeshData& meshData) const
+{
+	auto& uniformBuffers = vkBase->getUniformBuffers();
+
+	Info::DescriptorBindings bindings = generateDescriptorBindingsFormMeshData(meshData);
+
+	Info::DescriptorSetInfo setInfo;
+	setInfo.bindings = bindings;
+	// copy buffer pointers
+	auto transformBuffer = [](const vkh::structs::Buffer& buffer) {	return &buffer;	};
+	std::transform(std::begin(uniformBuffers), std::end(uniformBuffers),
+		std::back_inserter(setInfo.dstBuffers), transformBuffer);
+
+	if (meshData.drawData.textures.size())
+	{
+		auto& [type, sharedTexture] = *meshData.drawData.textures.begin();
+		setInfo.srcImage = &sharedTexture->image;
+		setInfo.sampler = &vkBase->getSampler();
+	}
+
+	return setInfo;
+}
+
+Info::DescriptorBindings DescriptorManager::generateDescriptorBindingsFormMeshData(const VD::MeshData& meshData) const
+{
+	auto& uniformBuffers = vkBase->getUniformBuffers();
+
+	Info::DescriptorBindings bindings;
+	{
+		{
+			Info::DescriptorBinding uboBinding;
+			uboBinding.binding = 0;
+			uboBinding.stage = VK_SHADER_STAGE_VERTEX_BIT;;
+			uboBinding.type = bufferUsageTypeToDescriptorType(uniformBuffers[0].usage);
+
+			bindings.push_back(uboBinding);
+		}
+		// has texture?
+		if (meshData.drawData.textures.size())
+		{
+			Info::DescriptorBinding imageBinding;
+			imageBinding.binding = 1;
+			imageBinding.stage = VK_SHADER_STAGE_FRAGMENT_BIT;;
+			imageBinding.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
+			bindings.push_back(imageBinding);
+		}
+	}
+
+	return bindings;
+}
+
+
+VD::pDescriptorPool DescriptorManager::getDescriptorPool(const Info::DescriptorPoolInfo& info)
+{
+	auto pool = findDescriptorPool(info);
+	if (pool)
+		return pool.value();
+
+	return createDescriptorPool(info);
+}
+
+
+VD::pDescriptorPool DescriptorManager::createDescriptorPool(const Info::DescriptorPoolInfo& poolInfo)
 {
 	int imageCount = vkBase->getSwapchainImageCount();
 
@@ -23,138 +314,29 @@ GO::ID DescriptorManager::createDescriptorPool(const Info::DescriptorPoolInfo& p
 		poolSizes.data(),
 		poolInfo.maxSets
 	);
-	DescriptorPool pool;
+	VD::DescriptorPool pool;
 	VK_CHECK_RESULT(vkCreateDescriptorPool(*device, &poolCreateInfo, nullptr, &pool.pool));
 	pool.info = poolInfo;
 
-	GO::ID poolId = generateNextContainerID(pools);
-	pools[poolId] = pool;
+	descriptorPools.push_back(std::make_unique<VD::DescriptorPool>(pool));
 
-	return poolId;
+	return descriptorPools.back().get();
 }
 
-std::pair<GO::ID, GO::ID> DescriptorManager::createDescriptorSet(const Info::DescriptorSetInfo& setInfo)
+std::optional<VD::pDescriptorPool> DescriptorManager::findDescriptorPool(const Info::DescriptorPoolInfo& poolInfo) const
 {
-	// find pool
-	auto poolInfo = generatePoolInfo(setInfo);
-	GO::ID poolID = processDescriptorPoolInfo(poolInfo);
-	GO::ID setLayoutID = createDescriptorSetLayout(setInfo);
+	std::optional<VD::pDescriptorPool> pool;
 
-	// allocate
-	const int descriptorCount = setInfo.dstBuffers.size();
-	std::vector<VkDescriptorSetLayout> layouts(descriptorCount, getDescriptorSetLayout(setLayoutID));
-
-	VkDescriptorSetAllocateInfo allocInfo = vkh::initializers::descriptorSetAllocateInfo(
-			getDescriptorPool(poolID),
-			descriptorCount,
-			layouts.data()
-		);
-
-	std::vector<VkDescriptorSet> descriptors(descriptorCount);
-	VK_CHECK_RESULT(vkAllocateDescriptorSets(*device, &allocInfo, descriptors.data()));
-
-	//write
-	writeDescriptorSets(descriptors, setInfo);
-
-	// and assing
-	GO::ID descriptorSetID = generateNextContainerID(sets);
-	sets[descriptorSetID] = descriptors;
-
-	return std::make_pair(setLayoutID, descriptorSetID);
-}
-
-GO::ID DescriptorManager::createDescriptorSetLayout(const Info::DescriptorSetInfo& setLayoutInfo)
-{
-	std::vector<VkDescriptorSetLayoutBinding> layoutBindings;
-	for (const auto& binding : setLayoutInfo.bindings)
+	for (const auto& descriptorPool : descriptorPools)
 	{
-		VkDescriptorSetLayoutBinding layoutBinding = vkh::initializers::descritptorSetLayoutBinding(
-			binding.type,
-			binding.stage,
-			binding.binding);
-
-		if (setLayoutInfo.srcImage)
-			layoutBinding.pImmutableSamplers = setLayoutInfo.sampler.value();
-
-		layoutBindings.push_back(layoutBinding);
-	}
-
-
-	VkDescriptorSetLayoutCreateInfo descriptorSetlayoutInfo =
-	{
-		vkh::initializers::descriptorSetLayoutCreateInfo(
-			layoutBindings.size(),
-			layoutBindings.data()
-		)
-	};
-
-	VkDescriptorSetLayout layout;
-	VK_CHECK_RESULT(vkCreateDescriptorSetLayout(*device, &descriptorSetlayoutInfo, nullptr, &layout));
-
-	GO::ID setID = generateNextContainerID(setLayouts);
-	setLayouts[setID] = layout;
-
-	return setID;
-}
-
-DescriptorPool DescriptorManager::getDescriptorPool(GO::ID id)
-{
-	return pools[id];
-}
-
-
-Info::DescriptorPoolInfo DescriptorManager::generatePoolInfo(const Info::DescriptorSetInfo& info) const
-{
-	Info::DescriptorPoolInfo poolInfo;
-	poolInfo.maxSets = DescriptorSettings::defaultDescriptorPoolMaxSets;
-
-	auto copyVkDescriptorType = [](const Info::DescriptorBinding& info)
-	{	return info.type;	};
-
-	std::transform(std::begin(info.bindings), std::end(info.bindings),
-		std::back_inserter(poolInfo.supportedTypes), copyVkDescriptorType);
-
-	return poolInfo;
-}
-
-Info::DescriptorSetInfo DescriptorManager::generateSetInfo(const Info::DescriptorSetCreateInfo& info) const
-{
-	Info::DescriptorSetInfo setInfo;
-	setInfo.bindings = info.bindings;
-	setInfo.dstBuffers = info.dstBuffers;
-	if (info.srcImage)
-	{
-		setInfo.srcImage = info.srcImage;
-		setInfo.sampler = info.sampler;
-	}
-
-	return setInfo;
-}
-
-
-GO::ID DescriptorManager::processDescriptorPoolInfo(const Info::DescriptorPoolInfo& info)
-{
-	auto poolID = findDescriptorPool(info);
-	if (poolID)
-		return poolID.value();
-
-	return createDescriptorPool(info);
-}
-
-std::optional<GO::ID> DescriptorManager::findDescriptorPool(const Info::DescriptorPoolInfo& poolInfo) const
-{
-	std::optional<GO::ID> poolID;
-
-	for (const auto& [id, descriptorPool] : pools)
-	{
-		if (comparePoolInfo(descriptorPool.info, poolInfo))
+		if (comparePoolInfo(descriptorPool->info, poolInfo))
 		{
-			poolID = id;
+			pool = descriptorPool.get();
 			break;
 		}
 	}
 
-	return poolID;
+	return pool;
 }
 
 bool DescriptorManager::comparePoolInfo(const Info::DescriptorPoolInfo& lhs, const Info::DescriptorPoolInfo& rhs) const
@@ -169,68 +351,12 @@ bool DescriptorManager::comparePoolInfo(const Info::DescriptorPoolInfo& lhs, con
 	return false;
 }
 
-GO::ID DescriptorManager::createDescriptorSetReference(const Info::DescriptorSetInfo& info)
+void DescriptorManager::writeDescriptorSet(VD::DescriptorSet& descriptorSet)
 {
-	const auto& [layoutID, setsID] = createDescriptorSet(info);
-
-	DescriptorSetReference setRef;
-	setRef.info = info;
-	setRef.layout = layoutID;
-	setRef.sets = setsID;
-
-	auto setRefID = generateNextContainerID(setReferences);
-	setReferences[setRefID] = setRef;
-
-	return setRefID;
-}
-
-std::optional<GO::ID> DescriptorManager::findDescriptorSet(const Info::DescriptorSetInfo& setInfo) const
-{
-	std::optional<GO::ID> setID;
-
-	for (const auto& [id, descriptorSet] : setReferences)
-	{
-		if (compareSetInfo(descriptorSet.info, setInfo))
-		{
-			setID = id;
-			break;
-		}
-	}
-
-	return setID;
-}
-
-bool DescriptorManager::compareSetInfo(const Info::DescriptorSetInfo& lhs, const Info::DescriptorSetInfo& rhs) const
-{
-	if (lhs.dstBuffers[0] == rhs.dstBuffers[0] &&
-		rhs.srcImage == lhs.srcImage)
-	{
-		for (const auto& [lhsBinding, lhsStage, lhsType] : lhs.bindings)
-		{
-			bool suitableRhs = false;
-			for (const auto& [rhsBinding, rhsStage, rhsType] : rhs.bindings)
-			{
-				if (lhsType == rhsType && lhsBinding == rhsBinding && lhsStage == rhsStage)
-				{
-					suitableRhs = true;
-				}
-			}
-
-			if (!suitableRhs)
-				break;
-		}
-
-		return true;
-	}
-	else
-	{
-		return false;
-	}
-}
-
-void DescriptorManager::writeDescriptorSets(std::vector<VkDescriptorSet>& sets, const Info::DescriptorSetInfo& setInfo)
-{
+	const auto& sets = descriptorSet.sets;
 	const int setCount = sets.size();
+
+	const auto& setInfo = descriptorSet.info;
 	const int bindingCount = setInfo.bindings.size();
 
 	std::vector<VkWriteDescriptorSet> writeSets(bindingCount);
@@ -272,91 +398,18 @@ void DescriptorManager::init(VulkanBase* vkBase)
 	this->device = vkBase->getDevice();
 }
 
-GO::ID DescriptorManager::getDescriptorReference(const Info::DescriptorSetCreateInfo& info)
+void DescriptorManager::processModelData(VD::ModelData& modelData)
 {
-	// sanity check
-	if (info.dstBuffers.empty())
-		throw std::runtime_error("Failed to supply dstBuffer for desc. set!\n");
-
-	// find previous
-	auto setInfo = generateSetInfo(info);
-	std::optional<GO::ID> setRefID = findDescriptorSet(setInfo);
-	if (setRefID)
-		return setRefID.value();
-
-	// create new
-	GO::ID newSetRefID = createDescriptorSetReference(setInfo);
-
-	return newSetRefID;
-}
-
-VkDescriptorSet& DescriptorManager::getDescriptorSetFromRef(GO::ID refID, int index)
-{
-	auto setRefIT = setReferences.find(refID);
-	if (setRefIT == std::end(setReferences))
-		throw std::runtime_error("Unknown layout id " + std::to_string(refID));
-
-	return getDescriptorSet(setRefIT->second.sets, index);
-}
-
-VkDescriptorSetLayout& DescriptorManager::getDescriptorLayoutFromRef(GO::ID refID) 
-{
-	auto setRefIT = setReferences.find(refID);
-	if (setRefIT == std::end(setReferences))
-		throw std::runtime_error("Unknown layout id " + std::to_string(refID));
-
-	return getDescriptorLayout(setRefIT->second.layout);
-}
-
-const VkDescriptorSetLayout& DescriptorManager::getDescriptorLayoutFromRef(GO::ID refID) const
-{
-	auto setRefIT = setReferences.find(refID);
-	if (setRefIT == std::end(setReferences))
-		throw std::runtime_error("Unknown layout id " + std::to_string(refID));
-
-	return getDescriptorLayout(setRefIT->second.layout);
-}
-
-VkDescriptorSetLayout& DescriptorManager::getDescriptorLayout(GO::ID id)
-{
-	auto layoutIt = setLayouts.find(id);
-	if (layoutIt == std::end(setLayouts))
-		throw std::runtime_error("Unknown layout id " + std::to_string(id));
-
-	return layoutIt->second;
-}
-
-const VkDescriptorSetLayout& DescriptorManager::getDescriptorLayout(GO::ID id) const
-{
-	auto layoutIt = setLayouts.find(id);
-	if (layoutIt == std::end(setLayouts))
-		throw std::runtime_error("Unknown layout id " + std::to_string(id));
-
-	return layoutIt->second;
-}
-
-VkDescriptorSet& DescriptorManager::getDescriptorSet(GO::ID id, int index)
-{
-	auto setIT = sets.find(id);
-	if (setIT == std::end(sets))
-		throw std::runtime_error("Unknown layout id " + std::to_string(id));
-
-	return setIT->second[index];
-}
-
-VkDescriptorSetLayout DescriptorManager::getDescriptorSetLayout(GO::ID id)
-{
-	auto setLayoutIT = setLayouts.find(id);
-	if (setLayoutIT == std::end(setLayouts))
-		throw std::runtime_error("Unknown layout id " + std::to_string(id));
-
-	return setLayoutIT->second;
+	for (auto& meshData : modelData.meshDatas)
+	{
+		processMeshData(meshData);
+	}
 }
 
 void DescriptorManager::cleanup(const VkAllocationCallbacks* allocator)
 {
-	for (auto& [id, pool] : pools)
-		vkDestroyDescriptorPool(*device, pool, allocator);
-	for (auto& [id, setLayout] : setLayouts)
-		vkDestroyDescriptorSetLayout(*device, setLayout, allocator);
+	for (auto& descriptorPool : descriptorPools)
+		vkDestroyDescriptorPool(*device, descriptorPool->pool, allocator);
+	for (auto& descriptorSet : descriptorSetLayouts)
+		vkDestroyDescriptorSetLayout(*device, descriptorSet->layout, allocator);
 }

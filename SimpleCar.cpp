@@ -1,6 +1,5 @@
 #include "SimpleCar.h"
 #include "PipelinesManager.h"
-#include "DataManager.h"
 #include <numeric>
 #include <glm/gtx/string_cast.hpp>
 
@@ -33,7 +32,7 @@ void SimpleCar::create(const Points& pathPoints)
 	pathToTake = pathPoints;
 
 	Info::ModelInfo mInfo;
-	mInfo.modelPath = "resources/models/Car/Car.obj";
+	mInfo.model = "resources/models/Car/Car.obj";
 
 	setupModel(mInfo, true);
 	m_graphicsComponent.setSize(glm::vec3(0.1));

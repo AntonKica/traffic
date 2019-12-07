@@ -102,3 +102,12 @@ inline std::pair<Point, Point> getSidePoints(glm::vec3 firstDirection, glm::vec3
 	return std::make_pair(left, right);
 }
 
+template<class T1, class T2> bool compareOptionals(std::optional<T1> lhs, std::optional<T2> rhs)
+{
+	if (lhs && rhs)			// both have types, then compare via value
+		return lhs.value() == rhs.value();
+	else if (!lhs && !rhs)	//neither have value, definitely equal
+		return true;
+	else					//homogenous, definitely not equal
+		return false;
+}

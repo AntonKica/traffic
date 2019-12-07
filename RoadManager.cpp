@@ -179,21 +179,26 @@ void PathVisualizer::updateVisuals()
 		dInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
 
-		GO::TypedVertices tVerts;
-		auto& [type, vertices] = tVerts;
-		type = GO::VertexType::DEFAULT;
-		const glm::vec3 redColor(0.44, 0.18, 0.21);
+		VD::PositionVertices vertices;
 
 		Points arrowVertices = generateArrows();
 		vertices.resize(arrowVertices.size());
 
 		for (int i = 0;  i < arrowVertices.size(); ++i)
-		{
-			vertices[i].vertex.position = arrowVertices[i];
-		}
+			vertices[i] = arrowVertices[i];
+
+		const glm::vec4 redColor(0.44, 0.18, 0.21, 1.0);
+		VD::ColorVertices colors(vertices.size(), redColor);
+
+		Mesh mesh;
+		mesh.vertices.positions = vertices;
+		mesh.vertices.colors = colors;
+
+		Model model;
+		model.meshes.push_back(mesh);
 
 		Info::ModelInfo mInfo{};
-		mInfo.vertices = &tVerts;
+		mInfo.model = &model;
 
 		Info::GraphicsComponentCreateInfo gInfo{};
 		gInfo.drawInfo = &dInfo;

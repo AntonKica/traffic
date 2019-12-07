@@ -32,8 +32,8 @@ public:
 	void setDraw(const std::vector<Point>& points, float width);
 
 private:
-	std::vector<glm::vec3> generateLines();
-	std::vector<glm::vec3> generatePoints();
+	VD::PositionVertices generateLines();
+	std::pair<VD::PositionVertices, VD::ColorVertices> generatePoints();
 	void updateGraphics();
 
 	float width = 0;

@@ -17,7 +17,7 @@
 #include "Models.h"
 #include "GraphicsObjects.h"
 #include "GraphicsComponent.h"
-#include "DataManager.h"
+#include "VulkanDataManager.h"
 #include "DescriptorManager.h"
 #include "PipelinesManager.h"
 
@@ -136,7 +136,7 @@ class VulkanBase
 	syncObjects m_syncObjects;
 
 	//new parts
-	DataManager m_dataManager;
+	VulkanDataManager m_dataManager;
 	DescriptorManager m_descriptorManager;
 	PipelinesManager m_pipelinesManager;
 
@@ -152,9 +152,6 @@ class VulkanBase
 	
 	struct
 	{
-		std::map<GO::VertexType, vkh::structs::Buffer> vertex;
-		vkh::structs::Buffer index;
-
 		std::vector<vkh::structs::Buffer> uniform;
 	} m_buffers;
 
@@ -174,11 +171,14 @@ public:
 	void run();
 
 	vkh::structs::VulkanDevice* getDevice();
+	vkh::structs::Swapchain& getSwapchain();
 	VkSampler& getSampler();
 	GLFWwindow* getWindow();
+	VkPushConstantRange& getPushRange();
 
 	VkRenderPass getRenderPass() const;
 	uint16_t getSwapchainImageCount() const;
+	std::vector<vkh::structs::Buffer>& getUniformBuffers();
 
 	GraphicsComponent createGrahicsComponent(const Info::GraphicsComponentCreateInfo& info);
 	void recreateGrahicsComponent(GraphicsComponent& gp, const Info::GraphicsComponentCreateInfo& info);
@@ -188,19 +188,10 @@ public:
 	void activateGraphicsComponent(GraphicsComponent* toActivate);
 	void deactivateGraphicsComponent(GraphicsComponent* toActivate);
 private:
-	Info::DescriptorSetCreateInfo generateSetCreatInfo(const Info::GraphicsComponentCreateInfo& info,
-		const ModelReference& modelRef) const;
-	Info::PipelineInfo generatePipelineCreateInfo(const Info::GraphicsComponentCreateInfo& info,
-		const ModelReference& modelRef, GO::ID descriptorSetRefID) const;
-
 	pGraphicsModule createGraphicsModule(const Info::GraphicsComponentCreateInfo& info);
 	pGraphicsModule copyGraphicsModule(const GraphicsModule& copyModule);
 	pGraphicsModule getNewGraphicsModule();
 	void removeGraphicsModule(const pGraphicsModule& copyModule);
-
-	// textureManager?
-	const vkh::structs::Image* getImage(const std::string& loadPath);
-	std::optional<const vkh::structs::Image*> findImage(const std::string& filePath);
 
 private:
 	// menu
@@ -260,6 +251,8 @@ private:
 
 	void createCommandBuffers();
 	void recreateCommandBuffer(uint32_t currentImage);
+	void drawModelData(const VD::ModelData& modelData, VkCommandBuffer& cmdBuff, uint32_t currentImage);
+
 	void createSyncObjects();
 
 	void prepareFrame();

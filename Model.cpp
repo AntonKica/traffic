@@ -4,12 +4,12 @@
 
 constexpr const char* ERROR_PREFIX = "ASSIMP::LOADER::ERROR";
 
-Model::Model(FilePath file)
+Model::Model(std::string file)
 {
 	loadModel(file);
 }
 
-void Model::loadModel(FilePath file)
+void Model::loadModel(std::string file)
 {
 	Assimp::Importer importer;
 
@@ -48,13 +48,13 @@ Mesh Model::processMesh(const aiScene* scene, aiMesh* mesh)
 	const bool hasTextureCoords = mesh->HasTextureCoords(0);
 
 	Mesh newMesh;
-	newMesh.vertices.resize(verticesCount);
+	newMesh.vertices.positions.resize(verticesCount);
 
-	if (hasColor)			newMesh.colorVertices.resize(verticesCount);
-	if (hasNormals)			newMesh.normalVertices.resize(verticesCount);
-	if (hasTextureCoords)	 newMesh.textureVertices.resize(verticesCount);
+	if (hasColor)			newMesh.vertices.colors.resize(verticesCount);
+	if (hasNormals)			newMesh.vertices.normals.resize(verticesCount);
+	if (hasTextureCoords)	 newMesh.vertices.textures.resize(verticesCount);
 
-	for (size_t i = 0; i < mesh->mNumVertices; ++i)
+	for (size_t i = 0; i < newMesh.vertices.positions.size(); ++i)
 	{
 		// vertex
 		{
@@ -63,7 +63,7 @@ Mesh Model::processMesh(const aiScene* scene, aiMesh* mesh)
 			vertex.y = mesh->mVertices[i].y;
 			vertex.z = mesh->mVertices[i].z;
 
-			newMesh.vertices[i] = vertex;
+			newMesh.vertices.positions[i] = vertex;
 		}
 		// colors
 		if (hasColor)
@@ -75,18 +75,18 @@ Mesh Model::processMesh(const aiScene* scene, aiMesh* mesh)
 			color.b = mesh->mColors[0][i].b;
 			color.a = mesh->mColors[0][i].a;
 
-			newMesh.normalVertices[i] = color;
+			newMesh.vertices.colors[i] = color;
 		}
 
 		// normals
-		if(hasNormals)
+		if (hasNormals)
 		{
 			glm::vec3 normal;
 			normal.x = mesh->mNormals[i].x;
 			normal.y = mesh->mNormals[i].y;
 			normal.z = mesh->mNormals[i].z;
 
-			newMesh.normalVertices[i] = normal;
+			newMesh.vertices.normals[i] = normal;
 		}
 		// textures
 		if (hasTextureCoords) // does the mesh contain texture coordinates?
@@ -94,7 +94,7 @@ Mesh Model::processMesh(const aiScene* scene, aiMesh* mesh)
 			glm::vec2 textureCoords;
 			textureCoords.x = mesh->mTextureCoords[0][i].x;
 			textureCoords.y = mesh->mTextureCoords[0][i].y;
-			newMesh.textureVertices[i] = textureCoords;
+			newMesh.vertices.textures[i] = textureCoords;
 		}
 	}
 
@@ -116,8 +116,8 @@ Mesh Model::processMesh(const aiScene* scene, aiMesh* mesh)
 	{
 		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 
-		std::optional<FilePath> path;
-		TextureType currentTexture = TextureType::DIFFUSE;
+		std::optional<std::string> path;
+		VD::TextureType currentTexture = VD::TextureType::DIFFUSE;
 		{
 			path = getTexturePath(material, aiTextureType_DIFFUSE);
 			if (path)
@@ -129,7 +129,7 @@ Mesh Model::processMesh(const aiScene* scene, aiMesh* mesh)
 			}
 		}
 
-		currentTexture = TextureType::SPECULAR;
+		currentTexture = VD::TextureType::SPECULAR;
 		{
 			path = getTexturePath(material, aiTextureType_SPECULAR);
 			if (path)
@@ -141,7 +141,7 @@ Mesh Model::processMesh(const aiScene* scene, aiMesh* mesh)
 			}
 		}
 
-		currentTexture = TextureType::AMBIENT;
+		currentTexture = VD::TextureType::AMBIENT;
 		{
 			path = getTexturePath(material, aiTextureType_AMBIENT);
 			if (path)
@@ -153,7 +153,7 @@ Mesh Model::processMesh(const aiScene* scene, aiMesh* mesh)
 			}
 		}
 
-		currentTexture = TextureType::UNKNOWN;
+		currentTexture = VD::TextureType::UNKNOWN;
 		{
 			path = getTexturePath(material, aiTextureType_UNKNOWN);
 			if (path)
@@ -169,9 +169,9 @@ Mesh Model::processMesh(const aiScene* scene, aiMesh* mesh)
 	return newMesh;
 }
 
-std::optional<FilePath> Model::getTexturePath(aiMaterial* mat, aiTextureType type)
+std::optional<std::string> Model::getTexturePath(aiMaterial* mat, aiTextureType type)
 {
-	std::optional<FilePath> texturePath;
+	std::optional<std::string> texturePath;
 
 	// get first texture
 	int textCount = mat->GetTextureCount(type);

@@ -1,11 +1,10 @@
 #include "RoadIntersection.h"
 #include "Utilities.h"
-#include "DataManager.h"
 #include <glm/gtx/string_cast.hpp>
 
-inline GO::Indices createPseudoTriangleFanIndices(const Points& points)
+inline VD::Indices createPseudoTriangleFanIndices(const Points& points)
 {
-	GO::Indices indices;
+	VD::Indices indices;
 
 	for (int i = 0; i <= points.size(); ++i)
 	{
@@ -81,7 +80,7 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 		commonPoints.erase(overWriteIter + 1, commonPoints.end());
 
 	size_t totalPoints = sidePoints.size() + commonPoints.size();
-	Points shapePoints(totalPoints);
+	VD::PositionVertices shapePoints(totalPoints);
 	auto pointsIter = shapePoints.begin();
 	for (int sideIndex = 1, commonIndex = 0; sideIndex < sidePoints.size(); sideIndex +=2, ++commonIndex)
 	{
@@ -98,21 +97,16 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 
 
 
-	GO::Indices indices = createPseudoTriangleFanIndices(shapePoints);
+	VD::Indices indices = createPseudoTriangleFanIndices(shapePoints);
+	Mesh mesh;
+	mesh.vertices.positions = shapePoints;
+	mesh.indices = indices;
 
-	GO::TypedVertices tVerts;
-	auto& [type, vertices] = tVerts;
-	type = GO::VertexType::COLORED;
-	std::transform(std::begin(shapePoints), std::end(shapePoints), std::back_inserter(vertices), [](const Point& point)
-		{
-			GO::VariantVertex vv;
-			vv.vertex.position = point;
-			return vv;
-		});
+	Model model;
+	model.meshes.push_back(mesh);
 
 	Info::ModelInfo mInfo;
-	mInfo.vertices = &tVerts;
-	mInfo.indices = &indices;
+	mInfo.model = &model;
 
 	setupModel(mInfo, true);
 }

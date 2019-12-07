@@ -61,16 +61,14 @@ void SimulationAreaVisualizer::createVisuals(size_t xCount, size_t zCount, doubl
 	const size_t zPointsCount = std::clamp<size_t>(zCount, 0, maxZCount);
 	const float sinkYCoord = -0.01;
 
-	GO::TypedVertices points;
-	GO::Indices indices;
-	auto& [vertType, variantVertices] = points;
+	VD::PositionVertices vertices;
+	VD::Indices indices;
 
 	const auto [circleVertices, circleIndices] = generateCircleVerticesAndIndices(0.05, 4);
 
-	variantVertices.resize(xPointsCount * zPointsCount * circleVertices.size());
-	vertType = GO::VertexType::DEFAULT;
+	vertices.resize(xPointsCount * zPointsCount * circleVertices.size());
 
-	indices.resize(variantVertices.size() * circleIndices.size());
+	indices.resize(vertices.size() * circleIndices.size());
 	auto indIt = indices.begin();
 	
 	size_t currentIndex = 0;
@@ -83,29 +81,29 @@ void SimulationAreaVisualizer::createVisuals(size_t xCount, size_t zCount, doubl
 			point.y = sinkYCoord;
 			point.z = (-(float(zPointsCount) / 2.0f) + z) * distanceBetweenPoints;
 
+			// vertices
 			for (const auto& circlePoint : circleVertices)
-			{
-				glm::vec3 p = point + circlePoint;
+				vertices[currentIndex++] = point + circlePoint;
 
-				GO::VariantVertex varVert;
-				varVert.vertex.position = p;
-				variantVertices[currentIndex++] = varVert;
-			}
-			{
-				indIt = std::transform(circleIndices.rbegin(), circleIndices.rend(), indIt, [currentIndex](const uint32_t& i) {return i + currentIndex; });
-			}
-
+			// indices
+			indIt = std::transform(circleIndices.rbegin(), circleIndices.rend(), indIt, [currentIndex](const uint32_t& i) {return i + currentIndex; });
 		}
 	}
+	Mesh mesh;
+	mesh.vertices.positions = vertices;
+	mesh.indices = indices;
+
+	Model model;
+	model.meshes.push_back(mesh);
 
 	Info::DrawInfo drawInfo;
 	drawInfo.lineWidth = 1.0f;
 	drawInfo.polygon = VK_POLYGON_MODE_FILL;
 	drawInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
+
 	Info::ModelInfo modelInfo;
-	modelInfo.vertices = &points;
-	modelInfo.indices = &indices;
+	modelInfo.model = &model;
 
 	Info::GraphicsComponentCreateInfo info;
 	info.drawInfo = &drawInfo;

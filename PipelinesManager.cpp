@@ -171,7 +171,7 @@ inline VkPipelineDepthStencilStateCreateInfo PipelinesManager::createDepthStenci
 	return depthStencil;
 }
 
-inline GO::ID PipelinesManager::createPipelineLayout(
+inline VkPipelineLayout PipelinesManager::createPipelineLayout(
 	const Info::Layouts& laoyoutsInfo)
 {
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo =
@@ -183,12 +183,11 @@ inline GO::ID PipelinesManager::createPipelineLayout(
 	VkPipelineLayout layout;
 	VK_CHECK_RESULT(vkCreatePipelineLayout(*device, &pipelineLayoutInfo, nullptr, &layout));
 
-	GO::ID layoutID = generateNextContainerID(pipelineLayouts);
-	pipelineLayouts[layoutID] = layout;
 
-	return layoutID;
+
+	return layout;
 }
-
+/*
 std::optional<GO::ID> PipelinesManager::findPipeline(PipInfo pipelineIinfo) const
 {
 	std::optional<GO::ID> pipId;
@@ -208,7 +207,7 @@ std::optional<GO::ID> PipelinesManager::findPipeline(PipInfo pipelineIinfo) cons
 	}
 
 	return pipId;
-}
+}*/
 
 
 void PipelinesManager::init(VulkanBase* vkBase)
@@ -219,45 +218,19 @@ void PipelinesManager::init(VulkanBase* vkBase)
 
 void PipelinesManager::cleanup(const VkAllocationCallbacks* allocator)
 {
-	for (auto& [id, pipeline] : pipelines)
-		vkDestroyPipeline(*device, pipeline, allocator);
-	for (auto& [id, pipelineLayout] : pipelineLayouts)
-		vkDestroyPipelineLayout(*device, pipelineLayout, allocator);
+	for (auto& pipeline : pipelines)
+	{
+		vkDestroyPipelineLayout(*device, pipeline->pipelineLayout, allocator);
+		vkDestroyPipeline(*device, pipeline->pipeline, allocator);
+	}
 }
 
-GO::ID PipelinesManager::getPipelineReference(const PipInfo& pipelineInfo)
+void PipelinesManager::processModelData(VD::ModelData& modelData, const Info::DrawInfo& drawInfo)
 {
-	static int i = 0;
-	if (i == 1)
-		std::cout << '\n';
-	++i;
-
-	std::optional<GO::ID> pipId = findPipeline(pipelineInfo);
-	if (pipId)
-		return pipId.value();
-
-	const auto& [setID, pipID] = creteGraphicsPipeline(pipelineInfo);
-	
-	Info::PipelineReference pipRef;
-	pipRef.vertInfo = pipelineInfo.vertexInfo;
-	pipRef.draw = pipelineInfo.drawInfo;
-	pipRef.pipelineLayout = setID;
-	pipRef.pipeline = pipID;
-
-	GO::ID refID = generateNextContainerID(pipelineReferences);
-	pipelineReferences[refID] = pipRef;
-
-	return refID;
-}
-
-VkPipeline& PipelinesManager::getPipelineFromReference(GO::ID referenceID)
-{
-	return getPipeline(pipelineReferences[referenceID].pipeline);
-}
-
-VkPipelineLayout& PipelinesManager::getPipelineLayoutFromReference(GO::ID referenceID)
-{
-	return getPipelineLayout(pipelineReferences[referenceID].pipelineLayout);
+	for (auto& meshData : modelData.meshDatas)
+	{
+		processMeshData(meshData, drawInfo);
+	}
 }
 
 std::pair<std::vector<char>, std::vector<char>> PipelinesManager::loadSuitableShaders(const Info::VertexInfo& vertexInfo) const
@@ -269,32 +242,112 @@ std::pair<std::vector<char>, std::vector<char>> PipelinesManager::loadSuitableSh
 			"shaders/texturedShaderVert.spv","shaders/texturedShaderFrag.spv"
 	};
 
+	auto vertexFlags = vertexInfo.vertexType;
 	std::pair<int, int> indexes;
-	switch (vertexInfo.vertexType)
+	if (vertexFlags & VD::VertexType::POSITION)
 	{
-	case GraphicsObjects::DEFAULT:
-		indexes = { 0,1 };
-		break;
-	case GraphicsObjects::COLORED:
-		indexes = { 2,3 };
-		break;
-	case GraphicsObjects::TEXTURED:
-		indexes = { 4,5 };
-		break;
-	default:
-		throw std::runtime_error("Unknown vertex type!");
+		auto idk = (vertexFlags & VD::VertexType::POSITION);
+		if (vertexFlags & VD::VertexType::POSITION)
+			indexes = { 0,1 };
+		if (vertexFlags & VD::VertexType::COLOR)
+			indexes = { 2,3 };
+		else if (vertexFlags & VD::VertexType::TEXTURE)
+			indexes = { 4,5 };
+	}
+	else
+	{
+		throw std::runtime_error("Unknown vertex flags/type");
 	}
 
-
 	std::vector<char> vertexBuffer = loadFileToBuffer(shaderPaths[indexes.first]);
-	std::vector<char> indexBuffer = loadFileToBuffer(shaderPaths[indexes.second]);
+	std::vector<char> fragmnentBuufer = loadFileToBuffer(shaderPaths[indexes.second]);
 
-	return std::make_pair(vertexBuffer, indexBuffer);
+	return std::make_pair(vertexBuffer, fragmnentBuufer);
 }
 
-std::pair<GO::ID, GO::ID> PipelinesManager::creteGraphicsPipeline(const PipInfo& pipelineInfo)
+inline VkShaderModule PipelinesManager::createShaderModule(const std::vector<char>& shaderBuffer) const
 {
-	auto [vertShaderCode, fragShaderCode] = loadSuitableShaders(pipelineInfo.vertexInfo);
+	VkShaderModuleCreateInfo moduleInfo = vkh::initializers::shaderModuleCreateInfo(
+		shaderBuffer.size(),
+		reinterpret_cast<const uint32_t*>(shaderBuffer.data())
+	);
+
+	VkShaderModule shaderModule;
+	VK_CHECK_RESULT(vkCreateShaderModule(*device, &moduleInfo, nullptr, &shaderModule));
+	//load code
+	return shaderModule;
+}
+
+void PipelinesManager::processMeshData(VD::MeshData& meshData, const Info::DrawInfo& drawInfo)
+{
+	auto pipelineCreateInfo = generatePipelineCreateInfoFromMeshData(meshData, drawInfo);
+
+	meshData.pipeline = getPipeline(pipelineCreateInfo);
+}
+
+Info::PipelineCreateInfo PipelinesManager::generatePipelineCreateInfoFromMeshData(const VD::MeshData& meshData, const Info::DrawInfo& drawInfo) const
+{
+	using namespace Info;
+
+	VertexInfo vertexInfo;
+	vertexInfo.vertexType = meshData.drawData.vertices.buffer->type;
+	vertexInfo.attributes = VD::getAttributeDescriptionsFromFlags(vertexInfo.vertexType);
+	vertexInfo.bindingDescription = VD::getBindingDescriptionFromFlags(vertexInfo.vertexType);
+
+	auto swapChain = vkBase->getSwapchain();
+	ViewportInfo viewportInfo;
+	viewportInfo.minDepth = 0.0f;
+	viewportInfo.maxDepth = 1.0f;
+	viewportInfo.viewportExtent = swapChain.extent;
+	viewportInfo.scissorsExtent = swapChain.extent;
+	//drawinfo
+	MultisampleInfo multisampleInfo;
+	multisampleInfo.sampleShading = false;
+	multisampleInfo.minSampleShading = 0.0f;
+	multisampleInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+	multisampleInfo.sampleMask = nullptr;
+
+	ColorBlendingInfo colorBlendingInfo;
+#pragma message ("Pimp up blending!")
+	colorBlendingInfo.blendEnable = true;
+	colorBlendingInfo.writeAllMasks = true;
+	colorBlendingInfo.blendOp = VK_BLEND_OP_ADD;
+
+	DepthStencilInfo depthStencilInfo;
+	depthStencilInfo.enableDepth = true;
+	depthStencilInfo.minDepth = 0.0f;
+	depthStencilInfo.maxDepth = 1.0f;
+
+	Layouts layouts;
+	layouts.pushRanges = { &vkBase->getPushRange() };
+	layouts.setLayout = &meshData.descriptorSet->setLayout->layout;
+
+	Info::PipelineCreateInfo pipelineCreateInfo;
+	pipelineCreateInfo.vertexInfo = vertexInfo;
+	pipelineCreateInfo.viewportInfo = viewportInfo;
+	pipelineCreateInfo.drawInfo = drawInfo;
+	pipelineCreateInfo.multisample = multisampleInfo;
+	pipelineCreateInfo.colorBlending = colorBlendingInfo;
+	pipelineCreateInfo.depthStencil = depthStencilInfo;
+	pipelineCreateInfo.layouts = layouts;
+	pipelineCreateInfo.renderPass = vkBase->getRenderPass();
+
+	return pipelineCreateInfo;
+}
+
+VD::SharedPipeline PipelinesManager::getPipeline(const Info::PipelineCreateInfo& pipelineCreateInfo)
+{
+	auto possiblePipeline = findPipeline(pipelineCreateInfo);
+
+	if (possiblePipeline)
+		return possiblePipeline.value();
+	else
+		return createPipeline(pipelineCreateInfo);
+}
+
+VD::SharedPipeline PipelinesManager::createPipeline(const Info::PipelineCreateInfo& pipelineCreateInfo)
+{
+	auto [vertShaderCode, fragShaderCode] = loadSuitableShaders(pipelineCreateInfo.vertexInfo);
 
 	auto moduleVert = createShaderModule(vertShaderCode);
 	auto moduleFrag = createShaderModule(fragShaderCode);
@@ -312,77 +365,119 @@ std::pair<GO::ID, GO::ID> PipelinesManager::creteGraphicsPipeline(const PipInfo&
 		);
 	std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages{ fragStageInfo, vertStageInfo };
 
-	VkPipelineInputAssemblyStateCreateInfo inputAssembly = createInputAssemblyState(pipelineInfo.drawInfo);
-	VkPipelineVertexInputStateCreateInfo vertexInputInfo = createVertexInputState(pipelineInfo.vertexInfo);
+	VkPipelineInputAssemblyStateCreateInfo inputAssembly = createInputAssemblyState(pipelineCreateInfo.drawInfo);
+	VkPipelineVertexInputStateCreateInfo vertexInputInfo = createVertexInputState(pipelineCreateInfo.vertexInfo);
 
-	const auto[viewport, scissors] = createViewportAndScissors(pipelineInfo.viewportInfo);
+	const auto [viewport, scissors] = createViewportAndScissors(pipelineCreateInfo.viewportInfo);
 	VkPipelineViewportStateCreateInfo viewportInfo = createViewportState(&viewport, &scissors);
-	VkPipelineRasterizationStateCreateInfo rasterizer = createRasterizationState(pipelineInfo.drawInfo);
+	VkPipelineRasterizationStateCreateInfo rasterizer = createRasterizationState(pipelineCreateInfo.drawInfo);
 
-	VkPipelineMultisampleStateCreateInfo multisampling = createMultisampleState(pipelineInfo.multisample);
+	VkPipelineMultisampleStateCreateInfo multisampling = createMultisampleState(pipelineCreateInfo.multisample);
 
-	VkPipelineColorBlendAttachmentState colorBlendingAttachment = createColorBlendAttachmentState(pipelineInfo.colorBlending);
+	VkPipelineColorBlendAttachmentState colorBlendingAttachment = createColorBlendAttachmentState(pipelineCreateInfo.colorBlending);
 	VkPipelineColorBlendStateCreateInfo colorBlending = createColorBlendState(&colorBlendingAttachment);
 
-	VkPipelineDepthStencilStateCreateInfo depthStencil = createDepthStencilState(pipelineInfo.depthStencil);
+	VkPipelineDepthStencilStateCreateInfo depthStencil = createDepthStencilState(pipelineCreateInfo.depthStencil);
 
-	GO::ID pipelineLayoutID = createPipelineLayout(pipelineInfo.layouts);
+	auto newPipelineLayout = createPipelineLayout(pipelineCreateInfo.layouts);
 
-	VkGraphicsPipelineCreateInfo pipelineCreateInfo = vkh::initializers::graphicsPipelineCreateInfo();
-	pipelineCreateInfo.stageCount = shaderStages.size();
-	pipelineCreateInfo.pStages = shaderStages.data();
-	pipelineCreateInfo.pVertexInputState = &vertexInputInfo;
-	pipelineCreateInfo.pInputAssemblyState = &inputAssembly;
-	pipelineCreateInfo.pViewportState = &viewportInfo;
-	pipelineCreateInfo.pRasterizationState = &rasterizer;
-	pipelineCreateInfo.pMultisampleState = &multisampling;
-	pipelineCreateInfo.pDepthStencilState = &depthStencil;
-	pipelineCreateInfo.pColorBlendState = &colorBlending;
-	pipelineCreateInfo.pDynamicState = nullptr;
-	pipelineCreateInfo.layout = getPipelineLayout(pipelineLayoutID);
-	pipelineCreateInfo.renderPass = pipelineInfo.renderPass;
-	pipelineCreateInfo.subpass = 0;
-	pipelineCreateInfo.basePipelineHandle = VK_NULL_HANDLE;
-	pipelineCreateInfo.basePipelineIndex = -1;
+	VkGraphicsPipelineCreateInfo createInfo = vkh::initializers::graphicsPipelineCreateInfo();
+	createInfo.stageCount = shaderStages.size();
+	createInfo.pStages = shaderStages.data();
+	createInfo.pVertexInputState = &vertexInputInfo;
+	createInfo.pInputAssemblyState = &inputAssembly;
+	createInfo.pViewportState = &viewportInfo;
+	createInfo.pRasterizationState = &rasterizer;
+	createInfo.pMultisampleState = &multisampling;
+	createInfo.pDepthStencilState = &depthStencil;
+	createInfo.pColorBlendState = &colorBlending;
+	createInfo.pDynamicState = nullptr;
+	createInfo.layout = newPipelineLayout;
+	createInfo.renderPass = pipelineCreateInfo.renderPass;
+	createInfo.subpass = 0;
+	createInfo.basePipelineHandle = VK_NULL_HANDLE;
+	createInfo.basePipelineIndex = -1;
 
 	VkPipeline newPipeline;
-	VK_CHECK_RESULT(vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &newPipeline));
+	VK_CHECK_RESULT(vkCreateGraphicsPipelines(*device, VK_NULL_HANDLE, 1, &createInfo, nullptr, &newPipeline));
 
 	vkDestroyShaderModule(*device, moduleVert, nullptr);
 	vkDestroyShaderModule(*device, moduleFrag, nullptr);
 
-	GO::ID pipelineID = generateNextContainerID(pipelines);
-	pipelines[pipelineID] = newPipeline;
+	Info::PipelineInfo pipInfo;
+	pipInfo.drawInfo = pipelineCreateInfo.drawInfo;
+	pipInfo.vertexInfo = pipelineCreateInfo.vertexInfo;
 
-	return std::make_pair(pipelineLayoutID, pipelineID);
+	VD::Pipeline pipeline;
+	pipeline.info = pipInfo;
+	pipeline.pipeline = newPipeline;
+	pipeline.pipelineLayout = newPipelineLayout;
+
+	pipelines.push_back(std::make_shared<VD::Pipeline>(pipeline));
+
+	return pipelines.back();
 }
 
-inline VkShaderModule PipelinesManager::createShaderModule(const std::vector<char>& shaderBuffer) const
+std::optional<VD::SharedPipeline> PipelinesManager::findPipeline(const Info::PipelineCreateInfo& pipelineCreateInfo)
 {
-	VkShaderModuleCreateInfo moduleInfo = vkh::initializers::shaderModuleCreateInfo(
-		shaderBuffer.size(),
-		reinterpret_cast<const uint32_t*>(shaderBuffer.data())
-	);
+	std::optional<VD::SharedPipeline> pipeline;
 
-	VkShaderModule shaderModule;
-	VK_CHECK_RESULT(vkCreateShaderModule(*device, &moduleInfo, nullptr, &shaderModule));
-	//load code
-	return shaderModule;
+	for (const auto& _pipeline : pipelines)
+	{
+		Info::PipelineInfo pipInfo;
+		pipInfo.drawInfo = pipelineCreateInfo.drawInfo;
+		pipInfo.vertexInfo = pipelineCreateInfo.vertexInfo;
+
+		if (comparePipelineInfo(_pipeline->info, pipInfo))
+		{
+			pipeline = _pipeline;
+			break;
+		}
+	}
+
+	return pipeline;
 }
-VkPipeline& PipelinesManager::getPipeline(GO::ID id)
-{
-	auto pipelineIt = pipelines.find(id);
-	if (pipelineIt == std::end(pipelines))
-		throw std::runtime_error("Unknmown pipeline " + std::to_string(id));
 
-	return pipelineIt->second;
+template<class ptrT > bool sameData(ptrT* first, ptrT* second, size_t size)
+{
+	return std::memcmp(first, second, size) == 0;
 }
 
-VkPipelineLayout& PipelinesManager::getPipelineLayout(GO::ID id)
+bool PipelinesManager::comparePipelineInfo(const Info::PipelineInfo& lhs, const Info::PipelineInfo& rhs)
 {
-	auto pipLayoutIt = pipelineLayouts.find(id);
-	if (pipLayoutIt == std::end(pipelineLayouts))
-		throw std::runtime_error("Unknmown pipeline " + std::to_string(id));
+	// apparently in one statement it doesnt work
+	bool sameDrawInfo = lhs.drawInfo.lineWidth == rhs.drawInfo.lineWidth &&
+		lhs.drawInfo.polygon == rhs.drawInfo.polygon &&
+		lhs.drawInfo.topology == rhs.drawInfo.topology;
 
-	return pipLayoutIt->second;
+	bool sameVertexInfo = false;
+	if (lhs.vertexInfo.vertexType == rhs.vertexInfo.vertexType)
+	{
+		const auto& lhsBds = lhs.vertexInfo.bindingDescription;
+		const auto& rhsBds = rhs.vertexInfo.bindingDescription;
+		if (lhsBds.binding == rhsBds.binding &&
+			lhsBds.inputRate == rhsBds.inputRate &&
+			lhsBds.stride == rhsBds.stride)
+		{
+			const auto& lhsAtbs = lhs.vertexInfo.attributes;
+			const auto& rhsAtbs = rhs.vertexInfo.attributes;
+			for (const auto& la : lhsAtbs)
+			{
+				for (const auto& ra : rhsAtbs)
+				{
+					if (la.binding == ra.binding &&
+						la.format == ra.format &&
+						la.location == ra.location &&
+						la.offset == ra.offset)
+					{
+						sameVertexInfo = true;
+
+						return sameDrawInfo && sameVertexInfo;
+					}
+				}
+			}
+		}
+	}
+	return sameDrawInfo && sameVertexInfo;
+
 }

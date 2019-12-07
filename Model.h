@@ -11,9 +11,9 @@ class Model
 {
 public:
 	Model() = default;
-	Model(FilePath file);
+	Model(std::string file);
 
-	void loadModel(FilePath file);
+	void loadModel(std::string file);
 
 	std::string directory;
 	std::vector<Mesh> meshes;
@@ -21,6 +21,6 @@ private:
 	void processNode(const aiScene* scene, aiNode* node);
 	Mesh processMesh(const aiScene* scene, aiMesh* mesh);
 
-	std::optional<FilePath> getTexturePath(aiMaterial* mat, aiTextureType type);
+	std::optional<std::string> getTexturePath(aiMaterial* mat, aiTextureType type);
 };
 

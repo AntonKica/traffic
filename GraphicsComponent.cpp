@@ -1,6 +1,5 @@
 #include "GraphicsComponent.h"'
 
-#include "DataManager.h"
 #include "GraphicsObjects.h"
 #include "PipelinesManager.h"
 #include "GlobalObjects.h"
@@ -82,14 +81,9 @@ const GraphicsModule& GraphicsComponent::getGraphicsModule() const
 	return *graphicsModule;
 }
 
-void GraphicsComponent::setBufferOffset(size_t offset)
+GraphicsModule& GraphicsComponent::getGraphicsModule()
 {
-	graphicsModule->dynamicBufferOffset = offset;
-}
-
-size_t GraphicsComponent::getBufferOffset() const
-{
-	return graphicsModule->dynamicBufferOffset;
+	return *graphicsModule;
 }
 
 void GraphicsComponent::setActive(bool value)

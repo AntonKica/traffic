@@ -26,17 +26,6 @@ int main()
 
 	std::thread graphicsThread(runGraphics, std::ref(App::Scene.vulkanBase));
 
-	{
-		std::this_thread::sleep_for(std::chrono::seconds(2));
-		Model model("resources/models/house/house.obj");
-
-		VulkanDataManager dm;
-		dm.initialize(&App::Scene.vulkanBase);
-
-		dm.loadModel(model);
-		return 0;
-	}
-
 	graphicsThread.join();
 #ifndef _DEBUG
 	std::cout << "Prss any button to exit... ";

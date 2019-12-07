@@ -1,11 +1,12 @@
 #include "Road.h"
-#include "DataManager.h"
 #include "Utilities.h"
+#include "Mesh.h"
 
 #include <glm/gtx/string_cast.hpp>
 #include <numeric>
 #include <random>
 #include <chrono>
+#include <array>
 
 
 float calculateLength(const Points& points)
@@ -156,12 +157,11 @@ Points createShape(const Points& points, float width)
 	return shapePoints;
 }
 
-std::pair<GO::TypedVertices, GO::Indices> createTexturedShape(const Points& points, int width)
+Mesh creteTexturedMesh(const Points& points, int width)
 {
-	GO::Indices indices;
-	GO::TypedVertices typedVts;
-	auto& [type, vertices] = typedVts;
-	type = GO::VertexType::TEXTURED;
+	VD::PositionVertices vertices;
+	VD::TextureVertices textureCoords;
+	VD::Indices indices;
 
 	const glm::vec3 vectorUp(0.0f, 1.0f, 0.0f);
 
@@ -176,7 +176,6 @@ std::pair<GO::TypedVertices, GO::Indices> createTexturedShape(const Points& poin
 	for (int i = 0; i < points.size(); ++i)
 	{
 		// vertices
-		std::array<GO::VariantVertex, 2> variantVertex;
 		{
 			const auto& curPoint = points[i];
 			previousPoint = curPoint;
@@ -208,21 +207,22 @@ std::pair<GO::TypedVertices, GO::Indices> createTexturedShape(const Points& poin
 
 			const auto [left, right] = getSidePoints(previousDirection, currentDirection, previousPoint, curPoint, nextPoint, width);
 
-			variantVertex[0].texturedVertex.position = right;
-			variantVertex[1].texturedVertex.position = left;
+			std::array<VD::PositionVertex, 2> sideVertices;
+			sideVertices[0] = right;
+			sideVertices[1] = left;
+
+			vertices.insert(vertices.end(), { left, right });
 		}
 		// textures
 		{
 			if (i != 0)
 				textureDistance += glm::length(points[i - 1] - points[i]);
 
-			glm::vec2 rightCoord = glm::vec2(1, textureDistance);
-			glm::vec2 leftCoord = glm::vec2(0, textureDistance);
+			VD::TextureVertex rightCoord = glm::vec2(1, textureDistance);
+			VD::TextureVertex leftCoord = glm::vec2(0, textureDistance);
 
-			variantVertex[0].texturedVertex.texCoord = leftCoord;
-			variantVertex[1].texturedVertex.texCoord = rightCoord;
+			textureCoords.insert(textureCoords.end(), { leftCoord, rightCoord });
 		}
-		vertices.insert(vertices.end(), { variantVertex[0], variantVertex[1] });
 	}
 
 	// indices
@@ -235,7 +235,12 @@ std::pair<GO::TypedVertices, GO::Indices> createTexturedShape(const Points& poin
 		}
 	}
 
-	return std::make_pair(typedVts, indices);
+	Mesh mesh;
+	mesh.vertices.positions = vertices;
+	mesh.vertices.textures = textureCoords;
+	mesh.indices = indices;
+
+	return mesh;
 }
 
 std::vector<Point> createOutline(const std::vector<Point>& points, float outlineSize)
@@ -552,12 +557,14 @@ void Road::construct(const Points& localAxis, glm::vec3 position, uint32_t laneC
 	parameters.width = width;
 	parameters.texture = texture;
 
-	const auto [typedVertices, indices] = createTexturedShape(parameters.localAxis, parameters.width);
+	auto mesh = creteTexturedMesh(parameters.localAxis, parameters.width);
+	mesh.textures[VD::TextureType::DIFFUSE] = texture;
+
+	Model model;
+	model.meshes.push_back(mesh);
 
 	Info::ModelInfo modelInfo;
-	modelInfo.vertices = &typedVertices;
-	modelInfo.indices = &indices;
-	modelInfo.texturePath = parameters.texture;
+	modelInfo.model = &model;
 
 	setupModel(modelInfo, true);
 	createPaths();
