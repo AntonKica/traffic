@@ -1111,10 +1111,10 @@ void VulkanBase::drawModelData(const VD::ModelData& modelData, VkCommandBuffer& 
 			VkDeviceSize offsets[] = { 0 };
 			vkCmdBindVertexBuffers(cmdBuff, 0, 1, vertexBuffers, offsets);
 
-			const size_t vertexSize = VD::vertexSizeFromFlags(meshData.drawData.vertices.buffer->type);
+			const size_t vertexSize = VD::vertexSizeFromFlags(meshData.drawData.vertices->buffer.type);
 
-			vertexOffset = meshData.drawData.vertices.byteOffset / vertexSize;
-			vertecCount = meshData.drawData.vertices.buffer->data.size() / vertexSize;
+			vertexOffset = meshData.drawData.vertices->byteOffset / vertexSize;
+			vertecCount = meshData.drawData.vertices->buffer.data.size() / vertexSize;
 		}
 
 		if (currentIndexBuffer != meshData.indexBuffer && meshData.indexBuffer != nullptr)
@@ -1126,8 +1126,8 @@ void VulkanBase::drawModelData(const VD::ModelData& modelData, VkCommandBuffer& 
 
 			const size_t indexSize = sizeof(uint32_t);
 
-			indexOffset = meshData.drawData.indices.byteOffset / indexSize;
-			indexCount = meshData.drawData.indices.buffer->size();
+			indexOffset = meshData.drawData.indices->byteOffset / indexSize;
+			indexCount = meshData.drawData.indices->buffer.size();
 		}
 
 		VkDescriptorSet descriptorSets[] = { meshData.descriptorSet->sets[currentImage] };

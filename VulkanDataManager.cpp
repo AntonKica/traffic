@@ -17,7 +17,7 @@ VD::ModelData VulkanDataManager::loadModel(const Model& model)
 	{
 		VD::MeshData meshData;
 		meshData.drawData.vertices = loadVerticesFromMesh(mesh);
-		meshData.vertexBuffer = &vertexBuffers[meshData.drawData.vertices.buffer->type].buffer;
+		meshData.vertexBuffer = &vertexBuffers[meshData.drawData.vertices->buffer.type].buffer;
 
 		if (mesh.indices.size())
 		{
@@ -34,17 +34,18 @@ VD::ModelData VulkanDataManager::loadModel(const Model& model)
 	return modelData;
 }
 
-VulkanDataManager::OffsetedSharedByteVertices VulkanDataManager::loadVerticesFromMesh(const Mesh& mesh)
+VD::SharedOffsetedByteVertices VulkanDataManager::loadVerticesFromMesh(const Mesh& mesh)
 {
 	// laod to RAM
 	auto flags = deduceMeshVerticesType(mesh);
 	// copy to byte
 	VD::ByteVertices byteVertices = transformMeshVerticesToByteVertices(mesh, flags);
 
-	OSBV sobv;
-	sobv.buffer = std::make_shared<VD::ByteVertices>(byteVertices);
+	VD::OffsetedByteVertices obv;
+	obv.buffer = byteVertices;
+	obv.byteOffset = 0;
 
-	vertices[flags].push_back(sobv);
+	vertices[flags].push_back(std::make_shared<VD::OffsetedByteVertices>(obv));
 
 	auto& sharedVerts = vertices[flags].back();
 
@@ -130,12 +131,13 @@ VD::ByteVertices VulkanDataManager::transformMeshVerticesToByteVertices(const Me
 	return byteVertices;
 }
 
-VulkanDataManager::OffsetedSharedIndices VulkanDataManager::loadIndicesFromMesh(const Mesh& mesh)
+VD::SharedOffsetedIndices VulkanDataManager::loadIndicesFromMesh(const Mesh& mesh)
 {
 	// no existence checking
-	OSI soi;
-	soi.buffer = std::make_shared<VD::Indices>(mesh.indices);
-	indices.push_back(soi);
+	VD::OffsetedIndices oi;
+	oi.buffer = mesh.indices;
+
+	indices.push_back(std::make_shared<VD::OffsetedIndices>(oi));
 
 	auto& sharedInds = indices.back();
 	addToIndexBuffer(sharedInds);
@@ -198,10 +200,10 @@ VD::SharedTexture VulkanDataManager::loadTexture(std::string path)
 	return textures.back();
 }
 
-void VulkanDataManager::addToVertexBuffer(VulkanDataManager::OffsetedSharedByteVertices& offsetByteVertices)
+void VulkanDataManager::addToVertexBuffer(VD::SharedOffsetedByteVertices& offsetByteVertices)
 {
-	auto& [byteVertices, byteOffset] = offsetByteVertices;
-	auto& [vertexBuffer, lastWrittenByte] = vertexBuffers[byteVertices->type];
+	auto& [byteVertices, byteOffset] = *offsetByteVertices;
+	auto& [vertexBuffer, lastWrittenByte] = vertexBuffers[byteVertices.type];
 	//find and or create
 	if (!vertexBuffer.initialized())
 	{
@@ -210,7 +212,7 @@ void VulkanDataManager::addToVertexBuffer(VulkanDataManager::OffsetedSharedByteV
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, defaultBufferSize, vertexBuffer);
 	}
 
-	auto& verticesData = byteVertices->data;
+	auto& verticesData = byteVertices.data;
 
 	const size_t requiredSize = lastWrittenByte + verticesData.size();
 	const size_t copySize = verticesData.size();
@@ -219,7 +221,7 @@ void VulkanDataManager::addToVertexBuffer(VulkanDataManager::OffsetedSharedByteV
 	{
 		device->createBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, requiredSize * 1.25, vertexBuffer);
-		recreateWholeVertexBuffer(byteVertices->type);
+		recreateWholeVertexBuffer(byteVertices.type);
 	}
 	else
 	{
@@ -245,18 +247,18 @@ void VulkanDataManager::recreateWholeVertexBuffer(VD::VertexFlags vertexType)
 	auto& [vertexBuffer, lastWrittenByte] = vertexBuffers[vertexType];
 
 	size_t copySize = 0;
-	for (const auto& [vts, _] : currentVertices)
-		copySize += vts->data.size();
+	for (const auto& vts : currentVertices)
+		copySize += vts->buffer.data.size();
 
 	auto stagingBuffer = device->getStagingBuffer(copySize);
 	std::byte* data = reinterpret_cast<std::byte*>(stagingBuffer.map());
-	for (auto& [vts, byteOffset] : currentVertices)
+	for (auto& vts : currentVertices)
 	{
-		auto& vData = vts->data;
+		auto& vData = vts->buffer.data;
 
 		std::memcpy(data, vData.data(), vData.size());
 
-		byteOffset = data - stagingBuffer.mapped;
+		vts->byteOffset = data - stagingBuffer.mapped;
 		data += vData.size();
 	}
 	lastWrittenByte = data - stagingBuffer.mapped;
@@ -267,9 +269,9 @@ void VulkanDataManager::recreateWholeVertexBuffer(VD::VertexFlags vertexType)
 	device->freeStagingBuffer(stagingBuffer);
 }
 
-void VulkanDataManager::addToIndexBuffer(VulkanDataManager::OffsetedSharedIndices& sharedOffsetIndices)
+void VulkanDataManager::addToIndexBuffer(VD::SharedOffsetedIndices& sharedOffsetIndices)
 {
-	auto& [indices, byteOffset] = sharedOffsetIndices;
+	auto& [indices, byteOffset] = *sharedOffsetIndices;
 	auto& [indexBuf, lastWrittenByte] = indexBuffer;
 	//find and or create
 	if(!indexBuf.initialized())
@@ -279,9 +281,9 @@ void VulkanDataManager::addToIndexBuffer(VulkanDataManager::OffsetedSharedIndice
 			VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, defaultBufferSize, indexBuf);
 	}
 
-	const size_t indexSize = sizeof((*indices)[0]);
-	const size_t requiredSize = lastWrittenByte + indices->size() * indexSize;
-	const size_t copySize = indices->size() * indexSize;
+	const size_t indexSize = sizeof((indices)[0]);
+	const size_t requiredSize = lastWrittenByte + indices.size() * indexSize;
+	const size_t copySize = indices.size() * indexSize;
 	// move whole collection
 	if (requiredSize > indexBuf.size)
 	{
@@ -291,7 +293,7 @@ void VulkanDataManager::addToIndexBuffer(VulkanDataManager::OffsetedSharedIndice
 	}
 	else
 	{
-		auto stagingBuffer = device->getStagingBuffer(copySize, indices->data());
+		auto stagingBuffer = device->getStagingBuffer(copySize, indices.data());
 
 		VkBufferCopy bufferCopy;
 		bufferCopy.size = copySize;
@@ -312,18 +314,18 @@ void VulkanDataManager::recreateWholeIndexBuffer()
 	auto& [idxBuffer, lastWrittenByte] = indexBuffer;
 
 	size_t copySize = 0;
-	for (const auto& [ids, _] : indices)
-		copySize += ids->size() * sizeof((*ids)[0]);
+	for (const auto& ids : indices)
+		copySize += ids->buffer.size() * sizeof(ids->buffer[0]);
 
 	auto stagingBuffer = device->getStagingBuffer(copySize);
 	std::byte* data = reinterpret_cast<std::byte*>(stagingBuffer.map());
-	for (auto& [ids, byteOffset] : indices)
+	for (auto& ids : indices)
 	{
-		size_t currentCopySize = ids->size() * sizeof((*ids)[0]);
+		size_t currentCopySize = ids->buffer.size() * sizeof(ids->buffer[0]);
 
-		std::memcpy(data, ids->data(), currentCopySize);
+		std::memcpy(data, ids->buffer.data(), currentCopySize);
 
-		byteOffset = data - stagingBuffer.mapped;
+		ids->byteOffset = data - stagingBuffer.mapped;
 		data += currentCopySize;
 	}
 	lastWrittenByte = data - stagingBuffer.mapped;
@@ -340,9 +342,9 @@ void VulkanDataManager::lazyCleanup()
 	{
 		for (auto& [vertexFlag, verticesVector] : vertices)
 		{
-			auto eraseIt = std::remove_if(std::begin(verticesVector), std::end(verticesVector), [](OSBV& osbv)
+			auto eraseIt = std::remove_if(std::begin(verticesVector), std::end(verticesVector), [](SOBV& sobv)
 				{
-					return osbv.buffer.use_count() == 1;
+					return sobv.use_count() == 1;
 				});
 
 			if (eraseIt != verticesVector.end())
@@ -354,9 +356,9 @@ void VulkanDataManager::lazyCleanup()
 
 		// indices
 		{
-			auto eraseIt = std::remove_if(std::begin(indices), std::end(indices), [](OSI& osi)
+			auto eraseIt = std::remove_if(std::begin(indices), std::end(indices), [](SOI& osi)
 				{
-					return osi.buffer.use_count() == 1;
+					return osi.use_count() == 1;
 				});
 			if (eraseIt != indices.end())
 			{

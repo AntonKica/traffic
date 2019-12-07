@@ -290,7 +290,7 @@ Info::PipelineCreateInfo PipelinesManager::generatePipelineCreateInfoFromMeshDat
 	using namespace Info;
 
 	VertexInfo vertexInfo;
-	vertexInfo.vertexType = meshData.drawData.vertices.buffer->type;
+	vertexInfo.vertexType = meshData.drawData.vertices->buffer.type;
 	vertexInfo.attributes = VD::getAttributeDescriptionsFromFlags(vertexInfo.vertexType);
 	vertexInfo.bindingDescription = VD::getBindingDescriptionFromFlags(vertexInfo.vertexType);
 

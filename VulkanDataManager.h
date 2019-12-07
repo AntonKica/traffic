@@ -16,24 +16,22 @@ public:
 
 	void lazyCleanup();
 private:
-	using OffsetedSharedByteVertices = VD::OffsetBuffer<VD::SharedByteVertices>;
-	using OSBV = OffsetedSharedByteVertices;
+	using SOBV = VD::SharedOffsetedByteVertices;
 
-	OffsetedSharedByteVertices loadVerticesFromMesh(const Mesh& mesh);
+	VD::SharedOffsetedByteVertices loadVerticesFromMesh(const Mesh& mesh);
 	VD::VertexFlags deduceMeshVerticesType(const Mesh& mesh) const;
 	size_t deduceSizeFromVertexFlags(VD::VertexFlags flags) const;
 	VD::ByteVertices transformMeshVerticesToByteVertices(const Mesh& mesh, VD::VertexFlags flags) const;
 
-	using OffsetedSharedIndices = VD::OffsetBuffer<VD::SharedIndices>;
-	using OSI = OffsetedSharedIndices;
-	OffsetedSharedIndices loadIndicesFromMesh(const Mesh& mesh);
+	using SOI = VD::SharedOffsetedIndices;
+	VD::SharedOffsetedIndices loadIndicesFromMesh(const Mesh& mesh);
 
 	std::map<VD::TextureType, VD::SharedTexture>  loadTexturesFromModel(const Mesh& mesh);
 	VD::SharedTexture loadTexture(std::string path);
 
 	
-	std::map<VD::VertexFlags, std::vector<OffsetedSharedByteVertices>> vertices;
-	std::vector<OffsetedSharedIndices> indices;
+	std::map<VD::VertexFlags, std::vector<VD::SharedOffsetedByteVertices>> vertices;
+	std::vector<VD::SharedOffsetedIndices> indices;
 
 	std::vector<VD::SharedTexture> textures;
 
@@ -44,13 +42,13 @@ private:
 	};
 
 	std::map<VD::VertexFlags, RecordedBuffer> vertexBuffers;
-	void addToVertexBuffer(OffsetedSharedByteVertices& offsetByteVertices);
+	void addToVertexBuffer(VD::SharedOffsetedByteVertices& offsetByteVertices);
 	void recreateWholeVertexBuffer(VD::VertexFlags vertexType);
 
 	//std::vector<VD::SharedModelData> modelDatas;
 
 	RecordedBuffer indexBuffer;
-	void addToIndexBuffer(OffsetedSharedIndices& sharedOffsetIndices);
+	void addToIndexBuffer(VD::SharedOffsetedIndices& sharedOffsetIndices);
 	void recreateWholeIndexBuffer();
 
 
