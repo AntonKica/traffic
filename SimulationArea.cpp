@@ -56,7 +56,7 @@ SimulationAreaVisualizer::SimulationAreaVisualizer()
 void SimulationAreaVisualizer::createVisuals(size_t xCount, size_t zCount, double distanceBetweenPoints)
 {
 	const int maxXCount = 150;
-	const int maxZCount = 150;
+	const int maxZCount = 155;
 	const size_t xPointsCount = std::clamp<size_t>(xCount, 0, maxXCount);
 	const size_t zPointsCount = std::clamp<size_t>(zCount, 0, maxZCount);
 	const float sinkYCoord = -0.01;
@@ -68,10 +68,11 @@ void SimulationAreaVisualizer::createVisuals(size_t xCount, size_t zCount, doubl
 
 	vertices.resize(xPointsCount * zPointsCount * circleVertices.size());
 
-	indices.resize(vertices.size() * circleIndices.size());
+	indices.resize(xPointsCount * zPointsCount * circleIndices.size());
 	auto indIt = indices.begin();
 	
-	size_t currentIndex = 0;
+	size_t vertexIndex = 0;
+	size_t indexIndex = 0;
 	for (int x = 0; x < xPointsCount; ++x)
 	{
 		for (int z = 0; z < zPointsCount; ++z)
@@ -83,10 +84,15 @@ void SimulationAreaVisualizer::createVisuals(size_t xCount, size_t zCount, doubl
 
 			// vertices
 			for (const auto& circlePoint : circleVertices)
-				vertices[currentIndex++] = point + circlePoint;
+				vertices[vertexIndex++] = point + circlePoint;
 
-			// indices
-			indIt = std::transform(circleIndices.rbegin(), circleIndices.rend(), indIt, [currentIndex](const uint32_t& i) {return i + currentIndex; });
+			// indices from reverse
+			for (int i = circleIndices.size() - 1; i >= 0; --i)
+			{
+				size_t indexOffset = indexIndex * circleVertices.size();
+				*indIt++ = circleIndices[i] + indexOffset;
+			}
+			++indexIndex;
 		}
 	}
 	Mesh mesh;
@@ -98,7 +104,7 @@ void SimulationAreaVisualizer::createVisuals(size_t xCount, size_t zCount, doubl
 
 	Info::DrawInfo drawInfo;
 	drawInfo.lineWidth = 1.0f;
-	drawInfo.polygon = VK_POLYGON_MODE_FILL;
+	drawInfo.polygon = VK_POLYGON_MODE_LINE;
 	drawInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
 
@@ -158,7 +164,6 @@ void SimulationArea::update(float deltaTime)
 	updateMousePosition();
 	m_visuals.update();
 	m_roadManager.update(deltaTime);
-	//m_creator.update();
 }
 
 bool SimulationArea::placeObject()

@@ -19,7 +19,7 @@ void RoadManager::update(float deltaTime)
 
 	auto cursor = App::Scene.m_simArea.getMousePosition();
 
-	static std::vector<SimpleCar> simpleCars;
+	/*static std::vector<SimpleCar> simpleCars;
 	if (changedRoads)
 	{
 		// recreateCars
@@ -37,7 +37,7 @@ void RoadManager::update(float deltaTime)
 	}
 
 	for (auto& car : simpleCars)
-		car.update(deltaTime);
+		car.update(deltaTime);*/
 	
 	changedRoads = false;
 }
@@ -95,7 +95,7 @@ void RoadManager::updateSelectedRoads()
 	{
 		for (auto& road : roads)
 		{
-			if (road.isPointOnRoad(cursor.value()))
+			if (road.sitsOnRoad(cursor.value()))
 			{
 				selectedRoad = &road;
 				road.m_graphicsComponent.setTint(green);
@@ -149,11 +149,11 @@ Points PathVisualizer::generateArrows()
 	Points arrowsVertices;
 	for (const auto& road : roadManager->roads)
 	{
-		for (int i = 0; i < road.getLaneCount(); ++i)
+		for (int i = 0; i < road.getParameters().laneCount; ++i)
 		{
 			//if (i)
 			//	break;
-			auto path = road.getPath(i);
+			auto path = road.m_paths[i];
 			for (int i = 0; i < path.size() - 1; ++i)
 			{
 				Points arrowPoints = generateArrow(path[i], path[i + 1]);

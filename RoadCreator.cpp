@@ -155,21 +155,23 @@ void RoadCreator::createRoadIfPossible()
 		const auto& firstPoint = placedPoints.front();
 		const auto& lastPoint = placedPoints.back();
 
-		std::vector<Road*> connectedRoads;
 		// only one now
-		std::vector<std::pair<std::array<Road, 2>, Point>> intersectionRoads;
+		std::vector<Road*> connectedRoads;
 		std::vector<Road*> removeRoads;
-		std::vector<Road> additionalRoads;
+
+		std::vector<std::pair<std::array<Road, 2>, Point>> intersectionRoads;
+		std::vector<Road> newRoads;
 		if (firstPoint.road)
 		{
-			auto& road = *firstPoint.road;
+			/*auto& road = *firstPoint.road;
 			auto splitRoad = road.splitRoad(firstPoint.point);
 			if (splitRoad)
 			{
 				std::array<Road, 2> roads{ road, splitRoad.value() };
 				intersectionRoads.push_back(std::pair(roads, firstPoint.point));
+				removeRoads.push_back(firstPoint.road);
 			}
-			else
+			else*/
 			{
 				connectedRoads.push_back(firstPoint.road);
 				removeRoads.push_back(firstPoint.road);
@@ -179,14 +181,15 @@ void RoadCreator::createRoadIfPossible()
 		}
 		if (lastPoint.road && firstPoint.road != lastPoint.road)
 		{
-			auto& road = *lastPoint.road;
+			/*auto& road = *lastPoint.road;
 			auto splitRoad = road.splitRoad(lastPoint.point);
 			if (splitRoad)
 			{
 				std::array<Road, 2> roads{ road, splitRoad.value() };
 				intersectionRoads.push_back(std::pair(roads, lastPoint.point));
+				removeRoads.push_back(lastPoint.road);
 			}
-			else
+			else*/
 			{
 				connectedRoads.push_back(lastPoint.road);
 				removeRoads.push_back(lastPoint.road);
@@ -194,13 +197,19 @@ void RoadCreator::createRoadIfPossible()
 		}
 		Road newRoad;
 		newRoad.construct(creationPoints, currentPrototype.laneCount, currentPrototype.width, currentPrototype.texture);
-
 		if (intersectionRoads.size())
 		{
 			RoadIntersection ri;
 			ri.construct({ &intersectionRoads[0].first[0], &intersectionRoads[0].first[1], &newRoad }, intersectionRoads[0].second);
 
 			RoadIntersection* r = new RoadIntersection(ri);
+			newRoads.insert(newRoads.end(), { intersectionRoads[0].first[0], intersectionRoads[0].first[1], newRoad });
+		}
+		else
+		{
+			for (auto& connectedRoad : connectedRoads)
+				newRoad.mergeWithRoad(*connectedRoad);
+			newRoads.insert(newRoads.end(), newRoad );
 		}
 		
 		/*
@@ -212,9 +221,7 @@ void RoadCreator::createRoadIfPossible()
 		}*/
 
 		roadManager->removeRoads(removeRoads);
-		roadManager->addRoad(newRoad);
-
-		roadManager->addRoads(additionalRoads);
+		roadManager->addRoads(newRoads);
 
 		placedPoints.clear();
 	}

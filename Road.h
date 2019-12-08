@@ -10,36 +10,45 @@ bool polygonPolygonCollision(const Points& polygonOne, const Points& polygonTwo)
 class Road :
 	public SimulationAreaObject
 {
-private:
-protected:
+public:
 	struct RoadParameters
 	{
-		Points localAxis;
-		Points worldAxis;
-		Points model;
+		struct 
+		{
+			Points local;
+			Points world;
+		} axis;
 		uint32_t laneCount;
-		std::vector<Points> lanes;
 		float width;
 		std::string texture;
 	};
-
-	RoadParameters parameters;
-
-	void createPaths();
 public:
-	static Points createLocalPoints(const Points& points, const glm::vec3& position);
-	static Road mergeRoads(std::pair<Road, Road> roads);
+	// Getters
+	RoadParameters getParameters() const;
+	Point getHead() const;
+	Point getTail() const;
+	bool sitsOnHead(const Point& point);
+	bool sitsOnTail(const Point& point);
+	bool sitsOnRoad(const Point& point);
 
-	void construct(const Points& points, uint32_t laneCount, float width, std::string texture);
-	void construct(const Points& localAxis, glm::vec3 position, uint32_t laneCount, float width, std::string texture);
-	std::optional<Road> splitRoad(const Point& splitPoint);
-	Point shorten(Point endPoint, float cutSize);
+	void reverseBody();
 
-	bool isPointOnRoad(const Point& point) const;
-	Point getPointOnRoad(const Point& pointPosition) const;
-	RoadParameters getRoadParameters() const;
+	Point getPointOnRoad(const Point& point);
 
-	Points getPath(int path) const;
-	uint32_t getLaneCount() const;
+	//
+	void construct(Points axisPoints, uint32_t laneCount, float width, std::string texture);
+	void mergeWithRoad(Road& road);
+	Point shorten(const Point& roadEnd, float size);
+private:
+
+	using Path = Points;
+	void createPaths();
+
+	RoadParameters m_parameters;
+	Points m_modelShape;
+	// just for cause
+public:
+	std::vector<Path> m_paths;
 };
+
 

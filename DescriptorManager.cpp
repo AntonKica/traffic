@@ -68,15 +68,13 @@ std::optional<VD::SharedDescriptorSet> DescriptorManager::findDescriptorSet(cons
 bool DescriptorManager::compareSetInfo(const Info::DescriptorSetInfo& lhs, const Info::DescriptorSetInfo& rhs) const
 {
 	if (lhs.dstBuffers[0] == rhs.dstBuffers[0] &&
-		rhs.srcImage == lhs.srcImage)
+		rhs.srcImage == lhs.srcImage &&
+		lhs.bindings.size() == rhs.bindings.size())
 	{
-		for (const auto& lhsBinding : lhs.bindings)
+		for (int index = 0; index < lhs.bindings.size(); ++index)
 		{
-			for (const auto& rhsBinding : rhs.bindings)
-			{
-				if (!compareBindings(lhsBinding, rhsBinding))
-					return false;
-			}
+			if (!compareBindings(lhs.bindings[index], rhs.bindings[index]))
+				return false;
 		}
 
 		return true;

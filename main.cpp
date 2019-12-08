@@ -21,6 +21,7 @@ void runGraphics(VulkanBase& base)
 
 int main()
 {
+	//throw std::runtime_error("Pri vymazani treaba vymazat aj zo vsetkych cast, lebo DescrutporSet sa preplnuje!");
 	std::ios_base::sync_with_stdio(false);
 	// experimental, might be unstable
 

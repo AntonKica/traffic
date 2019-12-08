@@ -72,6 +72,7 @@ template<class C, class T1, class T2, class T3> int insertElemementBetween(C& co
 	std::throw_with_nested("Supplied range, which doesnt exist in supplied container!");
 }
 
+
 inline Point vectorIntersection(Point s1, Point e1, Point s2, Point e2)
 {
 	float a1 = e1.z - s1.z;

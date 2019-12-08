@@ -204,6 +204,8 @@ void VulkanDataManager::addToVertexBuffer(VD::SharedOffsetedByteVertices& offset
 {
 	auto& [byteVertices, byteOffset] = *offsetByteVertices;
 	auto& [vertexBuffer, lastWrittenByte] = vertexBuffers[byteVertices.type];
+
+
 	//find and or create
 	if (!vertexBuffer.initialized())
 	{
