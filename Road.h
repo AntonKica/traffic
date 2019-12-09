@@ -29,6 +29,7 @@ public:
 	Point getTail() const;
 	bool sitsOnHead(const Point& point);
 	bool sitsOnTail(const Point& point);
+	bool sitsOnTailOrHead(const Point& point);
 	bool sitsOnRoad(const Point& point);
 
 	void reverseBody();
@@ -38,6 +39,7 @@ public:
 	//
 	void construct(Points axisPoints, uint32_t laneCount, float width, std::string texture);
 	void mergeWithRoad(Road& road);
+	std::optional<Road> split(const Point& splitPoint);
 	Point shorten(const Point& roadEnd, float size);
 private:
 

@@ -55,21 +55,18 @@ inline std::pair<Point, Point> findTwoClosestPoints(const Points& points, const 
 	return std::make_pair(first.value(), second.value());
 };
 
-template<class C, class T1, class T2, class T3> int insertElemementBetween(C& container, T1 first, T2 second, T3 element)
+template<class C, class T1, class T2, class T3> auto insertElemementBetween(C& container, T1 first, T2 second, T3 element)
 {
-	for (int pointIndex = 0; pointIndex + 1 < container.size(); ++pointIndex)
+	for (auto begin = std::begin(container); begin != std::end(container) - 1; ++begin)
 	{
-		if ((container[pointIndex] == first && container[pointIndex + 1] == second) ||
-			(container[pointIndex + 1] == first && container[pointIndex] == second))
+		if ((*begin == first && *(begin + 1) == second) ||
+			(*(begin + 1) == first && *begin == second))
 		{
-			container.insert(std::begin(container) + pointIndex + 1, element);
-			container.erase(std::unique(std::begin(container), std::end(container)), std::end(container));
-			return pointIndex + 1;
+			return container.insert(begin + 1, element);
 		}
 	}
 
-
-	std::throw_with_nested("Supplied range, which doesnt exist in supplied container!");
+	throw std::runtime_error("Supplied range, which doesnt exist in supplied container!");
 }
 
 

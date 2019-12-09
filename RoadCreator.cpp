@@ -163,15 +163,17 @@ void RoadCreator::createRoadIfPossible()
 		std::vector<Road> newRoads;
 		if (firstPoint.road)
 		{
-			/*auto& road = *firstPoint.road;
-			auto splitRoad = road.splitRoad(firstPoint.point);
+			auto& road = *firstPoint.road;
+			auto splitRoad = road.split(firstPoint.point);
 			if (splitRoad)
 			{
 				std::array<Road, 2> roads{ road, splitRoad.value() };
 				intersectionRoads.push_back(std::pair(roads, firstPoint.point));
 				removeRoads.push_back(firstPoint.road);
+				//newRoads.push_back(splitRoad.value());
+				//removeRoads.push_back(lastPoint.road);
 			}
-			else*/
+			else
 			{
 				connectedRoads.push_back(firstPoint.road);
 				removeRoads.push_back(firstPoint.road);
@@ -181,15 +183,17 @@ void RoadCreator::createRoadIfPossible()
 		}
 		if (lastPoint.road && firstPoint.road != lastPoint.road)
 		{
-			/*auto& road = *lastPoint.road;
-			auto splitRoad = road.splitRoad(lastPoint.point);
+			auto& road = *lastPoint.road;
+			auto splitRoad = road.split(lastPoint.point);
 			if (splitRoad)
 			{
 				std::array<Road, 2> roads{ road, splitRoad.value() };
 				intersectionRoads.push_back(std::pair(roads, lastPoint.point));
 				removeRoads.push_back(lastPoint.road);
+				//newRoads.push_back(splitRoad.value());
+				//removeRoads.push_back(lastPoint.road);
 			}
-			else*/
+			else
 			{
 				connectedRoads.push_back(lastPoint.road);
 				removeRoads.push_back(lastPoint.road);

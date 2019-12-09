@@ -30,7 +30,7 @@ glm::vec3 getAveragePosition(const Points& points)
 	return averagePosition / float(points.size());
 }
 
-std::pair<Points::iterator, Points::iterator> travellDistanceOnPoints(Points& points, float distance)
+std::tuple<Points::iterator, Points::iterator, float> travellDistanceOnPoints(Points& points, float distance)
 {
 	float travelledDistance = 0;
 	auto currentPoint = points.begin();
@@ -45,7 +45,7 @@ std::pair<Points::iterator, Points::iterator> travellDistanceOnPoints(Points& po
 			currentPoint = nextPoint++;
 	}
 
-	return std::make_pair(currentPoint, nextPoint);
+	return std::make_tuple(currentPoint, nextPoint, travelledDistance);
 }
 
 bool polygonPointCollision(const Points& polygon, const Point& point)
@@ -343,314 +343,6 @@ bool arePointsInRange(const Point& p1, const Point& p2, float range)
 	return glm::length(p1 - p2) <= range;
 }
 
-/*
- std::optional<Road> Road::splitRoad(const Point& splitPoint)
-{
-	std::optional<Road> optionalSplit;
-
-	if (!glm::length(splitPoint - parameters.worldAxis.front()) <= 0.01 && !glm::length(splitPoint - parameters.worldAxis.back()) <= 0.01)
-	{
-		const auto [firstPoint, secondPoint] = findTwoClosestPoints(parameters.worldAxis, splitPoint);
-
-		Points newAxis = parameters.worldAxis;
-		int splitIndex = insertElemementBetween(newAxis, firstPoint, secondPoint, splitPoint);
-
-		auto positionTransform = [&](const Point& point) { return point + m_position; };
-		// recteate this worldAxis
-		parameters.worldAxis.clear();
-		std::copy(std::begin(newAxis), std::begin(newAxis) + splitIndex + 1, std::back_inserter(parameters.worldAxis));
-		Points secondSplitAxis(std::begin(newAxis) + splitIndex, std::end(newAxis));
-
-
-		construct(parameters.worldAxis, parameters.laneCount, parameters.width, parameters.texture);
-
-		Road optRoad;
-		optRoad.construct(secondSplitAxis, parameters.laneCount, parameters.width, parameters.texture);
-		optionalSplit = optRoad;
-	}
-
-	return optionalSplit;
-}
-
-Point Road::shorten(Point endPoint, float cutSize)
-{
-	Point shortedPoint = {};
-	if (endPoint == parameters.worldAxis.front())
-	{
-		// find moste sutablePoint
-		auto firstPoint = parameters.worldAxis.begin();
-		auto secondPoint = firstPoint + 1;
-		int count = 0;
-		while (secondPoint != parameters.worldAxis.end())
-		{
-			float distance = glm::length(endPoint - *secondPoint);
-			if (cutSize > distance)
-				firstPoint = secondPoint++;
-			else //found
-				break;
-			++count;
-		}
-
-		float vecMagnutude = glm::length(*secondPoint - endPoint) - cutSize;
-		if (vecMagnutude != 0)
-		{
-			// reverse direction and go from second point
-			glm::vec3 direction = glm::normalize(*firstPoint - *secondPoint);
-			Point pointPos = *secondPoint + (direction * vecMagnutude);
-
-			// overwrite
-			*firstPoint = pointPos;
-		}
-
-		// remove unsuitable points
-		parameters.worldAxis.erase(parameters.worldAxis.begin(), firstPoint);
-		shortedPoint = parameters.worldAxis.front();
-	}
-	else
-	{
-		auto firstPoint = parameters.worldAxis.end() - 1;
-		auto secondPoint = firstPoint - 1;
-		while (true)
-		{
-			float distance = glm::length(endPoint - *secondPoint);
-			if (cutSize > distance)
-				firstPoint = secondPoint--;
-			else if (secondPoint == parameters.worldAxis.begin())//found
-				break;
-		}
-
-		float vecMagnutude = cutSize;
-		if (vecMagnutude != 0)
-		{
-			glm::vec3 direction = glm::normalize(*secondPoint - *firstPoint);
-			Point pointPos = *firstPoint + (direction * vecMagnutude);
-
-			// overwrite
-			*firstPoint = pointPos;
-		}
-
-		// change to normal direction
-		//std::advance(normIter, -1);
-		// remove unsuitable points
-		parameters.worldAxis.erase(parameters.worldAxis.begin(), secondPoint);
-		shortedPoint = parameters.worldAxis.back();
-	}
-	//glm::vec3 shiftPosition = getAveratePosition(parameters.worldAxis);
-
-	construct(parameters.worldAxis, parameters.laneCount, parameters.width, parameters.texture);
-	return shortedPoint;
-}
-
-
-std::vector<Point> generateCurveFromThreePoints(const std::array<Point, 3>& points, int precision)
-{
-	// on same line
-	if (points[0] == points[1] && points[1] == points[2])
-		return std::vector(points.begin(), points.end());
-
-	std::vector<Point> curvePoints(precision + 1);
-
-	const glm::vec3 firstDir = glm::normalize(points[1] - points[0]);
-	const float firstLength = glm::length(points[1] - points[0]);
-	const glm::vec3 secondtDir = glm::normalize(points[2] - points[1]);
-	const float secondtLenght = glm::length(points[2] - points[1]);
-
-	for (int i = 0; i <= precision; ++i)
-	{
-		float distanceInPercentage = i / float(precision);
-
-		const float firstMagnitude = 1.0 - distanceInPercentage;
-		const float firstDistance = std::lerp(0, firstLength, distanceInPercentage);
-		const glm::vec3 firstPoint = (points[0] + firstDir * firstDistance) * firstMagnitude;
-		const float secondMagnitude = distanceInPercentage;
-		const float secondDistance = std::lerp(0, secondtLenght, distanceInPercentage);
-		const glm::vec3 secondPoint = (points[1] + secondtDir * secondDistance) * secondMagnitude;
-
-		const glm::vec3 curvePoint = firstPoint + secondPoint;
-		curvePoints[i] = curvePoint;
-	}
-
-	return curvePoints;
-}
-Point findEqalPoint(const Points& points1, const Points& points2)
-{
-	for (const Point& p1 : points1)
-	{
-		for (const Point& p2 : points2)
-		{
-			if (p1 == p2)
-			{
-				return p1;
-				break;
-			}
-		}
-	}
-	throw std::runtime_error("No equal elements");
-}
-void Road::mergeRoads(Road road)
-{
-	auto& firstRoad = *this;
-	auto& secondRoad = road;
-
-	auto& worldAxisOne = firstRoad.parameters.worldAxis;
-	auto& worldAxisTwo = secondRoad.parameters.worldAxis;
-
-	//std::set_intersection(std::begin(worldAxisOne), std::end(worldAxisOne), std::begin(worldAxisTwo), std::end(worldAxisTwo))
-	Point intersection;
-	int intersectionCount = 0;
-	for (const Point& p1 : worldAxisOne)
-	{
-		for (const Point& p2 : worldAxisTwo)
-		{
-			// compare by length since inaccuate results
-			if (glm::length((p1) - (p2)) <= glm::epsilon<float>())
-			{
-				if (intersectionCount == 0)
-					intersection = p1;
-				++intersectionCount;
-				break;
-			}
-		}
-	}
-
-	if (intersection != worldAxisOne.back())
-	{
-		std::reverse(std::begin(worldAxisOne), std::end(worldAxisOne));
-	}
-
-	if (intersection + firstRoad.m_position != worldAxisTwo.front() + secondRoad.m_position)
-	{
-		std::reverse(std::begin(worldAxisTwo), std::end(worldAxisTwo));
-	}
-
-	//glm::vec3 averagePos = (m_position - road.m_position) / 2.0f;
-
-//	Points curvePoints = generateCurveFromThreePoints({ worldAxisOne[worldAxisOne.size() - 2] + firstRoad.m_position, worldAxisOne[worldAxisOne.size() - 1] + firstRoad.m_position, worldAxisTwo[1] + secondRoad.m_position }, 3);
-	Points concatedAxis(std::begin(worldAxisOne), std::end(worldAxisOne));
-	std::copy(std::begin(worldAxisTwo) + 1, std::end(worldAxisTwo), std::back_inserter(concatedAxis));
-
-	construct(concatedAxis, firstRoad.parameters.laneCount, firstRoad.parameters.width, firstRoad.parameters.texture);
-}
-
-void Road::createPaths()
-{
-	auto& lanes = parameters.lanes;
-
-	float offsetPerLane = (parameters.laneCount / parameters.width) / 2.0f;
-	float startOffset = 0.25f;
-
-	// supposse we have two lanes
-	lanes.clear();
-	for (int i = 0; i < parameters.laneCount / 2.0; ++i)
-	{
-		auto pathLanes = createShape(parameters.localAxis, startOffset + offsetPerLane * i);
-
-		lanes.insert(lanes.begin(), std::vector(pathLanes.begin() + (pathLanes.size() / 2), pathLanes.end()));
-		lanes.insert(lanes.end(), std::vector(pathLanes.begin(), pathLanes.begin() + (pathLanes.size() / 2)));
-	}
-}
-
-Points Road::createLocalPoints(const Points& points, const glm::vec3& position)
-{
-	Points endPoints(points.size());
-	std::transform(std::begin(points), std::end(points), std::begin(endPoints),
-		[&position](const Point& point)
-		{
-			return point - position;
-		});
-
-	return endPoints;
-}
-
-
-void Road::construct(const Points& points, uint32_t laneCount, float width, std::string texture)
-{
-	auto position = getAveratePosition(points);
-	auto endPoints = createLocalPoints(points, position);
-
-	construct(endPoints, position, laneCount, width, texture);
-}
-
-void Road::construct(const Points& localAxis, glm::vec3 position, uint32_t laneCount, float width, std::string texture)
-{
-	m_position = position;
-
-	parameters.worldAxis.clear();
-	std::transform(begin(localAxis), end(localAxis), std::back_inserter(parameters.worldAxis), [&position](const Point& point) {return point + position; });
-
-	parameters.localAxis = localAxis;
-	parameters.model = createShape(localAxis, width);
-	parameters.laneCount = laneCount;
-	parameters.width = width;
-	parameters.texture = texture;
-
-	auto mesh = creteTexturedMesh(parameters.localAxis, parameters.width);
-	mesh.textures[VD::TextureType::DIFFUSE] = texture;
-
-	Model model;
-	model.meshes.push_back(mesh);
-
-	Info::ModelInfo modelInfo;
-	modelInfo.model = &model;
-
-	setupModel(modelInfo, true);
-	createPaths();
-}
-
-bool Road::isPointOnRoad(const Point& point) const
-{
-	auto endPoint = point - m_position;
-	return polygonPointCollision(parameters.model, endPoint);
-}
-
-
-Point Road::getPointOnRoad(const Point& pointPosition) const
-{
-	const auto [pointOne, pointTwo] = findTwoClosestPoints(parameters.worldAxis, pointPosition);
-	glm::vec3 directionPoint = pointTwo - pointOne;
-	float lineLength = glm::length(directionPoint);
-
-	float alpha = glm::acos(glm::dot(glm::normalize(pointTwo - pointOne), glm::normalize(pointPosition - pointOne)));
-	float lineDistanceFromPointOne = glm::length(pointOne - pointPosition) * cos(alpha);
-
-	// 
-	const float minDistanceFromEnd = 0.5f;
-	if (lineDistanceFromPointOne < minDistanceFromEnd)
-	{
-		return pointOne;
-	}
-	else
-	{
-		float percentageDistance = lineDistanceFromPointOne / lineLength;
-		return pointOne + directionPoint * percentageDistance;
-	}
-}
-
-Road::RoadParameters Road::getRoadParameters() const
-{
-	return parameters;
-}
-
-Points Road::getPath(int pathIndex) const
-{
-	//static std::mt19937_64 engine(std::chrono::high_resolution_clock::now().time_since_epoch().count());
-	//std::uniform_int_distribution<int> distributor(0, parameters.laneCount - 1);
-	auto path = parameters.lanes[pathIndex];
-
-	for (auto& point : path)
-		point += m_position;
-
-	return path;
-
-
-}
-
-uint32_t Road::getLaneCount() const
-{
-	return parameters.laneCount;
-}
-*/
-
 Road::RoadParameters Road::getParameters() const
 {
 	return m_parameters;
@@ -674,6 +366,11 @@ bool Road::sitsOnHead(const Point& point)
 bool Road::sitsOnTail(const Point& point)
 {
 	return approxSamePoints(point, getTail());
+}
+
+bool Road::sitsOnTailOrHead(const Point& point)
+{
+	return sitsOnTail(point) || sitsOnHead(point);
 }
 
 bool Road::sitsOnRoad(const Point& point)
@@ -704,10 +401,9 @@ Point Road::getPointOnRoad(const Point& point)
 	Point roadPoint = pointOne + directionPoint * percentageDistance;
 
 	const float minDistanceFromEndPoints = m_parameters.width;
-	if (auto head = getHead(); arePointsInRange(head, roadPoint, minDistanceFromEndPoints))
-		return head;
-	else if (auto tail = getTail(); arePointsInRange(tail, roadPoint, minDistanceFromEndPoints))
-		return tail;
+	if (auto head = getHead(), tail = getTail(); arePointsInRange(head, roadPoint, minDistanceFromEndPoints) ||
+		arePointsInRange(tail, roadPoint, minDistanceFromEndPoints))
+		return glm::length(head - point) < glm::length(tail - point) ? head : tail;
 	else
 		return roadPoint;
 }
@@ -759,46 +455,76 @@ void Road::mergeWithRoad(Road& road)
 	}
 }
 
+std::optional<Road> Road::split(const Point& splitPoint)
+{
+	std::optional<Road> optionalSplit;
+
+	if (!sitsOnTailOrHead(splitPoint))
+	{
+		const auto [firstPoint, secondPoint] = findTwoClosestPoints(m_parameters.axis.world, splitPoint);
+
+		Points newAxis = m_parameters.axis.world;
+		auto newSplitIter = insertElemementBetween(newAxis, firstPoint, secondPoint, splitPoint);
+		// erase if same point
+		if (approxSamePoints(*newSplitIter, firstPoint) || approxSamePoints(*newSplitIter, secondPoint))
+			newSplitIter = newAxis.erase(newSplitIter);
+
+		// recteate this worldAxis
+		auto& curWorldAxis = m_parameters.axis.world;
+		curWorldAxis.erase(std::copy(std::begin(newAxis), newSplitIter + 1, std::begin(curWorldAxis)), std::end(curWorldAxis));
+
+		Points secondSplitAxis(newSplitIter, std::end(newAxis));
+
+
+		construct(curWorldAxis, m_parameters.laneCount, m_parameters.width, m_parameters.texture);
+
+		Road optRoad;
+		optRoad.construct(secondSplitAxis, m_parameters.laneCount, m_parameters.width, m_parameters.texture);
+		optionalSplit = optRoad;
+	}
+
+	return optionalSplit;
+}
+
 Point Road::shorten(const Point& roadEnd, float size)
 {
 	Point shortenPosition = {};
 	if (sitsOnTail(roadEnd))
 	{
-		auto [firstPoint, secondPoint] = travellDistanceOnPoints(m_parameters.axis.world, size);
+		auto [firstPoint, secondPoint, travelledDistance] = travellDistanceOnPoints(m_parameters.axis.world, size);
 		if (secondPoint == std::end(m_parameters.axis.world))
 			throw std::runtime_error("Too far size to shorten");
 
-		float newVecLength = glm::length(*secondPoint - getTail()) - size;
+		float newVecLength = travelledDistance - size;
 		if (newVecLength != 0)
 		{
 			// reverse direction and go from second point
-			glm::vec3 direction = glm::normalize(*secondPoint - *firstPoint);
-			Point pointPos = *firstPoint + (direction * newVecLength);
+			glm::vec3 direction = glm::normalize(*firstPoint - *secondPoint);
+			Point pointPos = *secondPoint + (direction * newVecLength);
 
 			// overwrite
-			shortenPosition = *secondPoint = pointPos;
+			shortenPosition = *firstPoint = pointPos;
 		}
 
 		// remove unsuitable points
-		m_parameters.axis.world.erase(secondPoint + 1, m_parameters.axis.world.end());
-		shortenPosition = *firstPoint;
+		m_parameters.axis.world.erase(m_parameters.axis.world.begin(), firstPoint);
 	}
 	else
 	{
 		//reversed 
 		Points reversedAxis;
 		std::reverse_copy(std::begin(m_parameters.axis.world), std::end(m_parameters.axis.world), std::back_inserter(reversedAxis));
-		auto [firstPoint, secondPoint] = travellDistanceOnPoints(reversedAxis, size);
+		auto [firstPoint, secondPoint, travelledDistance] = travellDistanceOnPoints(reversedAxis, size);
 
-		if (firstPoint == std::end(m_parameters.axis.world))
+		if (firstPoint == std::end(reversedAxis))
 			throw std::runtime_error("Too far size to shorten");
 
-		float newVecLength = glm::length(*firstPoint - getHead()) - size;
+		float newVecLength = travelledDistance - size;
 		if (newVecLength != 0)
 		{
 			// reverse direction and go from second point
 			glm::vec3 direction = glm::normalize(*firstPoint - *secondPoint);
-			Point pointPos = *firstPoint + (direction * newVecLength);
+			Point pointPos = *secondPoint + (direction * newVecLength);
 
 			// overwrite
 			shortenPosition = *firstPoint = pointPos;
@@ -806,7 +532,7 @@ Point Road::shorten(const Point& roadEnd, float size)
 
 		// remove unsuitable points
 		auto copyIt = std::reverse_copy(firstPoint, std::end(reversedAxis), std::begin(m_parameters.axis.world));
-		m_parameters.axis.local.erase(copyIt, std::end(m_parameters.axis.world));
+		m_parameters.axis.world.erase(copyIt, std::end(m_parameters.axis.world));
 	}
 
 	construct(m_parameters.axis.world, m_parameters.laneCount, m_parameters.width, m_parameters.texture);
