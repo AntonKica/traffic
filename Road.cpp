@@ -331,168 +331,273 @@ std::vector<Point> createOutline(const std::vector<Point>& points, float outline
 
 }
 
-bool approxSamePoints(const Point& p1, const Point& p2)
-{
-	constexpr const float maxDiff = 0.01f;
-
-	return glm::length(p1 - p2) <= maxDiff;
-}
-
 bool arePointsInRange(const Point& p1, const Point& p2, float range)
 {
 	return glm::length(p1 - p2) <= range;
 }
 
-Road::RoadParameters Road::getParameters() const
+VD::Indices createTriangledIndices(const Points& points)
 {
-	return m_parameters;
+	const auto triangleCount = points.size() * 3 - 2;
+	VD::Indices indices(triangleCount);
+
+	auto indicesIter = indices.begin();
+	for (uint32_t index = 0; index + 2 < points.size(); ++index)
+		indicesIter = indices.insert(indicesIter, { index, index + 1, index + 2 });
+
+	return indices;
 }
 
-Point Road::getHead() const
+std::optional<SegmentedShape::Segment> SegmentedShape::selectSegment(const Point& point) const
 {
-	return m_parameters.axis.world.back();
+	std::optional<Segment> selectedSegment;
+
+	for (int index = 0; index + 1 < m_joints.size(); ++index)
+	{
+		Points vertices = {
+			m_joints[index].side.left, m_joints[index + 1].side.left,
+			m_joints[index + 1].side.right, m_joints[index].side.right };
+
+		if (polygonPointCollision(vertices, point))
+		{
+			Segment segment;
+			segment.start = &m_joints[index];
+			segment.end = &m_joints[index + 1];
+
+			selectedSegment = segment;
+			break;
+		}
+	}
+	return selectedSegment;
 }
 
-Point Road::getTail() const
+std::optional<Point> SegmentedShape::getShapeAxisPoint(const Point& point) const
 {
-	return m_parameters.axis.world.front();
+	std::optional<Point> axisPoint;
+
+	auto selectedSegment = selectSegment(point);
+	if (selectedSegment)
+	{
+		const auto& [start, end] = selectedSegment.value();
+		Point shapePoint = getClosestPointToLine(start->centre, end->centre, point);
+
+		const float minDistanceFromEndPoints = m_width;
+		if (auto head = getHead(), tail = getTail(); arePointsInRange(head, shapePoint, minDistanceFromEndPoints) ||
+			arePointsInRange(tail, shapePoint, minDistanceFromEndPoints))
+			axisPoint =  glm::length(head - point) < glm::length(tail - point) ? head : tail;
+		else
+			axisPoint = shapePoint;
+	}
+
+	return axisPoint;
 }
 
-bool Road::sitsOnHead(const Point& point)
+Mesh SegmentedShape::createMesh(const SegmentedShape& shape)
 {
-	return approxSamePoints(point, getHead());
+	auto& joints = shape.getShape();
+	const auto verticesCount = joints.size() * 2;
+
+	VD::PositionVertices vertices(verticesCount);
+	VD::TextureVertices textureCoords(verticesCount);
+
+	auto verticesIter = vertices.begin();
+	auto texturesIter = textureCoords.begin();
+	size_t travelledLength = 0;
+	for (const auto& joint : joints)
+	{
+		*verticesIter++ = joint.side.left;
+		*verticesIter++ = joint.side.right;
+
+		VD::TextureVertex left, right;
+		left.x = 1.0;
+		left.y = travelledLength;
+		right.x = 0.0;
+		right.y = travelledLength;
+
+		*texturesIter++ = left;
+		*texturesIter++ = right;
+	}
+	VD::Indices indices = createTriangledIndices(vertices);
+
+	Mesh mesh;
+	mesh.vertices.positions = vertices;
+	mesh.vertices.textures= textureCoords;
+	mesh.indices = indices;
+
+	return mesh;
 }
 
-bool Road::sitsOnTail(const Point& point)
+const SegmentedShape::Joints& SegmentedShape::getShape() const
 {
-	return approxSamePoints(point, getTail());
+	return m_joints;
 }
 
-bool Road::sitsOnTailOrHead(const Point& point)
+Points SegmentedShape::getSkeleton()  const
+{
+	Points skeleton(m_joints.size() * 2);
+
+	auto skeletonIter = skeleton.begin();
+	for (const auto& joint : m_joints)
+	{
+		*skeletonIter++ = joint.side.left;
+		*skeletonIter++ = joint.side.right;
+	}
+
+	return skeleton;
+}
+
+Points SegmentedShape::getAxis() const
+{
+	Points axis(m_joints.size());
+
+	auto axisIter = axis.begin();
+	for (const auto& joint : m_joints)
+		*axisIter++ = joint.centre;
+
+	return axis;
+}
+
+Point SegmentedShape::getHead() const
+{
+	return m_joints.back().centre;
+}
+
+Point SegmentedShape::getTail() const
+{
+	return m_joints.front().centre;
+}
+
+bool SegmentedShape::sitsOnHead(const Point& point) const
+{
+	return !isCirculary() && approxSamePoints(point, getHead());
+}
+
+bool SegmentedShape::sitsOnTail(const Point& point) const
+{
+	return !isCirculary() && approxSamePoints(point, getTail());
+}
+
+bool SegmentedShape::sitsOnTailOrHead(const Point& point) const
 {
 	return sitsOnTail(point) || sitsOnHead(point);
 }
 
-bool Road::sitsOnRoad(const Point& point)
+bool SegmentedShape::sitsOnShape(const Point& point) const
 {
-	auto endPoint = point - m_position;
-	return polygonPointCollision(m_modelShape, endPoint);
+	for (int index = 0; index + 1 < m_joints.size(); ++index)
+	{
+		Points vertices = {
+			m_joints[index].side.left, m_joints[index + 1].side.left, 
+			m_joints[index + 1].side.right, m_joints[index].side.right};
+
+		if (polygonPointCollision(vertices, point))
+			return true;
+	}
+	return false;
 }
 
-void Road::reverseBody()
+bool SegmentedShape::isCirculary() const
 {
-	std::reverse(std::begin(m_parameters.axis.local), std::end(m_parameters.axis.local));
-	std::reverse(std::begin(m_parameters.axis.world), std::end(m_parameters.axis.world));
+	return approxSamePoints(getHead(), getTail());
 }
 
-Point Road::getPointOnRoad(const Point& point)
+void SegmentedShape::reverseBody()
 {
-	const auto [pointOne, pointTwo] = findTwoClosestPoints(m_parameters.axis.world, point);
-	glm::vec3 directionPoint = pointTwo - pointOne;
-	float lineLength = glm::length(directionPoint);
-
-	const glm::vec3 dirTwoToOne = glm::normalize(pointTwo - pointOne);
-	const glm::vec3 dirOneToPoint = glm::normalize(point - pointOne);
-	float alpha = glm::acos(glm::dot(dirOneToPoint, dirTwoToOne));
-
-	float lineDistanceFromPointOne = glm::length(pointOne - point) * cos(alpha);
-
-	float percentageDistance = lineDistanceFromPointOne / lineLength;
-	Point roadPoint = pointOne + directionPoint * percentageDistance;
-
-	const float minDistanceFromEndPoints = m_parameters.width;
-	if (auto head = getHead(), tail = getTail(); arePointsInRange(head, roadPoint, minDistanceFromEndPoints) ||
-		arePointsInRange(tail, roadPoint, minDistanceFromEndPoints))
-		return glm::length(head - point) < glm::length(tail - point) ? head : tail;
-	else
-		return roadPoint;
+	std::reverse(std::begin(m_joints), std::end(m_joints));
+	for (auto& joint : m_joints)
+		std::swap(joint.side.left, joint.side.right);
 }
 
-void Road::construct(Points axisPoints, uint32_t laneCount, float width, std::string texture)
+void SegmentedShape::construct(const Points& axis, float width)
 {
-	m_position = getAveragePosition(axisPoints);
-
-	m_parameters = {};
-	m_parameters.axis.world = axisPoints;
-	std::transform(std::begin(axisPoints), std::end(axisPoints), std::back_inserter(m_parameters.axis.local),
-		[&](const Point& point) { return point - m_position; });
-
-	m_parameters.laneCount = laneCount;
-	m_parameters.width = width;
-	m_parameters.texture = texture;
-
-	m_modelShape = createShape(m_parameters.axis.local, m_parameters.width);
-	// model
-	auto mesh = creteTexturedMesh(m_parameters.axis.local, m_parameters.width);
-	mesh.textures[VD::TextureType::DIFFUSE] = texture;
-
-	Model model;
-	model.meshes.push_back(mesh);
-
-	Info::ModelInfo modelInfo;
-	modelInfo.model = &model;
-
-	setupModel(modelInfo, true);
-	createPaths();
+	m_width = width;
+	createShape(axis);
 }
 
-void Road::mergeWithRoad(Road& road)
-{
-	// sits on opposite sides
-	if (approxSamePoints(getHead(), road.getHead()) || approxSamePoints(getTail(), road.getTail()))
-		road.reverseBody();
+void SegmentedShape::megeWith(const SegmentedShape& otherShape)
+{	
+	auto thisShapeAxis = getAxis();
+	auto otherShapeAxis = otherShape.getAxis();
+	// reverse the right axis since we copy o
+	if (approxSamePoints(getHead(), otherShape.getHead()))
+	{
+		std::reverse(std::begin(otherShapeAxis), std::end(otherShapeAxis));
+	}
+	else if (approxSamePoints(getTail(), otherShape.getTail()))
+	{
+		std::reverse(std::begin(thisShapeAxis), std::end(thisShapeAxis));
+	}
 	// copy the right direction
-	if (approxSamePoints(getTail(), road.getHead()))
+	if (approxSamePoints(thisShapeAxis.front(), otherShapeAxis.back()))
 	{
-		m_parameters.axis.world.insert(std::begin(m_parameters.axis.world), 
-			std::begin(road.m_parameters.axis.world), std::end(road.m_parameters.axis.world) - 1);
-		construct(m_parameters.axis.world, m_parameters.laneCount, m_parameters.width, m_parameters.texture);
+		thisShapeAxis.insert(std::begin(thisShapeAxis),
+			std::begin(otherShapeAxis), std::end(otherShapeAxis) - 1);
+		construct(thisShapeAxis, m_width);
 	}
 	else
 	{
-		std::copy(std::begin(road.m_parameters.axis.world) + 1, std::end(road.m_parameters.axis.world), std::back_inserter(m_parameters.axis.world));
-		construct(m_parameters.axis.world, m_parameters.laneCount, m_parameters.width, m_parameters.texture);
+		std::copy(std::begin(otherShapeAxis) + 1, std::end(otherShapeAxis), std::back_inserter(thisShapeAxis));
+		construct(thisShapeAxis, m_width);
 	}
 }
 
-std::optional<Road> Road::split(const Point& splitPoint)
+std::optional<SegmentedShape> SegmentedShape::split(const Point& splitPoint)
 {
-	std::optional<Road> optionalSplit;
+	std::optional<SegmentedShape> optionalSplit;
 
-	if (!sitsOnTailOrHead(splitPoint))
+	if (!sitsOnTailOrHead(splitPoint) && !isCirculary())
 	{
-		const auto [firstPoint, secondPoint] = findTwoClosestPoints(m_parameters.axis.world, splitPoint);
+		Points newAxis = getAxis();
+		const auto [firstPoint, secondPoint] = findTwoClosestPoints(newAxis, splitPoint);
 
-		Points newAxis = m_parameters.axis.world;
 		auto newSplitIter = insertElemementBetween(newAxis, firstPoint, secondPoint, splitPoint);
-		// erase if same point
-		if (approxSamePoints(*newSplitIter, firstPoint) || approxSamePoints(*newSplitIter, secondPoint))
-			newSplitIter = newAxis.erase(newSplitIter);
-
+		//dont erase if same 
 		// recteate this worldAxis
-		auto& curWorldAxis = m_parameters.axis.world;
-		curWorldAxis.erase(std::copy(std::begin(newAxis), newSplitIter + 1, std::begin(curWorldAxis)), std::end(curWorldAxis));
-
+		Points curSplitAxis (std::begin(newAxis), newSplitIter + 1);
 		Points secondSplitAxis(newSplitIter, std::end(newAxis));
 
 
-		construct(curWorldAxis, m_parameters.laneCount, m_parameters.width, m_parameters.texture);
+		construct(curSplitAxis, m_width);
 
-		Road optRoad;
-		optRoad.construct(secondSplitAxis, m_parameters.laneCount, m_parameters.width, m_parameters.texture);
-		optionalSplit = optRoad;
+		SegmentedShape optShape;
+		optShape.construct(secondSplitAxis, m_width);
+		optionalSplit = optShape;
+	}
+	else if (isCirculary())
+	{
+		// move axis to splitPoints
+		Points newAxis = getAxis();
+
+		// remove uniquePoints
+		removeDuplicates(newAxis);
+		const auto [firstPoint, secondPoint] = selectSegment(splitPoint).value();
+
+		if (approxSamePoints(splitPoint, firstPoint->centre))
+			setNewCircularEndPoints(firstPoint->centre);
+		else if (approxSamePoints(splitPoint, secondPoint->centre))
+			setNewCircularEndPoints(secondPoint->centre);
+		else
+		{
+			insertElemementBetween(newAxis, firstPoint->centre, secondPoint->centre, splitPoint);
+
+			construct(newAxis, m_width);
+			setNewCircularEndPoints(splitPoint);
+		}
+		// no need for cunstr
 	}
 
 	return optionalSplit;
 }
 
-Point Road::shorten(const Point& roadEnd, float size)
+Point SegmentedShape::shorten(const Point& shapeEnd, float size)
 {
+	Points newAxis;
 	Point shortenPosition = {};
-	if (sitsOnTail(roadEnd))
+	if (sitsOnTail(shapeEnd))
 	{
-		auto [firstPoint, secondPoint, travelledDistance] = travellDistanceOnPoints(m_parameters.axis.world, size);
-		if (secondPoint == std::end(m_parameters.axis.world))
+		Points axis = getAxis();
+		auto [firstPoint, secondPoint, travelledDistance] = travellDistanceOnPoints(axis, size);
+		if (secondPoint == std::end(axis))
 			throw std::runtime_error("Too far size to shorten");
 
 		float newVecLength = travelledDistance - size;
@@ -507,13 +612,13 @@ Point Road::shorten(const Point& roadEnd, float size)
 		}
 
 		// remove unsuitable points
-		m_parameters.axis.world.erase(m_parameters.axis.world.begin(), firstPoint);
+		axis.erase(axis.begin(), firstPoint);
 	}
 	else
 	{
+		reverseBody();
 		//reversed 
-		Points reversedAxis;
-		std::reverse_copy(std::begin(m_parameters.axis.world), std::end(m_parameters.axis.world), std::back_inserter(reversedAxis));
+		Points reversedAxis = getAxis();
 		auto [firstPoint, secondPoint, travelledDistance] = travellDistanceOnPoints(reversedAxis, size);
 
 		if (firstPoint == std::end(reversedAxis))
@@ -531,13 +636,226 @@ Point Road::shorten(const Point& roadEnd, float size)
 		}
 
 		// remove unsuitable points
-		auto copyIt = std::reverse_copy(firstPoint, std::end(reversedAxis), std::begin(m_parameters.axis.world));
-		m_parameters.axis.world.erase(copyIt, std::end(m_parameters.axis.world));
+		auto copyIt = std::reverse_copy(firstPoint, std::end(reversedAxis), std::begin(reversedAxis));
+		reversedAxis.erase(copyIt, std::end(reversedAxis));
+		newAxis = reversedAxis;
 	}
 
-	construct(m_parameters.axis.world, m_parameters.laneCount, m_parameters.width, m_parameters.texture);
+	construct(newAxis, m_width);
 	return shortenPosition;
 }
+
+void SegmentedShape::setNewCircularEndPoints(const Point& point)
+{
+	eraseCommonPoints();
+	auto newAxis = getAxis();
+	//find point
+	/*auto findJoint = [](Joints& joints, const Point& jointPoint)
+	{
+		auto begin = std::begin(joints);
+		while (begin != std::end(joints))
+		{
+			if (approxSamePoints(jointPoint, begin->centre))
+				break;
+			++begin;
+		}
+		return begin;
+	};*/
+	auto pointIt = std::find(std::begin(newAxis), std::end(newAxis), point);// findJoint(m_joints, point);
+	//if (pointIt == m_parameters.axis.world.end())
+	//	throw std::runtime_error(std::string("Failed to set head point"));
+
+	// copy from end to begin else switch orded, also we want positive number
+	if (pointIt - newAxis.begin() < newAxis.end() - pointIt - 1)
+	{
+		int elementsToErase = pointIt - newAxis.begin();
+		newAxis.insert(newAxis.end(), newAxis.begin(), pointIt);
+		newAxis.erase(newAxis.begin(), newAxis.begin() + elementsToErase);
+
+		/// add same point to other end
+		m_joints.insert(m_joints.end(), m_joints.front());
+	}
+	else
+	{
+		// one past
+		++pointIt;
+		int elementsToErase = newAxis.end() - pointIt;
+		pointIt = newAxis.insert(newAxis.begin(), pointIt, newAxis.end());
+		newAxis.erase(newAxis.end() - elementsToErase, newAxis.end());
+
+		/// add same point to other end
+		newAxis.insert(newAxis.begin(), newAxis.back());
+	}
+
+	construct(newAxis, m_width);
+}
+
+void SegmentedShape::eraseCommonPoints()
+{
+	auto current = m_joints.begin();
+	while (current != m_joints.end())
+	{
+		auto cursor = current + 1;
+		while (cursor != m_joints.end())
+		{
+			if (approxSamePoints(current->centre, cursor->centre))
+			{
+				cursor = m_joints.erase(cursor);
+			}
+			else
+			{
+				++cursor;
+			}
+		}
+
+		++current;
+	}
+
+}
+
+void SegmentedShape::createShape(const Points& axis)
+{
+	const glm::vec3 vectorUp(0.0f, 1.0f, 0.0f);
+	// mke space
+	m_joints.resize(axis.size());
+
+	glm::vec3 dirVec;
+	glm::vec3 currentDirection;
+	glm::vec3 previousDirection;
+	Point previousPoint;
+	Point nextPoint;
+	for (int i = 0; i < m_joints.size(); ++i)
+	{
+		auto& currentJoint = m_joints[i];
+		// vertices
+		{
+			const auto& curPoint = axis[i];
+			previousPoint = curPoint;
+			if (i + 1 < axis.size())
+			{
+				nextPoint = axis[i + 1];
+				currentDirection = glm::normalize(nextPoint - curPoint);
+			}
+			else if (axis.front() == axis.back())
+			{
+				nextPoint = *(axis.begin() + 1);
+				currentDirection = glm::normalize(nextPoint - curPoint);
+			}
+
+			if (i - 1 >= 0)
+			{
+				previousPoint = axis[i - 1];
+				previousDirection = glm::normalize(curPoint - previousPoint);
+			}
+			else if (axis.front() == axis.back())
+			{
+				previousPoint = *(axis.end() - 2);
+				previousDirection = glm::normalize(curPoint - previousPoint);
+			}
+			else
+			{
+				previousDirection = currentDirection;
+			}
+
+			const auto [left, right] = getSidePoints(previousDirection, currentDirection, previousPoint, curPoint, nextPoint, m_width);
+
+			Joint newJoint;
+			newJoint.centre = curPoint;
+			newJoint.side = { left, right };
+
+			currentJoint = newJoint;
+		}
+	}
+}
+
+
+Road::RoadParameters Road::getParameters() const
+{
+	return m_parameters;
+}
+
+bool Road::sitsOnEndPoints(const Point& point) const
+{
+	return m_shape.sitsOnTailOrHead(point);
+}
+
+bool Road::sitsOnRoad(const Point& point) const
+{
+	return m_shape.sitsOnShape(point);
+}
+
+Point Road::getPointOnRoad(const Point& point)
+{
+	return m_shape.getShapeAxisPoint(point).value();
+}
+
+void Road::construct(Points axisPoints, uint32_t laneCount, float width, std::string texture)
+{
+	m_position = {};
+
+	m_parameters.laneCount = laneCount;
+	m_parameters.width = width;
+	m_parameters.texture = texture;
+	m_shape.construct(axisPoints, width);
+
+	// model
+	auto mesh = SegmentedShape::createMesh(m_shape);
+	mesh.textures[VD::TextureType::DIFFUSE] = texture;
+
+	Model model;
+	model.meshes.push_back(mesh);
+
+	Info::ModelInfo modelInfo;
+	modelInfo.model = &model;
+
+	setupModel(modelInfo, true);
+	createPaths();
+}
+
+void Road::reconstruct()
+{
+	auto mesh = SegmentedShape::createMesh(m_shape);
+	mesh.textures[VD::TextureType::DIFFUSE] = m_parameters.texture;
+
+	Model model;
+	model.meshes.push_back(mesh);
+
+	Info::ModelInfo modelInfo;
+	modelInfo.model = &model;
+
+	setupModel(modelInfo, true);
+	createPaths();
+}
+
+void Road::mergeWithRoad(const Road& road)
+{
+	m_shape.megeWith(road.m_shape);
+	reconstruct();
+}
+
+std::optional<Road> Road::split(const Point& splitPoint)
+{
+	auto optSplit = m_shape.split(splitPoint);
+	reconstruct();
+
+	std::optional<Road> optRoad;
+	if (optSplit)
+	{
+		Road road;
+		road.construct(optSplit.value().getAxis(), m_parameters.laneCount, m_parameters.width, m_parameters.texture);
+
+		optRoad = road;
+	}
+
+	return optRoad;
+}
+
+
+Point Road::shorten(const Point& roadEnd, float size)
+{
+	return m_shape.shorten(roadEnd, size);
+}
+
 
 void Road::createPaths()
 {
@@ -548,9 +866,9 @@ void Road::createPaths()
 	m_paths.clear();
 	for (int i = 0; i < m_parameters.laneCount / 2.0; ++i)
 	{
-		auto pathLanes = createShape(m_parameters.axis.local, startOffset + offsetPerLane * i);
+		auto pathLanes = m_shape.getSkeleton();
 
-		m_paths.insert(m_paths.begin(), std::vector(pathLanes.begin() + (pathLanes.size() / 2), pathLanes.end()));
+		m_paths.insert(m_paths.begin(), std::vector(pathLanes.rbegin() + (pathLanes.size() / 2), pathLanes.rend()));
 		m_paths.insert(m_paths.end(), std::vector(pathLanes.begin(), pathLanes.begin() + (pathLanes.size() / 2)));
 	}
 }

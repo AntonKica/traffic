@@ -8,7 +8,7 @@
 
 #include <glm/gtx/perpendicular.hpp>
 #include <numeric>
-
+#include <set>
 
 VD::PositionVertices buildSimpleShapeOutline(const std::vector<Point>& points, int width)
 {
@@ -150,85 +150,58 @@ void RoadCreator::createRoadIfPossible()
 	}
 
 	if (creationPoints.size())
+		createRoad(creationPoints);
+}
+
+void RoadCreator::createRoad(const Points& creationPoints)
+{
+	const auto& currentPrototype = hardcodedRoadPrototypes[currentPrototypeID];
+
+	std::vector<SittingPoint> constructionPoints = { placedPoints.front(), placedPoints.back() };
+	if (approxSamePoints(constructionPoints[0].point, constructionPoints[1].point) || 
+		constructionPoints[0].road == constructionPoints[1].road)
+		constructionPoints.pop_back();
+	
+
+	Road newRoad;
+	newRoad.construct(creationPoints, currentPrototype.laneCount, currentPrototype.width, currentPrototype.texture);
+	
+	std::set<Road*> roadsToRemove;
+	for (auto& constructionPoint : constructionPoints)
 	{
-		const auto& currentPrototype = hardcodedRoadPrototypes[currentPrototypeID];
-		const auto& firstPoint = placedPoints.front();
-		const auto& lastPoint = placedPoints.back();
-
-		// only one now
-		std::vector<Road*> connectedRoads;
-		std::vector<Road*> removeRoads;
-
-		std::vector<std::pair<std::array<Road, 2>, Point>> intersectionRoads;
-		std::vector<Road> newRoads;
-		if (firstPoint.road)
+		if (constructionPoint.road)
 		{
-			auto& road = *firstPoint.road;
-			auto splitRoad = road.split(firstPoint.point);
-			if (splitRoad)
+			if (constructionPoint.road->sitsOnEndPoints(constructionPoint.point))
 			{
-				std::array<Road, 2> roads{ road, splitRoad.value() };
-				intersectionRoads.push_back(std::pair(roads, firstPoint.point));
-				removeRoads.push_back(firstPoint.road);
-				//newRoads.push_back(splitRoad.value());
-				//removeRoads.push_back(lastPoint.road);
+				newRoad.mergeWithRoad(*constructionPoint.road);
+				roadsToRemove.insert(constructionPoint.road);
 			}
 			else
 			{
-				connectedRoads.push_back(firstPoint.road);
-				removeRoads.push_back(firstPoint.road);
-			}
-			//if (splitRoad)
-			//	additionalRoads.push_back(splitRoad.value());
-		}
-		if (lastPoint.road && firstPoint.road != lastPoint.road)
-		{
-			auto& road = *lastPoint.road;
-			auto splitRoad = road.split(lastPoint.point);
-			if (splitRoad)
-			{
-				std::array<Road, 2> roads{ road, splitRoad.value() };
-				intersectionRoads.push_back(std::pair(roads, lastPoint.point));
-				removeRoads.push_back(lastPoint.road);
-				//newRoads.push_back(splitRoad.value());
-				//removeRoads.push_back(lastPoint.road);
-			}
-			else
-			{
-				connectedRoads.push_back(lastPoint.road);
-				removeRoads.push_back(lastPoint.road);
+				auto optRoad = constructionPoint.road->split(constructionPoint.point);
+
+				if (!optRoad)
+				{
+					RoadIntersection ri;
+					ri.construct({ constructionPoint.road, constructionPoint.road, &newRoad }, constructionPoint.point);
+				}
+				else
+				{
+					RoadIntersection ri;
+					ri.construct({ constructionPoint.road, &optRoad.value(), &newRoad }, constructionPoint.point);
+
+					roadManager->addRoad(optRoad.value());
+				}
 			}
 		}
-		Road newRoad;
-		newRoad.construct(creationPoints, currentPrototype.laneCount, currentPrototype.width, currentPrototype.texture);
-		if (intersectionRoads.size())
-		{
-			RoadIntersection ri;
-			ri.construct({ &intersectionRoads[0].first[0], &intersectionRoads[0].first[1], &newRoad }, intersectionRoads[0].second);
-
-			RoadIntersection* r = new RoadIntersection(ri);
-			newRoads.insert(newRoads.end(), { intersectionRoads[0].first[0], intersectionRoads[0].first[1], newRoad });
-		}
-		else
-		{
-			for (auto& connectedRoad : connectedRoads)
-				newRoad.mergeWithRoad(*connectedRoad);
-			newRoads.insert(newRoads.end(), newRoad );
-		}
-		
-		/*
-		Road newRoad;
-		newRoad.construct(creationPoints, currentPrototype.laneCount, currentPrototype.width, currentPrototype.texture);
-		for (const auto& connectedRoad : connectedRoads)
-		{
-			newRoad = newRoad.mergeRoads(std::pair(newRoad, *connectedRoad));
-		}*/
-
-		roadManager->removeRoads(removeRoads);
-		roadManager->addRoads(newRoads);
-
-		placedPoints.clear();
 	}
+
+	std::vector removeVec(std::begin(roadsToRemove), std::end(roadsToRemove));
+	roadManager->removeRoads(removeVec);
+	roadManager->addRoad(newRoad);
+	
+
+	placedPoints.clear();
 }
 
 void RoadCreator::updatePoints()

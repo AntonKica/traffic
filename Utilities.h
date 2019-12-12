@@ -1,6 +1,6 @@
 #pragma once
 #include <utility>
-
+#include <glm/glm.hpp>
 namespace Utility
 {
 	class NonCopy
@@ -23,7 +23,28 @@ namespace Utility
 using Point = glm::vec3;
 using Points = std::vector<Point>;
 
-inline std::pair<Point, Point> findTwoClosestPoints(const Points& points, const Point& point)
+static bool approxSamePoints(const Point& p1, const Point& p2)
+{
+	constexpr const float maxDiff = 0.01f;
+
+	return glm::length(p1 - p2) <= maxDiff;
+}
+
+template<class Container> void removeDuplicates(Container& container)
+{
+	for (auto begin = std::begin(container); begin != std::end(container); ++begin)
+	{
+		auto cursor = begin + 1;
+		while (true)
+		{
+			cursor = container.erase(std::find(cursor, std::end(container), *begin), std::end(container));
+			if (cursor == std::end(container))
+				break;
+		}
+	}
+}
+
+static std::pair<Point, Point> findTwoClosestPoints(const Points& points, const Point& point)
 {
 	std::optional<Point> first, second;
 	for (const auto& point_ : points)
@@ -51,9 +72,86 @@ inline std::pair<Point, Point> findTwoClosestPoints(const Points& points, const 
 			second = point_;
 		}
 	}
-
 	return std::make_pair(first.value(), second.value());
 };
+
+static Point findClosestPoint(const Points& points, const Point& point)
+{
+	std::optional<Point> closestPoint;
+	for (const auto& point_ : points)
+	{
+		if (!closestPoint)
+		{
+			closestPoint = point_;
+			continue;
+		}
+
+		float currentDistance = glm::length(point - point_);
+		float closestDistance = glm::length(point - closestPoint.value());
+		if (currentDistance < closestDistance)
+			closestPoint = point_;
+	}
+	
+	return closestPoint.value();
+};
+
+static std::pair<Point, Point> getClosestSideFromThreePoints(const Point& lineStart, const Point& lineJoint, const Point& lineEnd, const Point& point)
+{
+	const glm::vec3 dirToJointStart = glm::normalize(lineJoint - lineStart);
+	const glm::vec3 dirToJointEnd = glm::normalize(lineJoint - lineEnd);
+	const glm::vec3 dirToJointPoint = glm::normalize(lineJoint - point);
+
+	const float startAngle = glm::degrees(glm::acos(glm::dot(dirToJointStart, dirToJointPoint)));
+	const float endAngle = glm::degrees(glm::acos(glm::dot(dirToJointEnd, dirToJointPoint)));
+	// acute angle
+	std::pair<Point, Point> line;
+	auto& [start, end] = line;
+	if (startAngle <= 90.0f)
+	{	
+		// other obtuse angle
+		if (endAngle > 90.0f || 
+			startAngle < endAngle)
+		{
+			start = lineStart;
+			end = lineJoint;
+		}
+		else
+		{
+			start = lineJoint;
+			end = lineEnd;
+		}
+	}
+	else
+	{
+		if (endAngle > 90.0f)
+		{
+			start = end = lineJoint;
+		//	start = lineStart;
+		//	end = lineJoint;
+		}
+		else
+		{
+			start = lineJoint;
+			end = lineEnd;
+		}
+	}
+
+	return line;
+}
+
+static Point getClosestPointToLine(const Point& lineStart, const Point& lineEnd, const Point& point)
+{
+	if (approxSamePoints(lineStart, lineEnd)) return lineStart;
+
+	glm::vec3 lineDirection = glm::normalize(lineEnd - lineStart);
+	float lineLength = glm::length(lineEnd - lineStart);
+
+	const glm::vec3 startToPointDir = glm::normalize(point - lineStart);
+	float alpha = glm::acos(glm::dot(startToPointDir, lineDirection));
+	float lineDistanceFromPointOne = glm::length(lineStart - point) * cos(alpha);
+
+	return lineStart + lineDirection * lineDistanceFromPointOne;
+}
 
 template<class C, class T1, class T2, class T3> auto insertElemementBetween(C& container, T1 first, T2 second, T3 element)
 {
@@ -70,7 +168,7 @@ template<class C, class T1, class T2, class T3> auto insertElemementBetween(C& c
 }
 
 
-inline Point vectorIntersection(Point s1, Point e1, Point s2, Point e2)
+static Point vectorIntersection(Point s1, Point e1, Point s2, Point e2)
 {
 	float a1 = e1.z - s1.z;
 	float b1 = s1.x - e1.x;
@@ -84,7 +182,7 @@ inline Point vectorIntersection(Point s1, Point e1, Point s2, Point e2)
 
 	return delta == 0 ? s2 : Point((b2 * c1 - b1 * c2) / delta, 0.0f, (a1 * c2 - a2 * c1) / delta);
 }
-inline std::pair<Point, Point> getSidePoints(glm::vec3 firstDirection, glm::vec3 secondDirection, Point p1, Point p2, Point p3, float width)
+static std::pair<Point, Point> getSidePoints(glm::vec3 firstDirection, glm::vec3 secondDirection, Point p1, Point p2, Point p3, float width)
 {
 	const glm::vec3 vectorUp(0.0, 1.0, 0.0);
 

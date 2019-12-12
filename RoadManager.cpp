@@ -15,7 +15,7 @@ void RoadManager::update(float deltaTime)
 {
 	updateSelectedRoads();
 	roadCreator.update();
-	pathVisualizer.updateVisuals();
+	//pathVisualizer.updateVisuals();
 
 	auto cursor = App::Scene.m_simArea.getMousePosition();
 

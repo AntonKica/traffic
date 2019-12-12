@@ -7,13 +7,6 @@
 #include "GraphicsObjects.h"
 #include <utility>
 
-/*
-template<class Type> using BindingPair = std::pair<uint32_t, Type>;
-template<class Type> using Bindings = std::vector<BindingPair<Type>>;
-using DescriptorBindingPair = BindingPair<VkDescriptorType>;
-using DescriptorBindings = Bindings<DescriptorBindingPair>;
-*/
-
 namespace DescriptorSettings
 {
 	// types of buffer

@@ -63,6 +63,7 @@ private:
 	void setupPrototypes();
 	void setPoint();
 	void createRoadIfPossible();
+	void createRoad(const Points& creationPoints);
 	void updatePoints();
 	enum class Mode
 	{
