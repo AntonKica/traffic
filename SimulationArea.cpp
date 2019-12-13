@@ -104,7 +104,7 @@ void SimulationAreaVisualizer::createVisuals(size_t xCount, size_t zCount, doubl
 
 	Info::DrawInfo drawInfo;
 	drawInfo.lineWidth = 1.0f;
-	drawInfo.polygon = VK_POLYGON_MODE_LINE;
+	drawInfo.polygon = VK_POLYGON_MODE_FILL;
 	drawInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
 

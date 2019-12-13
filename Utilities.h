@@ -1,6 +1,7 @@
 #pragma once
 #include <utility>
 #include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
 namespace Utility
 {
 	class NonCopy
@@ -178,9 +179,11 @@ static Point vectorIntersection(Point s1, Point e1, Point s2, Point e2)
 	float b2 = s2.x - e2.x;
 	float c2 = a2 * s2.x + b2 * s2.z;
 
+	// round if one degree
+	const float minAngle = 1.0f * (glm::pi<float>() / 180.0f);
 	float delta = a1 * b2 - a2 * b1;
 
-	return delta == 0 ? s2 : Point((b2 * c1 - b1 * c2) / delta, 0.0f, (a1 * c2 - a2 * c1) / delta);
+	return std::abs(delta) <= minAngle ? s2 : Point((b2 * c1 - b1 * c2) / delta, 0.0f, (a1 * c2 - a2 * c1) / delta);
 }
 static std::pair<Point, Point> getSidePoints(glm::vec3 firstDirection, glm::vec3 secondDirection, Point p1, Point p2, Point p3, float width)
 {

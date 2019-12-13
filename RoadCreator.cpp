@@ -184,6 +184,7 @@ void RoadCreator::createRoad(const Points& creationPoints)
 				{
 					RoadIntersection ri;
 					ri.construct({ constructionPoint.road, constructionPoint.road, &newRoad }, constructionPoint.point);
+					new RoadIntersection(ri);
 				}
 				else
 				{
@@ -191,6 +192,7 @@ void RoadCreator::createRoad(const Points& creationPoints)
 					ri.construct({ constructionPoint.road, &optRoad.value(), &newRoad }, constructionPoint.point);
 
 					roadManager->addRoad(optRoad.value());
+					new RoadIntersection(ri);
 				}
 			}
 		}

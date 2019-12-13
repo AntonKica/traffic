@@ -402,9 +402,13 @@ Mesh SegmentedShape::createMesh(const SegmentedShape& shape)
 
 	auto verticesIter = vertices.begin();
 	auto texturesIter = textureCoords.begin();
-	size_t travelledLength = 0;
+	float travelledLength = 0;
+	Point previousTravellPoint = joints[0].centre;
 	for (const auto& joint : joints)
 	{
+		travelledLength += glm::length(previousTravellPoint - joint.centre);
+		previousTravellPoint = joint.centre;
+
 		*verticesIter++ = joint.side.left;
 		*verticesIter++ = joint.side.right;
 
@@ -548,9 +552,9 @@ std::optional<SegmentedShape> SegmentedShape::split(const Point& splitPoint)
 	if (!sitsOnTailOrHead(splitPoint) && !isCirculary())
 	{
 		Points newAxis = getAxis();
-		const auto [firstPoint, secondPoint] = findTwoClosestPoints(newAxis, splitPoint);
+		const auto [firstPoint, secondPoint] = selectSegment(splitPoint).value();
 
-		auto newSplitIter = insertElemementBetween(newAxis, firstPoint, secondPoint, splitPoint);
+		auto newSplitIter = insertElemementBetween(newAxis, firstPoint->centre, secondPoint->centre, splitPoint);
 		//dont erase if same 
 		// recteate this worldAxis
 		Points curSplitAxis (std::begin(newAxis), newSplitIter + 1);
@@ -569,8 +573,11 @@ std::optional<SegmentedShape> SegmentedShape::split(const Point& splitPoint)
 		Points newAxis = getAxis();
 
 		// remove uniquePoints
-		removeDuplicates(newAxis);
 		const auto [firstPoint, secondPoint] = selectSegment(splitPoint).value();
+		if (secondPoint->centre == getHead())
+			newAxis.erase(newAxis.begin());
+		else //if (firstPoint->centre == getTail() || secondPoint->centre == getTail())
+			newAxis.pop_back();
 
 		if (approxSamePoints(splitPoint, firstPoint->centre))
 			setNewCircularEndPoints(firstPoint->centre);
@@ -579,11 +586,10 @@ std::optional<SegmentedShape> SegmentedShape::split(const Point& splitPoint)
 		else
 		{
 			insertElemementBetween(newAxis, firstPoint->centre, secondPoint->centre, splitPoint);
-
 			construct(newAxis, m_width);
 			setNewCircularEndPoints(splitPoint);
+			auto axis = getAxis();
 		}
-		// no need for cunstr
 	}
 
 	return optionalSplit;
@@ -613,6 +619,7 @@ Point SegmentedShape::shorten(const Point& shapeEnd, float size)
 
 		// remove unsuitable points
 		axis.erase(axis.begin(), firstPoint);
+		newAxis = axis;
 	}
 	else
 	{
@@ -636,9 +643,7 @@ Point SegmentedShape::shorten(const Point& shapeEnd, float size)
 		}
 
 		// remove unsuitable points
-		auto copyIt = std::reverse_copy(firstPoint, std::end(reversedAxis), std::begin(reversedAxis));
-		reversedAxis.erase(copyIt, std::end(reversedAxis));
-		newAxis = reversedAxis;
+		auto copyIt = std::reverse_copy(firstPoint, std::end(reversedAxis), std::back_insert_iterator(newAxis));
 	}
 
 	construct(newAxis, m_width);
@@ -647,44 +652,17 @@ Point SegmentedShape::shorten(const Point& shapeEnd, float size)
 
 void SegmentedShape::setNewCircularEndPoints(const Point& point)
 {
+	auto newAxiss = getAxis();
 	eraseCommonPoints();
 	auto newAxis = getAxis();
-	//find point
-	/*auto findJoint = [](Joints& joints, const Point& jointPoint)
-	{
-		auto begin = std::begin(joints);
-		while (begin != std::end(joints))
-		{
-			if (approxSamePoints(jointPoint, begin->centre))
-				break;
-			++begin;
-		}
-		return begin;
-	};*/
 	auto pointIt = std::find(std::begin(newAxis), std::end(newAxis), point);// findJoint(m_joints, point);
-	//if (pointIt == m_parameters.axis.world.end())
-	//	throw std::runtime_error(std::string("Failed to set head point"));
-
-	// copy from end to begin else switch orded, also we want positive number
-	if (pointIt - newAxis.begin() < newAxis.end() - pointIt - 1)
 	{
 		int elementsToErase = pointIt - newAxis.begin();
 		newAxis.insert(newAxis.end(), newAxis.begin(), pointIt);
 		newAxis.erase(newAxis.begin(), newAxis.begin() + elementsToErase);
 
 		/// add same point to other end
-		m_joints.insert(m_joints.end(), m_joints.front());
-	}
-	else
-	{
-		// one past
-		++pointIt;
-		int elementsToErase = newAxis.end() - pointIt;
-		pointIt = newAxis.insert(newAxis.begin(), pointIt, newAxis.end());
-		newAxis.erase(newAxis.end() - elementsToErase, newAxis.end());
-
-		/// add same point to other end
-		newAxis.insert(newAxis.begin(), newAxis.back());
+		newAxis.insert(newAxis.end(), newAxis.front());
 	}
 
 	construct(newAxis, m_width);
@@ -736,6 +714,7 @@ void SegmentedShape::createShape(const Points& axis)
 				nextPoint = axis[i + 1];
 				currentDirection = glm::normalize(nextPoint - curPoint);
 			}
+	
 			else if (axis.front() == axis.back())
 			{
 				nextPoint = *(axis.begin() + 1);
@@ -756,7 +735,7 @@ void SegmentedShape::createShape(const Points& axis)
 			{
 				previousDirection = currentDirection;
 			}
-
+			
 			const auto [left, right] = getSidePoints(previousDirection, currentDirection, previousPoint, curPoint, nextPoint, m_width);
 
 			Joint newJoint;
@@ -802,8 +781,11 @@ void Road::construct(Points axisPoints, uint32_t laneCount, float width, std::st
 	auto mesh = SegmentedShape::createMesh(m_shape);
 	mesh.textures[VD::TextureType::DIFFUSE] = texture;
 
+	Mesh sh;
+	sh.vertices.positions = m_shape.getAxis();
 	Model model;
 	model.meshes.push_back(mesh);
+	//model.meshes[0] = sh;
 
 	Info::ModelInfo modelInfo;
 	modelInfo.model = &model;
@@ -817,8 +799,11 @@ void Road::reconstruct()
 	auto mesh = SegmentedShape::createMesh(m_shape);
 	mesh.textures[VD::TextureType::DIFFUSE] = m_parameters.texture;
 
+	Mesh sh;
+	sh.vertices.positions = m_shape.getAxis();
 	Model model;
 	model.meshes.push_back(mesh);
+	//model.meshes[0] = sh;
 
 	Info::ModelInfo modelInfo;
 	modelInfo.model = &model;
@@ -853,7 +838,9 @@ std::optional<Road> Road::split(const Point& splitPoint)
 
 Point Road::shorten(const Point& roadEnd, float size)
 {
-	return m_shape.shorten(roadEnd, size);
+	auto shortPoint = m_shape.shorten(roadEnd, size);
+	reconstruct();
+	return shortPoint;
 }
 
 

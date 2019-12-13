@@ -122,8 +122,8 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 			//	const auto [left,right] = getSidePoints(dirCurrentToCentre, dirCentreToSecond, currentPoint, centre, second, width);
 			commonPoints.insert(commonPoints.end(), { right });
 
+			// just for fun
 		}
-		
 	}
 	// + centre
 	size_t totalPoints = sidePoints.size() + commonPoints.size() + 1;
@@ -146,6 +146,10 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 	VD::Indices indices = createPseudoTriangleFanIndices(shapePoints);
 	Mesh mesh;
 	mesh.vertices.positions = shapePoints;
+
+	const glm::vec4 grey(0.44, 0.44, 0.44, 1.0);
+	VD::ColorVertices colors(shapePoints.size(), grey);
+	mesh.vertices.colors = colors;
 	mesh.indices = indices;
 
 	Model model;
