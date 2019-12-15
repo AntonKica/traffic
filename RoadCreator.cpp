@@ -119,7 +119,8 @@ void RoadCreator::setupPrototypes()
 }
 void RoadCreator::setPoint()
 {
-	placedPoints = currentPoints;
+	if(validRoad)
+		placedPoints = currentPoints;
 
 	createRoadIfPossible();
 }
@@ -135,7 +136,7 @@ struct RoadCompare
 void RoadCreator::createRoadIfPossible()
 {
 	// do not construct from one poin
-	if (placedPoints.size() <= 1)
+	if (placedPoints.size() <= 1 || !validRoad)
 		return;
 
 	Points creationPoints;
@@ -231,14 +232,24 @@ void RoadCreator::updatePoints()
 		}
 		// add to visalize drawing
 		currentPoints.back() = sittingPoint;
-
+		validRoad = true;
+		for (const auto& curP : currentPoints)
+		{
+			if (curP.road && currentPoints.size() > 1)
+			{
+				if (!curP.road->canConnect({ currentPoints[0].point, currentPoints[1].point }, curP.point))
+				{
+					validRoad = false;
+					break;
+				}
+			}
+		}
 		Points drawPoints;
 		std::transform(std::begin(currentPoints), std::end(currentPoints), std::back_inserter(drawPoints), [](const SittingPoint& sittingPoint)
 			{
 				return sittingPoint.point;
 			});
-
-		visualizer.setDraw(drawPoints, hardcodedRoadPrototypes[currentPrototypeID].width);
+		visualizer.setDraw(drawPoints, hardcodedRoadPrototypes[currentPrototypeID].width, validRoad);
 	}
 	// erase back
 	else
@@ -303,10 +314,11 @@ void CreatorVisualizer::update()
 	updateGraphics();
 }
 
-void CreatorVisualizer::setDraw(const std::vector<Point>& points, float width)
+void CreatorVisualizer::setDraw(const std::vector<Point>& points, float width, bool valid)
 {
 	pointToDraw = points;
 	this->width = width;
+	this->valid = valid;
 }
 
 VD::PositionVertices CreatorVisualizer::generateLines()
@@ -400,7 +412,7 @@ void CreatorVisualizer::updateGraphics()
 		dInfo.polygon = VK_POLYGON_MODE_LINE;
 		dInfo.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
 
-		glm::vec4 color = glm::vec4(0.1, 0.2, 1.0, 1.0);
+		glm::vec4 color = valid ?  glm::vec4(0.1, 0.2, 1.0, 1.0) : glm::vec4(1.0, 0.2, 0.1, 1.0);
 		VD::ColorVertices colors(drawPoints.size(), color);
 		Mesh simpleMesh;
 		simpleMesh.vertices.positions = drawPoints;

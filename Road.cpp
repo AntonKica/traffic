@@ -3,6 +3,7 @@
 #include "Mesh.h"
 
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtx/vector_angle.hpp>
 #include <numeric>
 #include <random>
 #include <chrono>
@@ -371,6 +372,46 @@ std::optional<SegmentedShape::Segment> SegmentedShape::selectSegment(const Point
 	return selectedSegment;
 }
 
+std::vector<SegmentedShape::Segment> SegmentedShape::getJointSegments(const Point& jointPoint) const
+{
+	std::vector<SegmentedShape::Segment> segments;
+	for (int index = 0; index < m_joints.size(); ++index)
+	{
+		if (m_joints[index].centre == jointPoint)
+		{
+			// special case of circularity
+			if (index == 0 && isCirculary())
+			{
+				Segment s1, s2;
+				s1.start = &*(m_joints.end() - 2);
+				s1.end = &*(m_joints.end() - 1);
+
+				s2.start = &*(m_joints.begin());
+				s2.end = &*(m_joints.begin() + 1);
+
+				segments.insert(segments.begin(), { s1, s2 });
+			}
+			if (index >= 1)
+			{
+				Segment s;
+				s.start = &m_joints[index - 1];
+				s.end = &m_joints[index];
+
+				segments.emplace_back(s);
+			}
+			if (index + 1 < m_joints.size())
+			{
+				Segment s;
+				s.start = &m_joints[index];
+				s.end = &m_joints[index + 1];
+
+				segments.emplace_back(s);
+			}
+		}
+	}
+	return segments;
+}
+
 std::optional<Point> SegmentedShape::getShapeAxisPoint(const Point& point) const
 {
 	std::optional<Point> axisPoint;
@@ -381,10 +422,24 @@ std::optional<Point> SegmentedShape::getShapeAxisPoint(const Point& point) const
 		const auto& [start, end] = selectedSegment.value();
 		Point shapePoint = getClosestPointToLine(start->centre, end->centre, point);
 
+		// dont oveerlap actual shape and snap to joint
+		{
+			const float minDistanceFromJoint = m_width / 2.0f;
+			const float shapeLength = glm::length(start->centre - end->centre);
+
+			auto distanceFromStart = glm::length(shapePoint - start->centre);
+			auto distanceFromEnd = glm::length(shapePoint - end->centre);
+			if (distanceFromStart < minDistanceFromJoint || distanceFromEnd > shapeLength)
+				shapePoint = start->centre;
+			else if (distanceFromEnd < minDistanceFromJoint || distanceFromStart > shapeLength)
+				shapePoint = end->centre;
+		}
+
 		const float minDistanceFromEndPoints = m_width;
-		if (auto head = getHead(), tail = getTail(); arePointsInRange(head, shapePoint, minDistanceFromEndPoints) ||
-			arePointsInRange(tail, shapePoint, minDistanceFromEndPoints))
-			axisPoint =  glm::length(head - point) < glm::length(tail - point) ? head : tail;
+		if (auto head = getHead(), tail = getTail(); (arePointsInRange(head, shapePoint, minDistanceFromEndPoints) ||
+			arePointsInRange(tail, shapePoint, minDistanceFromEndPoints)) 
+			&& !isCirculary())
+			axisPoint = glm::length(head - point) < glm::length(tail - point) ? head : tail;
 		else
 			axisPoint = shapePoint;
 	}
@@ -495,6 +550,16 @@ bool SegmentedShape::sitsOnShape(const Point& point) const
 			m_joints[index + 1].side.right, m_joints[index].side.right};
 
 		if (polygonPointCollision(vertices, point))
+			return true;
+	}
+	return false;
+}
+
+bool SegmentedShape::sitsOnAnySegmentCorner(const Point& point) const
+{
+	for (int index = 0; index < m_joints.size(); ++index)
+	{
+		if (approxSamePoints(m_joints[index].centre, point))
 			return true;
 	}
 	return false;
@@ -841,6 +906,113 @@ Point Road::shorten(const Point& roadEnd, float size)
 	auto shortPoint = m_shape.shorten(roadEnd, size);
 	reconstruct();
 	return shortPoint;
+}
+
+std::optional<Point> Road::canConnect(std::array<Point, 2> connectionLine, const Point& connectionPoint) const
+{
+	//reored 
+	if (approxSamePoints(connectionLine[0], connectionPoint))
+		std::swap(connectionLine[0], connectionLine[1]);
+
+	std::optional<Point> recommendedPoint;
+	// sits on corner?
+	if (m_shape.sitsOnAnySegmentCorner(connectionPoint))
+	{
+		auto segments = m_shape.getJointSegments(connectionPoint);
+
+		// end or begin
+		if (segments.size() == 1)
+		{
+			auto [start, end] = segments[0];
+			// end == end of shape
+			if (approxSamePoints(connectionPoint, start->centre))
+				std::swap(start, end);
+
+			glm::vec3 axisDir = glm::normalize(end->centre - start->centre);
+			glm::vec3 endToLineEnd = glm::normalize(connectionLine[0] - end->centre);
+			float connectionAngle = glm::degrees(glm::acos(glm::dot(axisDir, endToLineEnd)));
+
+			if (connectionAngle <= 90.0f)
+				recommendedPoint = connectionPoint;
+		}
+		else
+		{
+			auto& segment1 = segments[0];
+			auto& segment2 = segments[1];
+
+			// supose we know segment 1s end is same as segment2s start
+			if (segment1.end != segment2.start)
+				std::swap(segment1, segment2);
+			// segment end / start = connection point
+			auto calcAngle = [](const glm::vec3& v1, const glm::vec3& v2)
+			{
+				auto dot = v1.x * v2.x + v1.z * v2.z;
+  				auto det = v1.x * v2.z - v1.z * v2.x;
+				auto res = std::atan2(det, dot);
+				return res > 0 ? res : res + glm::two_pi<float>();
+			};
+
+			glm::vec3 conLineDir = glm::normalize(connectionLine[0] - connectionPoint);
+			glm::vec3 dirS1 = glm::normalize(segment1.start->centre - connectionPoint);
+			glm::vec3 dirS2 = glm::normalize(segment2.end->centre - connectionPoint);
+			float roadAngle = calcAngle(dirS1, dirS2);
+			float angleLineS1 = calcAngle(conLineDir, dirS1);
+			// direction matters
+			float angleLineS2 = calcAngle(dirS2, conLineDir);
+
+			if(angleLineS1 > roadAngle || angleLineS2 > roadAngle)
+				recommendedPoint = connectionPoint;
+		}
+	}
+	else // sits between corners/ joints
+	{
+		return {};
+		auto [start, end] = m_shape.selectSegment(connectionPoint).value();
+
+		const glm::vec3 axisDir = glm::normalize(end->centre - start->centre);
+		float connectionAngle = glm::degrees(glm::dot(axisDir, connectionLine[0]));
+		if (connectionAngle > 90.0f) connectionAngle -= 90.0f;
+
+		const glm::vec3 up(0.0, 1.0, 0.0);
+
+		Point roadSidePoint;
+		// get correct point  from perpendicular
+		{
+			const glm::vec3 connectionLineDir = glm::normalize(connectionLine[1] - connectionLine[0]);
+			const auto peprVec = glm::cross(connectionLineDir, up);
+
+			Point side1 = connectionLine[1] + (peprVec * m_parameters.width / 2.0f);
+			Point side2 = connectionLine[1] - (peprVec * m_parameters.width / 2.0f);
+
+			if (!pointsSitsOnSameHalfOfPlane(start->centre, end->centre, connectionLine[0], side1))
+				roadSidePoint = side1;
+			else
+				roadSidePoint = side2;
+		}
+		const auto axisPoint = getClosestPointToLine(start->centre, end->centre, connectionPoint);
+
+
+		const float axisRoadSidePointAngle = glm::dot(glm::normalize(connectionPoint - roadSidePoint), (glm::normalize(connectionPoint - axisPoint)));
+		const float distance = glm::sin(axisRoadSidePointAngle) * (m_parameters.width / 2.0f)+ m_parameters.width;
+
+		Point axisPerpDir;
+		// get correct point  from perpendicular
+		{
+			const auto axisPerpVec = glm::cross(axisDir, up);
+
+			Point side1 = connectionLine[1] + (axisPerpVec * m_parameters.width / 2.0f);
+			Point side2 = connectionLine[1] - (axisPerpVec * m_parameters.width / 2.0f);
+
+			if (pointsSitsOnSameHalfOfPlane(start->centre, end->centre, connectionLine[0], side1))
+				axisPerpDir = axisPerpVec;
+			else
+				axisPerpDir = -axisPerpVec;
+		}
+
+		recommendedPoint = connectionPoint + axisPerpDir * distance;
+	}
+
+	return recommendedPoint;
 }
 
 

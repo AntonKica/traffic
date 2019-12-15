@@ -201,6 +201,16 @@ static std::pair<Point, Point> getSidePoints(glm::vec3 firstDirection, glm::vec3
 	return std::make_pair(left, right);
 }
 
+static float linePointAngle(Point s1, Point e1, Point p)
+{
+	return ((e1.x - s1.x) * (p.z - s1.z) - (e1.z - s1.z) * (p.x - s1.x));
+}
+
+static bool pointsSitsOnSameHalfOfPlane(Point s1, Point e1, Point p1, Point p2)
+{
+	return (linePointAngle(s1, e1, p1) >= 0) == (linePointAngle(s1, e1, p2) >= 0);
+}
+
 template<class T1, class T2> bool compareOptionals(std::optional<T1> lhs, std::optional<T2> rhs)
 {
 	if (lhs && rhs)			// both have types, then compare via value

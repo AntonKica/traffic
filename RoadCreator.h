@@ -29,7 +29,7 @@ class CreatorVisualizer
 {
 public:
 	void update();
-	void setDraw(const std::vector<Point>& points, float width);
+	void setDraw(const std::vector<Point>& points, float width, bool valid);
 
 private:
 	VD::PositionVertices generateLines();
@@ -37,6 +37,7 @@ private:
 	void updateGraphics();
 
 	float width = 0;
+	bool valid = false;
 	std::vector<Point> pointToDraw;
 	std::optional<Point> mousePoint;
 
@@ -85,6 +86,7 @@ private:
 
 	std::map<int, ::Prototypes> hardcodedRoadPrototypes;
 	int currentPrototypeID = 0;
+	bool validRoad = false;
 public:
 	void initialize(RoadManager* roadManager);
 	void update();

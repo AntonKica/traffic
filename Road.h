@@ -28,6 +28,7 @@ public:
 	};
 
 	std::optional<Segment> selectSegment(const Point& point) const;
+	std::vector<Segment> getJointSegments(const Point& jointPoint) const;
 	std::optional<Point> getShapeAxisPoint(const Point& point) const;
 
 	static Mesh createMesh(const SegmentedShape& shape);
@@ -41,6 +42,7 @@ public:
 	bool sitsOnTail(const Point& point) const;
 	bool sitsOnTailOrHead(const Point& point) const;
 	bool sitsOnShape(const Point& point) const;
+	bool sitsOnAnySegmentCorner(const Point& point) const;
 	bool isCirculary() const;
 
 	void reverseBody();
@@ -82,6 +84,8 @@ public:
 	void mergeWithRoad(const Road& road);
 	std::optional<Road> split(const Point& splitPoint);
 	Point shorten(const Point& roadEnd, float size);
+
+	std::optional<Point> canConnect(std::array<Point, 2> connectionLine, const Point& connectionPoint) const;
 private:
 	void reconstruct();
 	using Path = Points;
