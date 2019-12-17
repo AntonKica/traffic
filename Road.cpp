@@ -548,7 +548,6 @@ bool SegmentedShape::sitsOnShape(const Point& point) const
 		Points vertices = {
 			m_joints[index].side.left, m_joints[index + 1].side.left, 
 			m_joints[index + 1].side.right, m_joints[index].side.right};
-
 		if (polygonPointCollision(vertices, point))
 			return true;
 	}
@@ -933,7 +932,13 @@ std::optional<Point> Road::canConnect(std::array<Point, 2> connectionLine, const
 			float connectionAngle = glm::degrees(glm::acos(glm::dot(axisDir, endToLineEnd)));
 
 			if (connectionAngle <= 90.0f)
+			{
 				recommendedPoint = connectionPoint;
+			}
+			else
+			{
+
+			}
 		}
 		else
 		{
@@ -949,6 +954,7 @@ std::optional<Point> Road::canConnect(std::array<Point, 2> connectionLine, const
 				auto dot = v1.x * v2.x + v1.z * v2.z;
   				auto det = v1.x * v2.z - v1.z * v2.x;
 				auto res = std::atan2(det, dot);
+
 				return res > 0 ? res : res + glm::two_pi<float>();
 			};
 
@@ -966,35 +972,19 @@ std::optional<Point> Road::canConnect(std::array<Point, 2> connectionLine, const
 	}
 	else // sits between corners/ joints
 	{
-		return {};
 		auto [start, end] = m_shape.selectSegment(connectionPoint).value();
 
 		const glm::vec3 axisDir = glm::normalize(end->centre - start->centre);
-		float connectionAngle = glm::degrees(glm::dot(axisDir, connectionLine[0]));
-		if (connectionAngle > 90.0f) connectionAngle -= 90.0f;
+		const glm::vec3 conLineDir = glm::normalize(connectionLine[0] - connectionPoint);
 
+		float connectionAngle = glm::acos(glm::dot(axisDir, conLineDir));
+		if (connectionAngle > glm::half_pi<float>())
+			connectionAngle = glm::pi<float>() - connectionAngle;
+
+		const float sinkAngle = glm::half_pi<float>()- connectionAngle;
+		const float distance = 0.5 * m_parameters.width * (1 +  glm::sin(sinkAngle));
+		std::cout << distance << '\n';
 		const glm::vec3 up(0.0, 1.0, 0.0);
-
-		Point roadSidePoint;
-		// get correct point  from perpendicular
-		{
-			const glm::vec3 connectionLineDir = glm::normalize(connectionLine[1] - connectionLine[0]);
-			const auto peprVec = glm::cross(connectionLineDir, up);
-
-			Point side1 = connectionLine[1] + (peprVec * m_parameters.width / 2.0f);
-			Point side2 = connectionLine[1] - (peprVec * m_parameters.width / 2.0f);
-
-			if (!pointsSitsOnSameHalfOfPlane(start->centre, end->centre, connectionLine[0], side1))
-				roadSidePoint = side1;
-			else
-				roadSidePoint = side2;
-		}
-		const auto axisPoint = getClosestPointToLine(start->centre, end->centre, connectionPoint);
-
-
-		const float axisRoadSidePointAngle = glm::dot(glm::normalize(connectionPoint - roadSidePoint), (glm::normalize(connectionPoint - axisPoint)));
-		const float distance = glm::sin(axisRoadSidePointAngle) * (m_parameters.width / 2.0f)+ m_parameters.width;
-
 		Point axisPerpDir;
 		// get correct point  from perpendicular
 		{
@@ -1004,9 +994,9 @@ std::optional<Point> Road::canConnect(std::array<Point, 2> connectionLine, const
 			Point side2 = connectionLine[1] - (axisPerpVec * m_parameters.width / 2.0f);
 
 			if (pointsSitsOnSameHalfOfPlane(start->centre, end->centre, connectionLine[0], side1))
-				axisPerpDir = axisPerpVec;
+				axisPerpDir = glm::normalize(axisPerpVec);
 			else
-				axisPerpDir = -axisPerpVec;
+				axisPerpDir = -glm::normalize(axisPerpVec);
 		}
 
 		recommendedPoint = connectionPoint + axisPerpDir * distance;

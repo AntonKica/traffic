@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <vector>
 #include <map>
+#include <optional>
 
 using Point = glm::vec3;
 using Points = std::vector<glm::vec3>;
@@ -80,9 +81,11 @@ private:
 	{
 		Point point = {};
 		Road* road = nullptr;
+		bool core = false;
 	};
-	std::vector<SittingPoint> currentPoints;
-	std::vector<SittingPoint> placedPoints;
+	std::vector<SittingPoint> setPoints;
+	std::vector<SittingPoint> buildPoints;
+	std::optional<SittingPoint> mousePoint;
 
 	std::map<int, ::Prototypes> hardcodedRoadPrototypes;
 	int currentPrototypeID = 0;
