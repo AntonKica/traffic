@@ -2,11 +2,13 @@
 #define STATIC_OBJECTS
 
 #include "scene.h"
+#include "Time.h"
 
 //namespace
 namespace App
 {
-	extern scene Scene;
+	extern ::Scene Scene;
+	extern Time time;
 }
 
 

@@ -163,13 +163,9 @@ static inline glm::dvec2 getCursorPos(GLFWwindow* window)
 
 static void keyboardInputCallback(GLFWwindow* window, int key, int scanCode, int action, int mods)
 {
-	if (key == GLFW_KEY_R && action == GLFW_PRESS)
-	{
-		renderGrid = !renderGrid;
-	}
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 	{
-		App::Scene.m_simArea.m_roadManager.roadCreator.rollBackEvent();
+		//App::Scene.m_simArea.roadCreator.rollBackEvent();
 	}
 
 	// weird
@@ -466,13 +462,12 @@ void VulkanBase::mainLoop()
 
 	while (!glfwWindowShouldClose(m_window))
 	{
-		std::chrono::time_point currentFrame = std::chrono::high_resolution_clock::now();
-		deltaTime = (currentFrame - lastFrame).count() / std::pow(10, 9);
-		lastFrame = currentFrame;
+		App::time.tick();
+		deltaTime = App::time.deltaTime();
 
 		glfwSetWindowTitle(m_window, (std::string("Sample title ") + std::to_string(int(1.0 / deltaTime))).c_str());
 		App::Scene.m_camera.update(deltaTime, getCursorPos(m_window));
-		App::Scene.m_simArea.update(deltaTime);
+		App::Scene.m_simArea.update();
 
 		prepareFrame();
 		drawFrame();

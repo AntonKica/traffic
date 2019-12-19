@@ -1,9 +1,9 @@
 #pragma once
-#include "SimulationAreaObjectStatic.h"
+#include "SimulationAreaObject.h"
 #include <string>
 
 class BasicBuilding :
-	public SimulationAreaObjectStatic
+	public SimulationAreaObject
 {
 public:
 	BasicBuilding();

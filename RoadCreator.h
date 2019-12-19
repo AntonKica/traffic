@@ -58,7 +58,7 @@ namespace
 	};
 }
 
-class RoadManager;
+class ObjectManager;
 class RoadCreator
 {
 private:
@@ -72,7 +72,7 @@ private:
 		STRAIGHT_LINE,
 		CURVED_LINE
 	};
-	RoadManager* roadManager;
+	ObjectManager* m_pRoadManager;
 
 	Mode creatorMode{};
 	CreatorVisualizer visualizer;
@@ -91,7 +91,7 @@ private:
 	int currentPrototypeID = 0;
 	bool validRoad = false;
 public:
-	void initialize(RoadManager* roadManager);
+	RoadCreator(ObjectManager* roadManager);
 	void update();
 	void clickEvent();
 	void rollBackEvent();

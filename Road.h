@@ -1,11 +1,14 @@
 #pragma once
-#include "SimulationAreaObject.h"
 #include "Utilities.h"
+#include "BasicRoad.h"
 #include <vector>
 
 bool polygonPointCollision(const Points& polygon, const Point& point);
 bool polygonPointCollision(const Points& vertices, float px, float py);
 bool polygonPolygonCollision(const Points& polygonOne, const Points& polygonTwo);
+
+using Point = glm::vec3;
+using Points = std::vector<Point>;
 
 class SegmentedShape
 {
@@ -62,7 +65,7 @@ private:
 };
 
 class Road :
-	public SimulationAreaObject
+	public BasicRoad
 	//public SegmentedShape
 {
 public:

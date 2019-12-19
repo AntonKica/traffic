@@ -3,18 +3,6 @@
 #include <glm/glm.hpp>
 #include "GraphicsComponent.h"
 
-namespace Rotation
-{
-	enum class RotationDirection
-	{
-		LEFT,
-		RIGHT,
-		//FORWARD,
-		//BACKWARD,
-		DOWN,
-		UP
-	};
-}
 class SimulationAreaObject
 {
 	friend class SimulationArea;
@@ -26,8 +14,6 @@ public:
 	glm::vec3 getRotation() const;
 	void setPosition(const glm::vec3& newPosition);
 	void setRotation(const glm::vec3& newRotation);
-
-	//void rotate(Rotation::RotationDirection direction);
 
 	GraphicsComponent m_graphicsComponent;
 protected:

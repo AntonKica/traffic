@@ -3,5 +3,7 @@
 //namespace
 namespace App
 {
-	extern scene Scene = scene();
+	extern ::Scene Scene = ::Scene();
+	extern Time time = {};
+
 }

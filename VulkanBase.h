@@ -48,7 +48,6 @@ namespace
 	//constexpr bool enableValidationLayers = true;
 	constexpr bool enableValidationLayers = false;
 #endif // !
-	static bool renderGrid = true;
 
 	struct IndexBuffer : vkh::structs::Buffer
 	{

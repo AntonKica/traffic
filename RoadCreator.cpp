@@ -226,7 +226,7 @@ void RoadCreator::createRoad(const Points& creationPoints)
 					RoadIntersection ri;
 					ri.construct({ constructionPoint.road, &optRoad.value(), &newRoad }, constructionPoint.point);
 
-					roadManager->addRoad(optRoad.value());
+					m_pRoadManager->m_roads.add(optRoad.value());
 					new RoadIntersection(ri);
 				}
 			}
@@ -234,8 +234,8 @@ void RoadCreator::createRoad(const Points& creationPoints)
 	}
 
 	std::vector removeVec(std::begin(roadsToRemove), std::end(roadsToRemove));
-	roadManager->removeRoads(removeVec);
-	roadManager->addRoad(newRoad);
+	m_pRoadManager->m_roads.remove(removeVec);
+	m_pRoadManager->m_roads.add(newRoad);
 	
 
 	setPoints.clear();
@@ -249,7 +249,7 @@ void RoadCreator::updatePoints()
 		SittingPoint mouseSittingPoint{};
 		mouseSittingPoint.core = true;
 
-		auto selectedRoad = roadManager->getSelectedRoad();
+		auto selectedRoad = m_pRoadManager->getSelectedRoad();
 		if (selectedRoad)
 		{
 			mouseSittingPoint.point = selectedRoad.value()->getPointOnRoad(mousePosition.value());
@@ -344,9 +344,9 @@ void RoadCreator::updatePoints()
 	}
 }
 
-void RoadCreator::initialize(RoadManager* roadManager)
+RoadCreator::RoadCreator(ObjectManager* roadManager)
+	: m_pRoadManager(roadManager)
 {
-	this->roadManager = roadManager;
 	setupPrototypes();
 }
 

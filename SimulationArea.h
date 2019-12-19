@@ -8,8 +8,7 @@
 #include "GraphicsComponent.h"
 #include "SimulationAreaObject.h"
 
-#include "RoadManager.h"
-#include "RoadCreator.h"
+#include "ObjectManager.h"
 
 namespace Settings
 {
@@ -75,7 +74,7 @@ private:
 
 class SimulationArea final
 {
-	friend SimulationAreaVisualizer;
+	friend class SimulationAreaVisualizer;
 public:
 	// with default values
 	SimulationArea();
@@ -84,7 +83,7 @@ public:
 
 	void loadData();
 
-	void update(float deltaTime);
+	void update();
 	bool placeObject();
 	bool placeSelectedObject();
 	bool isInArea(const glm::vec3& position) const;
@@ -99,7 +98,7 @@ public:
 	//[Obsolete("Should be refactored")]
 	//SimulationAreaObjectCreator m_creator;
 
-	RoadManager m_roadManager;
+	ObjectManager m_objectManager;
 private:
 	void initTraits();
 	void updateMousePosition();

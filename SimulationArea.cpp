@@ -138,8 +138,8 @@ void SimulationAreaVisualizer::update()
 
 
 SimulationArea::SimulationArea()
+	: m_objectManager(this)
 {
-	//m_creator.disable(true);
 }
 
 SimulationArea::~SimulationArea()
@@ -159,11 +159,13 @@ void SimulationArea::loadData()
 {
 }
 
-void SimulationArea::update(float deltaTime)
+void SimulationArea::update()
 {
 	updateMousePosition();
+
 	m_visuals.update();
-	m_roadManager.update(deltaTime);
+
+	m_objectManager.update();
 }
 
 bool SimulationArea::placeObject()
@@ -210,7 +212,7 @@ void SimulationArea::clickEvent()
 {
 	if (m_enableMouse)
 	{
-		m_roadManager.roadCreator.clickEvent();
+		//m_objectManager.roadCreator.clickEvent();
 		return;
 	}
 }

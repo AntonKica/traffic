@@ -96,7 +96,7 @@ void UI::createBoxes()
 
 		ImGui::Begin("Menu window!");
 
-		auto objectNames = App::Scene.m_simArea.m_roadManager.roadCreator.getRoadNames();
+		auto objectNames = App::Scene.m_simArea.m_objectManager.m_roadCreator.getRoadNames();
 
 		int num = 0;
 		for (const auto& name : objectNames)
@@ -106,7 +106,7 @@ void UI::createBoxes()
 				selectedName = name;
 				selectedNum = num + 1;
 
-				App::Scene.m_simArea.m_roadManager.roadCreator.setPrototype(num);
+				App::Scene.m_simArea.m_objectManager.m_roadCreator.setPrototype(num);
 			}
 			++num;
 		}
@@ -120,7 +120,7 @@ void UI::createBoxes()
 		}
 		//ImGui::SameLine();
 		ImGui::Text("Currently selected = %i %s", selectedNum + 1, selectedName.c_str());
-		App::Scene.m_simArea.m_roadManager.roadCreator.setMode(curvedRoads ? 1 : 0);
+		App::Scene.m_simArea.m_objectManager.m_roadCreator.setMode(curvedRoads ? 1 : 0);
 		/*auto tile = App::Scene.m_grid.getSelectedTile();
 		if (tile)
 		{

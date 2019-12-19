@@ -1,7 +1,12 @@
 #include "RoadIntersection.h"
 #include "Utilities.h"
-#include <glm/gtx/string_cast.hpp>
+#include "Road.h"
+
 #include <numeric>
+
+#include <glm/glm.hpp>
+#include <glm/gtx/string_cast.hpp>
+
 
 inline VD::Indices createPseudoTriangleFanIndices(const Points& points)
 {

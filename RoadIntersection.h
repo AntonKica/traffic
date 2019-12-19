@@ -1,14 +1,13 @@
 #pragma once
 #pragma once
-#include "SimulationAreaObject.h"
-#include "Road.h"
+#include "BasicRoad.h"
 #include "Utilities.h"
 #include <vector>
 #include <array>
 
 class Road;
 class RoadIntersection
-	: public SimulationAreaObject
+	: public BasicRoad
 {
 private:
 	float width = 0;

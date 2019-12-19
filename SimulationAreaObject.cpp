@@ -34,40 +34,6 @@ void SimulationAreaObject::setRotation(const glm::vec3& newRotation)
 	updateGraphics();
 }
 
-/*
-void SimulationAreaObject::rotate(Rotation::RotationDirection direction)
-{
-	static const float angleQuantum = 90.0;
-	switch (direction)
-	{
-	case Rotation::RotationDirection::LEFT:
-		m_rotation.x -= angleQuantum;
-		break;
-	case Rotation::RotationDirection::RIGHT:
-		m_rotation.x += angleQuantum;
-		break;
-	case Rotation::RotationDirection::UP:
-		m_rotation.y -= angleQuantum;
-		break;
-	case Rotation::RotationDirection::DOWN:
-		m_rotation.y += angleQuantum;
-		break;
-	default:
-		throw std::runtime_error("Unknowns rotation");
-	}
-
-	auto fixRotation = [](float angle) -> float
-	{
-		if (angle < -180.0f)
-			return 180.0f;
-		else if (angle > 180.0f)
-			return -180.0f;
-		else
-			return angle;
-	};
-	std::transform((float*)&m_rotation.x, (float*)&m_rotation.x + 3, (float*)&m_rotation.x, fixRotation);
-}*/
-
 void SimulationAreaObject::updateGraphics()
 {
 	if (m_graphicsComponent.initialized())

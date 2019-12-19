@@ -1,8 +1,6 @@
 #pragma once
-
 //#ifndef VULKAN_HELPER_H
 //#define VULKAN_HELPER_H
-
 #include <vulkan/vulkan.h>
 #include <iostream>
 #include <string>

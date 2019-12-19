@@ -1,7 +1,12 @@
 #pragma once
 #include <utility>
+#include <vector>
+#include <optional>
+#include <stdexcept>
+
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
+
 namespace Utility
 {
 	class NonCopy
