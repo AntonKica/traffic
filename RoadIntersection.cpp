@@ -65,7 +65,8 @@ Points getCircleSortedPoints(Points points, bool clockwise)
 		while (comparator != points.end())
 		{
 			if (glm::length(*cursor - *comparator) < glm::length(*cursor - *smallest))
-				std::swap(*smallest, *comparator++);
+				std::swap(*smallest, *comparator);
+			++comparator;
 		}
 
 		++cursor;
@@ -86,17 +87,19 @@ Points getCircleSortedPoints(Points points, bool clockwise)
 
 void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionPoint)
 {
+
 	m_position = intersectionPoint;
-	centre = glm::vec3(0);
-	width = roads[0]->getParameters().width;
+	m_centre = glm::vec3(0);
+	m_width = roads[0]->getParameters().width;
+	m_connectionPoints.clear();
 
 
 	{
-		float requiredDistance = width / 2.0f + 0.25;
+		float requiredDistance = m_width / 2.0f + 0.25;
 		for (auto& road : roads)
 		{
 			auto parameters = road->getParameters();
-			connectionPoints.push_back(road->shorten(intersectionPoint, requiredDistance) - m_position);
+			m_connectionPoints.push_back(road->shorten(intersectionPoint, requiredDistance) - m_position);
 		}
 	}
 
@@ -104,26 +107,26 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 	Points commonPoints;
 	for (int i = 0; i < roads.size(); ++i)
 	{
-		auto cps = getCircleSortedPoints(connectionPoints, false);
+		auto cps = getCircleSortedPoints(m_connectionPoints, false);
 		//cps.size() == 3
 		// find neigbbour axes
 		auto first = cps[(i + 1) % cps.size()];
 		auto second = cps[(i + 2) % cps.size()];
 
 		auto& currentPoint = cps[i];
-		glm::vec3 dirCurrentToCentre = glm::normalize(centre - currentPoint);
-		glm::vec3 dirCentreToFirst = glm::normalize(first - centre);
-		glm::vec3 dirCentreToSecond = glm::normalize(second - centre);
+		glm::vec3 dirCurrentToCentre = glm::normalize(m_centre - currentPoint);
+		glm::vec3 dirCentreToFirst = glm::normalize(first - m_centre);
+		glm::vec3 dirCentreToSecond = glm::normalize(second - m_centre);
 
 		{
-			const auto [left, right] = getSidePoints(dirCurrentToCentre, dirCurrentToCentre, currentPoint, currentPoint, centre, width);
+			const auto [left, right] = getSidePoints(dirCurrentToCentre, dirCurrentToCentre, currentPoint, currentPoint, m_centre, m_width);
 
 			sidePoints.insert(sidePoints.end(), { left, right });
 		}
 		
 		{
 			//anti clockwise so left point we take
-			const auto [ _, right] = getSidePoints(dirCurrentToCentre, dirCentreToFirst, currentPoint, centre, first, width);
+			const auto [ _, right] = getSidePoints(dirCurrentToCentre, dirCentreToFirst, currentPoint, m_centre, first, m_width);
 			//	const auto [left,right] = getSidePoints(dirCurrentToCentre, dirCentreToSecond, currentPoint, centre, second, width);
 			commonPoints.insert(commonPoints.end(), { right });
 
@@ -134,7 +137,7 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 	size_t totalPoints = sidePoints.size() + commonPoints.size() + 1;
 	VD::PositionVertices shapePoints(totalPoints);
 	auto pointsIter = shapePoints.begin();
-	*pointsIter++ = centre;
+	*pointsIter++ = m_centre;
 	for (int sideIndex = 1, commonIndex = 0; sideIndex < sidePoints.size(); sideIndex +=2, ++commonIndex)
 	{
 		// side, side, common

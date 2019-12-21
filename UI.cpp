@@ -2,14 +2,18 @@
 #include "VulkanBase.h"
 #include "GlobalObjects.h"
 
+UI& UI::getInstance()
+{
+	static UI s_ui;
+
+	return s_ui;
+}
+
 void UI::initUI(VulkanBase* pVulkanBase)
 {
 	vulkanBase = pVulkanBase;
 	device = vulkanBase->getDevice();
 	window = vulkanBase->getWindow();
-
-	selectedNum = 0;
-	hidden = false;
 	imgui = {};
 
 
@@ -32,12 +36,20 @@ void UI::destroyUI()
 	ImGui::DestroyContext();
 }
 
+void UI::registerUIElement(UIElement* element)
+{
+	m_UIElements.push_back(element);
+}
+
+void UI::unregisterUIElement(UIElement* element)
+{
+	m_UIElements.erase(std::find(std::begin(m_UIElements), std::end(m_UIElements), element), m_UIElements.end());
+}
+
 void UI::drawUI(VkCommandBuffer cmdBuffer)
 {
-	if (hidden)
-	{
+	if (m_UIElements.empty())
 		return;
-	}
 
 	ImGuiIO& io = ImGui::GetIO();
 	IM_ASSERT(io.Fonts->IsBuilt() &&
@@ -51,21 +63,19 @@ void UI::drawUI(VkCommandBuffer cmdBuffer)
 	if (width > 0 && height > 0)
 		io.DisplaySize =
 		ImVec2(float(displayWidth) / width, float(displayHeight) / height);
-	// : ) 
-	double deltaTime = 0.0069;
-	GUI::newFrame(window, deltaTime);
+
+	GUI::newFrame(window, App::time.deltaTime());
 	ImGui::NewFrame();
 
-	createBoxes();
+	for (auto& element : m_UIElements)
+	{
+		if (element->active())
+			element->draw();
+	}
 
 	ImGui::Render();
 
 	GUI::drawRenderData(*device, imgui, ImGui::GetDrawData(), cmdBuffer);
-}
-
-int UI::getSelection() const
-{
-	return selectedNum;
 }
 
 bool UI::mouseOverlap() const
@@ -73,6 +83,10 @@ bool UI::mouseOverlap() const
 	return ImGui::IsAnyWindowHovered();
 }
 
+
+UI::UI()
+{
+}
 
 void UI::createResources()
 {
@@ -88,47 +102,59 @@ void UI::createResources()
 
 // or what is it called
 
-void UI::createBoxes()
+UIElement::UIElement()
 {
-	// First box
-	{
-		static float f = 0.0f;
-
-		ImGui::Begin("Menu window!");
-
-		auto objectNames = App::Scene.m_simArea.m_objectManager.m_roadCreator.getRoadNames();
-
-		int num = 0;
-		for (const auto& name : objectNames)
-		{
-			if (ImGui::Button(name.c_str()))
-			{
-				selectedName = name;
-				selectedNum = num + 1;
-
-				App::Scene.m_simArea.m_objectManager.m_roadCreator.setPrototype(num);
-			}
-			++num;
-		}
-		static bool curvedRoads = false;
-		ImGui::Checkbox("Curved roads", &curvedRoads);
-
-		auto mousePos = App::Scene.m_simArea.getMousePosition();
-		if (mousePos)
-		{
-			ImGui::Text("Mouse position %s", glm::to_string(mousePos.value()).c_str());
-		}
-		//ImGui::SameLine();
-		ImGui::Text("Currently selected = %i %s", selectedNum + 1, selectedName.c_str());
-		App::Scene.m_simArea.m_objectManager.m_roadCreator.setMode(curvedRoads ? 1 : 0);
-		/*auto tile = App::Scene.m_grid.getSelectedTile();
-		if (tile)
-		{
-			auto pos = tile->getPosition();
-			ImGui::Text((std::string("Currently selected pos ") + glm::to_string(pos)).c_str());
-		}*/
-		auto pos = App::Scene.m_camera.getPosition();
-		ImGui::Text((std::string("Currently selected pos ") + glm::to_string(pos)).c_str());
-		ImGui::End();
-	}
+	UI& instance = UI::getInstance();
+	instance.registerUIElement(this);
 }
+
+UIElement::~UIElement()
+{
+	UI& instance = UI::getInstance();
+	instance.unregisterUIElement(this);
+}
+
+UIElement::UIElement(const UIElement& otherElement)
+{
+	UI& instance = UI::getInstance();
+	instance.registerUIElement(this);
+
+	m_active = otherElement.m_active;
+}
+
+UIElement::UIElement(UIElement&& otherElement)
+{
+	UI& instance = UI::getInstance();
+	instance.registerUIElement(this);
+	instance.unregisterUIElement(this);
+
+	m_active = otherElement.m_active;
+}
+
+UIElement& UIElement::operator=(const UIElement& otherElement)
+{
+	UI& instance = UI::getInstance();
+	instance.registerUIElement(this);
+
+	return *this;
+}
+
+UIElement& UIElement::operator=(UIElement&& otherElement)
+{
+	UI& instance = UI::getInstance();
+	instance.registerUIElement(this);
+	instance.unregisterUIElement(&otherElement);
+
+	return *this;
+}
+
+bool UIElement::active() const
+{
+	return m_active;
+}
+
+void UIElement::setActive(bool active)
+{
+	m_active = active;
+}
+

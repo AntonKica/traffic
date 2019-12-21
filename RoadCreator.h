@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <vector>
 #include <map>
+#include <set>
 #include <optional>
 
 using Point = glm::vec3;
@@ -66,6 +67,22 @@ private:
 	void setPoint();
 	void createRoadIfPossible();
 	void createRoad(const Points& creationPoints);
+
+	struct ConnectProducts
+	{
+		std::vector<Road> roads;
+		std::vector<RoadIntersection> intersections;
+		//std::vector<
+	};
+
+	bool connectRoads(Road& road, Road& connectingRoad);
+	uint32_t connectCount(const Road& road, const Road& connectingRoad) const;
+	std::vector<Point> connectPoints(const Road& road, const Road& connectingRoad) const;
+
+	void mergeRoads(Road& road, Road& connectingRoad);
+	Road splitKnot(Road& road);
+	void buildToIntersection(Road& road, Road& connectingRoad);
+
 	void updatePoints();
 	enum class Mode
 	{

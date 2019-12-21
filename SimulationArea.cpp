@@ -212,8 +212,7 @@ void SimulationArea::clickEvent()
 {
 	if (m_enableMouse)
 	{
-		//m_objectManager.roadCreator.clickEvent();
-		return;
+		m_objectManager.m_roadCreator.clickEvent();
 	}
 }
 

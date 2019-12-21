@@ -226,12 +226,6 @@ void VulkanBase::initWindow()
 	glfwSetCursorPosCallback(m_window, cursorPosCallback);
 	glfwSetKeyCallback(m_window, keyboardInputCallback);
 }
-
-VulkanBase::~VulkanBase()
-{
-
-}
-
 void VulkanBase::run()
 {
 	initWindow();
@@ -449,7 +443,8 @@ void VulkanBase::initGraphicsMoudules()
 
 void VulkanBase::initUI()
 {
-	m_selectionUI.initUI(this);
+	UI& instance = UI::getInstance();
+	instance.initUI(this);
 }
 
 void VulkanBase::mainLoop()
@@ -1068,7 +1063,7 @@ void VulkanBase::recreateCommandBuffer(uint32_t currentImage)
 	}
 
 	// drawUI
-	m_selectionUI.drawUI(cmdBuffer);
+	UI::getInstance().drawUI(cmdBuffer);
 	vkCmdEndRenderPass(cmdBuffer);
 	res = vkEndCommandBuffer(cmdBuffer);
 	if (res != VK_SUCCESS)
@@ -1284,7 +1279,7 @@ void VulkanBase::updateUniformBuffer(uint32_t currentImage)
 
 void VulkanBase::cleanup()
 {
-	m_selectionUI.destroyUI();
+	UI::getInstance().destroyUI();
 	destroyGraphicsComponents();
 	cleanupSwapchain();
 	cleanupBuffers();
@@ -1331,11 +1326,9 @@ void VulkanBase::cleanupBuffers()
 
 void VulkanBase::processInput()
 {
-	int selection = m_selectionUI.getSelection();
-
 	//App::Scene.m_simArea.m_creator.setCreateObject(selection);
 	
-	bool enableMouse = !m_selectionUI.mouseOverlap();
+	bool enableMouse = !UI::getInstance().mouseOverlap();
 	App::Scene.m_simArea.setEnableMouse(enableMouse);
 }
 

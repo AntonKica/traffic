@@ -14,7 +14,3 @@ public:
 	GraphicsComponent graphics;
 };
 
-class RoadManager
-{
-};
-

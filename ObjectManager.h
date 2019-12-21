@@ -1,6 +1,7 @@
 #pragma once
 #include "BuildingCreator.h"
 #include "RoadCreator.h"
+#include "UI.h"
 #include <list>
 
 template <class Type> class Container
@@ -38,21 +39,38 @@ public:
 	std::list<Type> data;
 };
 
+class ObjectManager;
+class ObjectManagerUI :
+	public UIElement
+{
+public:
+	ObjectManagerUI(ObjectManager* objectManager);
+
+	virtual void draw() override;
+
+	enum class Creator
+	{
+		BUILDING,
+		ROAD,
+		MAX
+	};
+
+private:
+	Creator m_currentCreator;
+	ObjectManager* m_pObjectManager;
+};
+
 class SimulationArea;
 class ObjectManager
 {
+	// temporary
+	friend class SimulationArea;
 	friend class RoadCreator;
 	friend class BuildingCreator;
 
 public:
 	ObjectManager(SimulationArea* pSimulationArea);
 	void update();
-//private:
-	/*struct
-	{
-
-	} roads;*/
-//roads
 
 	void updateSelectedRoad();
 	std::optional<Road*> getSelectedRoad() const;
@@ -60,6 +78,9 @@ public:
 private:
 	SimulationArea* m_pSimulationArea;
 
+	ObjectManagerUI m_ui;
+
+	//
 	friend class UI;
 	std::optional<Road*> m_selectedRoad;
 	Container<Road> m_roads;

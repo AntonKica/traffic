@@ -10,9 +10,9 @@ class RoadIntersection
 	: public BasicRoad
 {
 private:
-	float width = 0;
-	Point centre = {};
-	std::vector<Point> connectionPoints;
+	float m_width = 0;
+	Point m_centre = {};
+	std::vector<Point> m_connectionPoints;
 public:
 	void construct(std::array<Road*, 3> roads, Point intersectionPoint);
 };

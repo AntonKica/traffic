@@ -200,45 +200,202 @@ void RoadCreator::createRoad(const Points& creationPoints)
 
 	Road newRoad;
 	newRoad.construct(creationPoints, currentPrototype.laneCount, currentPrototype.width, currentPrototype.texture);
-	
-	std::set<Road*> roadsToRemove;
+
+	bool addNewRoad = true;
 	for (auto& constructionPoint : constructionPoints)
 	{
 		if (constructionPoint.road)
 		{
-			if (constructionPoint.road->sitsOnEndPoints(constructionPoint.point))
-			{
-				newRoad.mergeWithRoad(*constructionPoint.road);
-				roadsToRemove.insert(constructionPoint.road);
-			}
-			else
-			{
-				auto optRoad = constructionPoint.road->split(constructionPoint.point);
+			// if atleast one reason why not add, then 
+			if(addNewRoad)
+				addNewRoad = connectRoads(*constructionPoint.road, newRoad);
+		}
+	}
+	if (addNewRoad)
+		m_pRoadManager->m_roads.add(newRoad);
 
-				if (!optRoad)
-				{
-					RoadIntersection ri;
-					ri.construct({ constructionPoint.road, constructionPoint.road, &newRoad }, constructionPoint.point);
-					new RoadIntersection(ri);
-				}
-				else
-				{
-					RoadIntersection ri;
-					ri.construct({ constructionPoint.road, &optRoad.value(), &newRoad }, constructionPoint.point);
+	setPoints.clear();
+}
 
-					m_pRoadManager->m_roads.add(optRoad.value());
-					new RoadIntersection(ri);
-				}
-			}
+bool RoadCreator::connectRoads(Road& road, Road& connectingRoad)
+{
+	bool shouldConstructConnectionRoad = false;
+
+	auto cpAxis = connectingRoad.m_shape.getAxis();
+	auto connectionsCount = connectCount(road, connectingRoad);
+	if (connectionsCount == 1)
+	{
+		if (road.sitsOnEndPoints(cpAxis.front()) || road.sitsOnEndPoints(cpAxis.back()))
+		{
+			mergeRoads(road, connectingRoad);
+		}
+		else
+		{
+			buildToIntersection(road, connectingRoad);
+			shouldConstructConnectionRoad = true;
+		}
+	}
+	else
+	{
+		if (road.sitsOnEndPoints(cpAxis.front()) && road.sitsOnEndPoints(cpAxis.back()))
+		{
+			mergeRoads(road, connectingRoad);
+		}
+		else if (road.sitsOnEndPoints(cpAxis.front()) != road.sitsOnEndPoints(cpAxis.back()))
+		{
+			mergeRoads(road, connectingRoad);
+
+			auto newRoad = splitKnot(road);
+			buildToIntersection(newRoad, road);
+			m_pRoadManager->m_roads.add(newRoad);
+		}
+		else
+		{
+			buildToIntersection(road, connectingRoad);
+			shouldConstructConnectionRoad = true;
 		}
 	}
 
-	std::vector removeVec(std::begin(roadsToRemove), std::end(roadsToRemove));
-	m_pRoadManager->m_roads.remove(removeVec);
-	m_pRoadManager->m_roads.add(newRoad);
-	
+	return shouldConstructConnectionRoad;
+}
 
-	setPoints.clear();
+uint32_t RoadCreator::connectCount(const Road& road, const Road& connectingRoad) const
+{
+	uint32_t count = 0;
+	auto& shape = road.m_shape;
+	auto& connectingShape = connectingRoad.m_shape;
+
+	if (shape.sitsOnAxis(connectingShape.getTail())) ++count;
+	if (shape.sitsOnAxis(connectingShape.getHead())) ++count;
+
+	return count;
+}
+
+std::vector<Point> RoadCreator::connectPoints(const Road& road, const Road& connectingRoad) const
+{
+	std::vector<Point> cps;
+	auto& shape = road.m_shape;
+	auto& connectingShape = connectingRoad.m_shape;
+
+	if (shape.sitsOnAxis(connectingShape.getTail())) cps.push_back(connectingShape.getTail());
+	if (shape.sitsOnAxis(connectingShape.getHead())) cps.push_back(connectingShape.getHead());
+
+	if (cps.size() > 1)
+	{
+		if (cps[0].x == cps[1].x && cps[0].y == cps[1].y && cps[0].z == cps[1].z)
+			cps.pop_back();
+	}
+
+	return cps;
+}
+
+void RoadCreator::mergeRoads(Road& road, Road& connectingRoad)
+{
+	if (road.m_parameters.width == connectingRoad.m_parameters.width)
+	{
+		road.mergeWith(connectingRoad);
+		road.reconstruct();
+	}
+}
+
+Road RoadCreator::splitKnot(Road& road)
+{
+	// find point which makes the knot
+	Point cp {};
+	auto axis = road.m_shape.getAxis();
+	// do not check for same eact point
+	for(int index = 0; index < axis.size(); ++index)
+	{
+		if (index + 2 < axis.size() &&
+			pointSitsOnLine(axis[index + 1], axis[index + 2], road.m_shape.getTail()))
+		{
+			cp = road.m_shape.getTail();
+			break;
+		}
+		else if (index - 1 >= 0 && 
+			pointSitsOnLine(axis[index - 1], axis[index], road.m_shape.getHead()))
+		{
+			cp = road.m_shape.getHead();
+			break;
+		}
+	}
+	auto newShape = road.m_shape.split(cp);
+	road.reconstruct();
+
+	Road newRoad1;
+	newRoad1.construct(newShape.value().getAxis(), road.m_parameters);
+
+	return newRoad1;
+}
+
+void RoadCreator::buildToIntersection(Road& road, Road& connectingRoad)
+{
+	auto connectionPoints = connectPoints(road, connectingRoad);
+
+	//RoadIntersection intersection;
+	if (connectionPoints.size() == 1)
+	{
+		RoadIntersection ri;
+		auto optRoad = road.split(connectionPoints[0]);
+
+		if (!optRoad)
+		{
+			ri.construct({ &road, &road, &connectingRoad }, connectionPoints[0]);
+
+			new RoadIntersection(ri);
+		}
+		else
+		{
+			ri.construct({ &road, &optRoad.value(), &connectingRoad }, connectionPoints[0]);
+			m_pRoadManager->m_roads.add(optRoad.value());
+
+			new RoadIntersection(ri);
+		}
+	}
+	else //if (connectionPoints.size() == 2)
+	{
+		RoadIntersection ri;
+		auto optRoad = road.split(connectionPoints[0]);
+
+		if (!optRoad)
+		{
+			ri.construct({ &road, &road, &connectingRoad }, connectionPoints[0]);
+			new RoadIntersection(ri);
+
+			auto newRoad1 = road.split(connectionPoints[1]).value();
+			m_pRoadManager->m_roads.add(newRoad1);
+
+			ri.construct({ &road, &newRoad1, &connectingRoad }, connectionPoints[0]);
+			new RoadIntersection(ri);
+		}
+		else
+		{
+			auto newRoad1 = optRoad.value();
+
+			ri.construct({ &road, &newRoad1, &connectingRoad }, connectionPoints[0]);
+			new RoadIntersection(ri);
+
+			// deduce which part of split is the right one
+			Road* rightRoad;
+			if (newRoad1.sitsOnRoad(connectingRoad.m_shape.getTail()) || 
+				newRoad1.sitsOnRoad(connectingRoad.m_shape.getHead()))
+			{
+				rightRoad = &newRoad1;
+			}
+			else
+			{
+				rightRoad = &road;
+			}
+
+			auto newRoad2 = rightRoad->split(connectionPoints[1]).value();
+
+			ri.construct({ &newRoad2, rightRoad, &connectingRoad }, connectionPoints[1]);
+			new RoadIntersection(ri);
+
+			// add both roads
+			m_pRoadManager->m_roads.add({ newRoad1, newRoad2 });
+		}
+	}
 }
 
 void RoadCreator::updatePoints()
@@ -474,14 +631,8 @@ std::pair<VD::PositionVertices, VD::ColorVertices> CreatorVisualizer::generatePo
 
 void CreatorVisualizer::updateGraphics()
 {
-
-	/*auto points = pointToDraw;
-	if (mousePoint)
-		points.push_back(mousePoint.value());*/
-
 	if (pointToDraw.size() > 1)
 	{
-
 		Info::DrawInfo dInfo;
 		dInfo.lineWidth = 2.0f;
 		dInfo.polygon = VK_POLYGON_MODE_LINE;

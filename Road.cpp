@@ -59,13 +59,11 @@ bool polygonPointCollision(const Points& polygon, const Point& point)
 			polygon.end() ? polygon.begin() : vert + 1;
 
 		// z test
-		if ( (vert->z >= point.z && nextVert->z < point.z) || (vert->z < point.z && nextVert->z >= point.z))
+		if ((vert->z >= point.z && nextVert->z < point.z) || (vert->z < point.z && nextVert->z >= point.z))
 		{
 			if (point.x < (nextVert->x - vert->x) * (point.z - vert->z) / (nextVert->z - vert->z) + vert->x)
 			{
 				collision = !collision;
-				if (collision)
-					hitPos = point;
 			}
 		}
 	}
@@ -554,6 +552,17 @@ bool SegmentedShape::sitsOnShape(const Point& point) const
 	return false;
 }
 
+bool SegmentedShape::sitsOnAxis(const Point& point) const
+{
+	for (int index = 0; index + 1 < m_joints.size(); ++index)
+	{
+		Points line = { m_joints[index].centre, m_joints[index + 1].centre };
+		if (pointSitsOnLine(line[0], line[1], point))
+			return true;
+	}
+	return false;
+}
+
 bool SegmentedShape::sitsOnAnySegmentCorner(const Point& point) const
 {
 	for (int index = 0; index < m_joints.size(); ++index)
@@ -582,7 +591,7 @@ void SegmentedShape::construct(const Points& axis, float width)
 	createShape(axis);
 }
 
-void SegmentedShape::megeWith(const SegmentedShape& otherShape)
+void SegmentedShape::mergeWith(const SegmentedShape& otherShape)
 {	
 	auto thisShapeAxis = getAxis();
 	auto otherShapeAxis = otherShape.getAxis();
@@ -613,7 +622,7 @@ std::optional<SegmentedShape> SegmentedShape::split(const Point& splitPoint)
 {
 	std::optional<SegmentedShape> optionalSplit;
 
-	if (!sitsOnTailOrHead(splitPoint) && !isCirculary())
+	if (!isCirculary())
 	{
 		Points newAxis = getAxis();
 		const auto [firstPoint, secondPoint] = selectSegment(splitPoint).value();
@@ -631,7 +640,7 @@ std::optional<SegmentedShape> SegmentedShape::split(const Point& splitPoint)
 		optShape.construct(secondSplitAxis, m_width);
 		optionalSplit = optShape;
 	}
-	else if (isCirculary())
+	else //if ()
 	{
 		// move axis to splitPoints
 		Points newAxis = getAxis();
@@ -834,16 +843,24 @@ Point Road::getPointOnRoad(const Point& point)
 
 void Road::construct(Points axisPoints, uint32_t laneCount, float width, std::string texture)
 {
+	RoadParameters parameters;
+	parameters.laneCount = laneCount;
+	parameters.width = width;
+	parameters.texture = texture;
+
+	construct(axisPoints, parameters);
+}
+
+void Road::construct(Points axisPoints, const RoadParameters& parameters)
+{
 	m_position = {};
 
-	m_parameters.laneCount = laneCount;
-	m_parameters.width = width;
-	m_parameters.texture = texture;
-	m_shape.construct(axisPoints, width);
+	m_parameters = parameters;
+	m_shape.construct(axisPoints, m_parameters.width);
 
 	// model
 	auto mesh = SegmentedShape::createMesh(m_shape);
-	mesh.textures[VD::TextureType::DIFFUSE] = texture;
+	mesh.textures[VD::TextureType::DIFFUSE] = m_parameters.texture;
 
 	Mesh sh;
 	sh.vertices.positions = m_shape.getAxis();
@@ -876,12 +893,11 @@ void Road::reconstruct()
 	createPaths();
 }
 
-void Road::mergeWithRoad(const Road& road)
+void Road::mergeWith(const Road& road)
 {
-	m_shape.megeWith(road.m_shape);
+	m_shape.mergeWith(road.m_shape);
 	reconstruct();
 }
-
 std::optional<Road> Road::split(const Point& splitPoint)
 {
 	auto optSplit = m_shape.split(splitPoint);
@@ -906,6 +922,7 @@ Point Road::shorten(const Point& roadEnd, float size)
 	reconstruct();
 	return shortPoint;
 }
+
 
 std::optional<Point> Road::canConnect(std::array<Point, 2> connectionLine, const Point& connectionPoint) const
 {
@@ -983,7 +1000,6 @@ std::optional<Point> Road::canConnect(std::array<Point, 2> connectionLine, const
 
 		const float sinkAngle = glm::half_pi<float>()- connectionAngle;
 		const float distance = 0.5 * m_parameters.width * (1 +  glm::sin(sinkAngle));
-		std::cout << distance << '\n';
 		const glm::vec3 up(0.0, 1.0, 0.0);
 		Point axisPerpDir;
 		// get correct point  from perpendicular

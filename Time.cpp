@@ -11,7 +11,6 @@ void Time::tick()
 {
 	auto currentTime = std::chrono::high_resolution_clock::now();
 	m_deltaTime = currentTime - m_lastTime;
-
 	m_lastTime = currentTime;
 }
 

@@ -1,9 +1,26 @@
 #include "ObjectManager.h"
 #include "SimulationArea.h"
 
-ObjectManager::ObjectManager(SimulationArea* pSimulationArea)
-	:m_pSimulationArea(pSimulationArea), m_roadCreator(this)
+
+ObjectManagerUI::ObjectManagerUI(ObjectManager* objectManager)
 {
+	m_pObjectManager = objectManager;
+	setActive(true);
+}
+
+void ObjectManagerUI::draw()
+{
+	auto io = ImGui::GetIO();
+	ImGui::Begin("kk");
+	ImGui::Text("Road");
+	ImGui::End();
+}
+
+
+ObjectManager::ObjectManager(SimulationArea* pSimulationArea)
+	:m_pSimulationArea(pSimulationArea), m_roadCreator(this), m_ui(this)
+{
+
 }
 
 void ObjectManager::update()
@@ -38,5 +55,5 @@ void ObjectManager::updateSelectedRoad()
 
 std::optional<Road*> ObjectManager::getSelectedRoad() const
 {
-	return std::optional<Road*>();
+	return m_selectedRoad;
 }

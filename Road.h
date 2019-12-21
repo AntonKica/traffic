@@ -1,6 +1,7 @@
 #pragma once
 #include "Utilities.h"
 #include "BasicRoad.h"
+#include "RoadIntersection.h"
 #include <vector>
 
 bool polygonPointCollision(const Points& polygon, const Point& point);
@@ -45,6 +46,7 @@ public:
 	bool sitsOnTail(const Point& point) const;
 	bool sitsOnTailOrHead(const Point& point) const;
 	bool sitsOnShape(const Point& point) const;
+	bool sitsOnAxis(const Point& point) const;
 	bool sitsOnAnySegmentCorner(const Point& point) const;
 	bool isCirculary() const;
 
@@ -52,7 +54,7 @@ public:
 
 	//
 	void construct(const Points& axis, float width);
-	void megeWith(const SegmentedShape& otherShape);
+	void mergeWith(const SegmentedShape& otherShape);
 	std::optional<SegmentedShape> split(const Point& splitPoint);
 	Point shorten(const Point& shapeEnd, float size);
 private:
@@ -69,6 +71,8 @@ class Road :
 	//public SegmentedShape
 {
 public:
+	friend class RoadCreator;
+
 	struct RoadParameters
 	{
 		uint32_t laneCount;
@@ -84,7 +88,9 @@ public:
 
 	//
 	void construct(Points axisPoints, uint32_t laneCount, float width, std::string texture);
-	void mergeWithRoad(const Road& road);
+	void construct(Points axisPoints, const RoadParameters& parameters);
+
+	void mergeWith(const Road& otherRoad);
 	std::optional<Road> split(const Point& splitPoint);
 	Point shorten(const Point& roadEnd, float size);
 

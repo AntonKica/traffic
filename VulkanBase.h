@@ -116,7 +116,6 @@ class VulkanBase
 	friend class RoadCreator;
 	// visuals
 	GLFWwindow* m_window;
-	UI m_selectionUI;
 	// members
 	VkInstance m_instance;
 	VkDebugUtilsMessengerEXT m_debugMessenger;
@@ -166,7 +165,6 @@ class VulkanBase
 	bool checkValidationLayerSupport() const;
 	std::vector<char> readFile(const char* fileName);
 public:
-	~VulkanBase();
 	void run();
 
 	vkh::structs::VulkanDevice* getDevice();
@@ -238,9 +236,6 @@ private:
 
 	void createPushRanges();
 	//
-	
-	void updateVertexBuffer();
-	void updateIndexBuffer();
 
 	void updateUniformBufferOffsets();
 //	void updateTextures();

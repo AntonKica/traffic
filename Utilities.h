@@ -216,6 +216,16 @@ static bool pointsSitsOnSameHalfOfPlane(Point s1, Point e1, Point p1, Point p2)
 	return (linePointAngle(s1, e1, p1) >= 0) == (linePointAngle(s1, e1, p2) >= 0);
 }
 
+static bool pointSitsOnLine(Point s, Point e, Point p)
+{
+	glm::dvec3 ds = s;
+	glm::dvec3 de = e;
+	glm::dvec3 dp = p;
+
+	constexpr const double maxDifference = 0.000'001;
+	return std::abs(glm::length(ds - dp) + glm::length(de - dp) - glm::length(ds - de)) <= maxDifference;
+}
+
 template<class T1, class T2> bool compareOptionals(std::optional<T1> lhs, std::optional<T2> rhs)
 {
 	if (lhs && rhs)			// both have types, then compare via value
