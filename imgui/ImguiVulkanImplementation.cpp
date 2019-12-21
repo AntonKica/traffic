@@ -454,11 +454,13 @@ void GUI::drawRenderData(
 	// if small buffer, resize
 	if (!imgui.vertexBuffer.initialized() || imgui.vertexBuffer.size < vertexSize)
 	{
+		vkDeviceWaitIdle(device);
 		device.createBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
 			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, vertexSize, imgui.vertexBuffer);
 	}
 	if (!imgui.indexBuffer.initialized() || imgui.indexBuffer.size < indexSize)
 	{
+		vkDeviceWaitIdle(device);
 		device.createBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
 			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, indexSize, imgui.indexBuffer);
 	}

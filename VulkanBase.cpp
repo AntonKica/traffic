@@ -1290,6 +1290,7 @@ void VulkanBase::cleanup()
 	vkDestroyCommandPool(m_device, m_commandPool, nullptr);
 	m_pipelinesManager.cleanup(nullptr);
 	m_descriptorManager.cleanup(nullptr);
+	m_dataManager.cleanup(nullptr);
 	m_device.destroyVulkanDevice();
 
 	if (enableValidationLayers)

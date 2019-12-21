@@ -9,6 +9,16 @@ void VulkanDataManager::initialize(VulkanBase* vkBase)
 	device = vkBase->getDevice();
 }
 
+void VulkanDataManager::cleanup(const VkAllocationCallbacks* allocator)
+{
+	for (auto& [vertexFlag, rb] : vertexBuffers)
+		rb.buffer.cleanup(*device, allocator);
+	indexBuffer.buffer.cleanup(*device, allocator);
+
+	for (auto& texture : textures)
+		texture->image.cleanup(*device, allocator);
+}
+
 VD::ModelData VulkanDataManager::loadModel(const Model& model)
 {
 	lazyCleanup();

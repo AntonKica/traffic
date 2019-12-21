@@ -12,6 +12,7 @@ class VulkanDataManager
 {
 public:
 	void initialize(VulkanBase* vkBase);
+	void cleanup(const VkAllocationCallbacks* allocator);
 	VD::ModelData loadModel(const Model& model);
 
 	void lazyCleanup();

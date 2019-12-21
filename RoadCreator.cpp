@@ -201,62 +201,54 @@ void RoadCreator::createRoad(const Points& creationPoints)
 	Road newRoad;
 	newRoad.construct(creationPoints, currentPrototype.laneCount, currentPrototype.width, currentPrototype.texture);
 
-	bool addNewRoad = true;
 	for (auto& constructionPoint : constructionPoints)
 	{
 		if (constructionPoint.road)
 		{
-			// if atleast one reason why not add, then 
-			if(addNewRoad)
-				addNewRoad = connectRoads(*constructionPoint.road, newRoad);
+			connectRoads(*constructionPoint.road, newRoad);
+
+			m_pRoadManager->m_roads.remove(constructionPoint.road);
 		}
 	}
-	if (addNewRoad)
-		m_pRoadManager->m_roads.add(newRoad);
+	m_pRoadManager->m_roads.add(newRoad);
 
 	setPoints.clear();
 }
 
-bool RoadCreator::connectRoads(Road& road, Road& connectingRoad)
+void RoadCreator::connectRoads(const Road& road, Road& connectingRoad)
 {
-	bool shouldConstructConnectionRoad = false;
-
 	auto cpAxis = connectingRoad.m_shape.getAxis();
 	auto connectionsCount = connectCount(road, connectingRoad);
 	if (connectionsCount == 1)
 	{
 		if (road.sitsOnEndPoints(cpAxis.front()) || road.sitsOnEndPoints(cpAxis.back()))
 		{
-			mergeRoads(road, connectingRoad);
+			mergeRoads(connectingRoad, road);
 		}
 		else
 		{
 			buildToIntersection(road, connectingRoad);
-			shouldConstructConnectionRoad = true;
 		}
 	}
 	else
 	{
 		if (road.sitsOnEndPoints(cpAxis.front()) && road.sitsOnEndPoints(cpAxis.back()))
 		{
-			mergeRoads(road, connectingRoad);
+			mergeRoads(connectingRoad, road);
 		}
 		else if (road.sitsOnEndPoints(cpAxis.front()) != road.sitsOnEndPoints(cpAxis.back()))
 		{
-			mergeRoads(road, connectingRoad);
+			mergeRoads(connectingRoad, road);
 
-			auto newRoad = splitKnot(road);
-			buildToIntersection(newRoad, road);
-			m_pRoadManager->m_roads.add(newRoad);
+			auto newRoad = splitKnot(connectingRoad);
+			buildToIntersection(newRoad, connectingRoad);
+			//m_pRoadManager->m_roads.add(newRoad);
 		}
 		else
 		{
 			buildToIntersection(road, connectingRoad);
-			shouldConstructConnectionRoad = true;
 		}
 	}
-
-	return shouldConstructConnectionRoad;
 }
 
 uint32_t RoadCreator::connectCount(const Road& road, const Road& connectingRoad) const
@@ -289,11 +281,11 @@ std::vector<Point> RoadCreator::connectPoints(const Road& road, const Road& conn
 	return cps;
 }
 
-void RoadCreator::mergeRoads(Road& road, Road& connectingRoad)
+void RoadCreator::mergeRoads(Road& road, const Road& mergingRoad)
 {
-	if (road.m_parameters.width == connectingRoad.m_parameters.width)
+	if (road.m_parameters.width == mergingRoad.m_parameters.width)
 	{
-		road.mergeWith(connectingRoad);
+		road.mergeWith(mergingRoad);
 		road.reconstruct();
 	}
 }
@@ -328,25 +320,26 @@ Road RoadCreator::splitKnot(Road& road)
 	return newRoad1;
 }
 
-void RoadCreator::buildToIntersection(Road& road, Road& connectingRoad)
+void RoadCreator::buildToIntersection(const Road& road, Road& connectingRoad)
 {
+	Road splitRoad = road;
 	auto connectionPoints = connectPoints(road, connectingRoad);
 
 	//RoadIntersection intersection;
 	if (connectionPoints.size() == 1)
 	{
 		RoadIntersection ri;
-		auto optRoad = road.split(connectionPoints[0]);
+		auto optRoad = splitRoad.split(connectionPoints[0]);
 
 		if (!optRoad)
 		{
-			ri.construct({ &road, &road, &connectingRoad }, connectionPoints[0]);
+			ri.construct({ &splitRoad, &splitRoad, &connectingRoad }, connectionPoints[0]);
 
 			new RoadIntersection(ri);
 		}
 		else
 		{
-			ri.construct({ &road, &optRoad.value(), &connectingRoad }, connectionPoints[0]);
+			ri.construct({ &splitRoad, &optRoad.value(), &connectingRoad }, connectionPoints[0]);
 			m_pRoadManager->m_roads.add(optRoad.value());
 
 			new RoadIntersection(ri);
@@ -355,24 +348,25 @@ void RoadCreator::buildToIntersection(Road& road, Road& connectingRoad)
 	else //if (connectionPoints.size() == 2)
 	{
 		RoadIntersection ri;
-		auto optRoad = road.split(connectionPoints[0]);
+		auto optRoad = splitRoad.split(connectionPoints[0]);
 
 		if (!optRoad)
 		{
-			ri.construct({ &road, &road, &connectingRoad }, connectionPoints[0]);
+			ri.construct({ &splitRoad, &splitRoad, &connectingRoad }, connectionPoints[0]);
 			new RoadIntersection(ri);
 
-			auto newRoad1 = road.split(connectionPoints[1]).value();
-			m_pRoadManager->m_roads.add(newRoad1);
+			auto newRoad = splitRoad.split(connectionPoints[1]).value();
 
-			ri.construct({ &road, &newRoad1, &connectingRoad }, connectionPoints[0]);
+			ri.construct({ &splitRoad, &newRoad, &connectingRoad }, connectionPoints[1]);
 			new RoadIntersection(ri);
+
+			m_pRoadManager->m_roads.add(newRoad);
 		}
 		else
 		{
 			auto newRoad1 = optRoad.value();
 
-			ri.construct({ &road, &newRoad1, &connectingRoad }, connectionPoints[0]);
+			ri.construct({ &splitRoad, &newRoad1, &connectingRoad }, connectionPoints[0]);
 			new RoadIntersection(ri);
 
 			// deduce which part of split is the right one
@@ -384,7 +378,7 @@ void RoadCreator::buildToIntersection(Road& road, Road& connectingRoad)
 			}
 			else
 			{
-				rightRoad = &road;
+				rightRoad = &splitRoad;
 			}
 
 			auto newRoad2 = rightRoad->split(connectionPoints[1]).value();
@@ -396,6 +390,8 @@ void RoadCreator::buildToIntersection(Road& road, Road& connectingRoad)
 			m_pRoadManager->m_roads.add({ newRoad1, newRoad2 });
 		}
 	}
+	m_pRoadManager->m_roads.add(splitRoad);
+
 }
 
 void RoadCreator::updatePoints()

@@ -75,13 +75,13 @@ private:
 		//std::vector<
 	};
 
-	bool connectRoads(Road& road, Road& connectingRoad);
+	void connectRoads(const Road& road, Road& connectingRoad);
 	uint32_t connectCount(const Road& road, const Road& connectingRoad) const;
 	std::vector<Point> connectPoints(const Road& road, const Road& connectingRoad) const;
 
-	void mergeRoads(Road& road, Road& connectingRoad);
+	void mergeRoads(Road& road, const Road& mergingRoad);
 	Road splitKnot(Road& road);
-	void buildToIntersection(Road& road, Road& connectingRoad);
+	void buildToIntersection(const Road& road, Road& connectingRoad);
 
 	void updatePoints();
 	enum class Mode
