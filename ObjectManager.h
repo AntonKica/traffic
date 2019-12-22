@@ -7,14 +7,15 @@
 template <class Type> class Container
 {
 public:
-	void add(Type obj)
+	using iter = typename std::list<Type>::iterator;
+	iter add(Type obj)
 	{
-		data.push_back(obj);
+		return data.insert(data.end(), obj);
 	}
 
-	void add(const std::vector<Type>& objs)
+	iter add(const std::vector<Type>& objs)
 	{
-		data.insert(data.end(), objs.begin(), objs.end());
+		return data.insert(data.end(), objs.begin(), objs.end());
 	}
 
 	void remove(Type* obj)
@@ -70,6 +71,8 @@ class ObjectManager
 
 public:
 	ObjectManager(SimulationArea* pSimulationArea);
+	~ObjectManager();
+
 	void update();
 
 	void updateSelectedRoad();

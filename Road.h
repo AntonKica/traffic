@@ -30,6 +30,11 @@ public:
 		const Joint* start;
 		const Joint* end;
 	};
+	enum SegmentPart
+	{
+		TAIL,
+		HEAD
+	};
 
 	std::optional<Segment> selectSegment(const Point& point) const;
 	std::vector<Segment> getJointSegments(const Point& jointPoint) const;
@@ -52,11 +57,33 @@ public:
 
 	void reverseBody();
 
+	// Connections
+	void setTailDirectionPoint(Point point);
+	void removeTailDirectionPoint();
+	Point getTailDirectionPoint() const;
+	bool hasTailDirectionPoint() const;
 	//
-	void construct(const Points& axis, float width);
+	void setHeadDirectionPoint(Point point);
+	void removeHeadDirectionPoint();
+	Point getHeadDirectionPoint() const;
+	bool hasHeadDirectionPoint() const;
+
+	void clearDirectionPoints();
+
+	//
+	struct OrientedConstructionPoints
+	{
+		std::optional<Point> tailDirectionPoint;
+		Points points;
+		std::optional<Point> headDirectionPoint;
+	};
+	void construct(const Points& axisPoints, float width);
+	void construct(const OrientedConstructionPoints& constructionPoints, float width);
+	void reconstruct();
 	void mergeWith(const SegmentedShape& otherShape);
 	std::optional<SegmentedShape> split(const Point& splitPoint);
 	Point shorten(const Point& shapeEnd, float size);
+
 private:
 	void setNewCircularEndPoints(const Point& point);
 	void eraseCommonPoints();
@@ -64,6 +91,7 @@ private:
 
 	float m_width;
 	Joints m_joints;
+	std::map<SegmentPart, Point> m_endDirectionPoints;
 };
 
 class Road :
@@ -75,8 +103,8 @@ public:
 
 	struct RoadParameters
 	{
-		uint32_t laneCount;
-		float width;
+		uint32_t laneCount = 0;
+		float width = 0;
 		std::string texture;
 	};
 public:
@@ -89,14 +117,20 @@ public:
 	//
 	void construct(Points axisPoints, uint32_t laneCount, float width, std::string texture);
 	void construct(Points axisPoints, const RoadParameters& parameters);
+	void reconstruct();
+	// fancy function
+	void destruct();
 
 	void mergeWith(const Road& otherRoad);
-	std::optional<Road> split(const Point& splitPoint);
+	struct SplitProduct;
+	SplitProduct split(const Point& splitPoint);
 	Point shorten(const Point& roadEnd, float size);
 
 	std::optional<Point> canConnect(std::array<Point, 2> connectionLine, const Point& connectionPoint) const;
+
+	glm::vec3 getConnectionDirectionPoint(BasicRoad* road) override;
+
 private:
-	void reconstruct();
 	using Path = Points;
 	void createPaths();
 
@@ -105,6 +139,12 @@ private:
 	// just for cause
 public:
 	std::vector<Path> m_paths;
+};
+
+struct Road::SplitProduct
+{
+	std::optional<Road> road;
+	RoadPointPair connection{};
 };
 
 

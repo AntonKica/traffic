@@ -144,6 +144,7 @@ SimulationArea::SimulationArea()
 
 SimulationArea::~SimulationArea()
 {
+
 }
 
 void SimulationArea::initArea()

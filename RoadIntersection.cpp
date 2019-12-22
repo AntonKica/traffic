@@ -87,19 +87,21 @@ Points getCircleSortedPoints(Points points, bool clockwise)
 
 void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionPoint)
 {
-
 	m_position = intersectionPoint;
 	m_centre = glm::vec3(0);
 	m_width = roads[0]->getParameters().width;
 	m_connectionPoints.clear();
-
 
 	{
 		float requiredDistance = m_width / 2.0f + 0.25;
 		for (auto& road : roads)
 		{
 			auto parameters = road->getParameters();
-			m_connectionPoints.push_back(road->shorten(intersectionPoint, requiredDistance) - m_position);
+			auto shortPoint = road->shorten(intersectionPoint, requiredDistance);
+			m_connectionPoints.push_back(shortPoint - m_position);
+
+			connect(road, this, shortPoint);
+			road->reconstruct();
 		}
 	}
 
@@ -167,4 +169,9 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 	mInfo.model = &model;
 
 	setupModel(mInfo, true);
+}
+
+glm::vec3 RoadIntersection::getConnectionDirectionPoint(BasicRoad* road)
+{
+	return m_position;
 }

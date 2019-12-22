@@ -124,8 +124,8 @@ Points createShape(const Points& points, float width)
 	Points rightPoints;
 
 	glm::vec3 dirVec;
-	glm::vec3 currentDirection;
-	glm::vec3 previousDirection;
+	glm::vec3 currentDirectionPoint;
+	glm::vec3 previousDirectionPoint;
 	Point previousPoint;
 	Point nextPoint;
 	for (int i = 0; i < points.size(); ++i)
@@ -137,30 +137,30 @@ Points createShape(const Points& points, float width)
 			if (i + 1 < points.size())
 			{
 				nextPoint = points[i + 1];
-				currentDirection = glm::normalize(nextPoint - curPoint);
+				currentDirectionPoint = glm::normalize(nextPoint - curPoint);
 			}
 			else if (points.front() == points.back())
 			{
 				nextPoint = *(points.begin() + 1);
-				currentDirection = glm::normalize(nextPoint - curPoint);
+				currentDirectionPoint = glm::normalize(nextPoint - curPoint);
 			}
 
 			if (i - 1 >= 0)
 			{
 				previousPoint = points[i - 1];
-				previousDirection = glm::normalize(curPoint - previousPoint);
+				previousDirectionPoint = glm::normalize(curPoint - previousPoint);
 			}
 			else if (points.front() == points.back())
 			{
 				previousPoint = *(points.end() - 2);
-				previousDirection = glm::normalize(curPoint - previousPoint);
+				previousDirectionPoint = glm::normalize(curPoint - previousPoint);
 			}
 			else
 			{
-				previousDirection = currentDirection;
+				previousDirectionPoint = currentDirectionPoint;
 			}
 
-			const auto [left, right] = getSidePoints(previousDirection, currentDirection, previousPoint, curPoint, nextPoint, width);
+			const auto [left, right] = getSidePoints(previousDirectionPoint, currentDirectionPoint, previousPoint, curPoint, nextPoint, width);
 
 			leftPoints.emplace_back(left);
 			rightPoints.emplace_back(right);
@@ -185,8 +185,8 @@ Mesh creteTexturedMesh(const Points& points, int width)
 	float textureDistance = 0;
 
 	glm::vec3 dirVec;
-	glm::vec3 currentDirection;
-	glm::vec3 previousDirection;
+	glm::vec3 currentDirectionPoint;
+	glm::vec3 previousDirectionPoint;
 	Point previousPoint;
 	Point nextPoint;
 	for (int i = 0; i < points.size(); ++i)
@@ -198,30 +198,30 @@ Mesh creteTexturedMesh(const Points& points, int width)
 			if (i + 1 < points.size())
 			{
 				nextPoint = points[i + 1];
-				currentDirection = glm::normalize(nextPoint - curPoint);
+				currentDirectionPoint = glm::normalize(nextPoint - curPoint);
 			}
 			else if (points.front() == points.back())
 			{
 				nextPoint = *(points.begin() + 1);
-				currentDirection = glm::normalize(nextPoint - curPoint);
+				currentDirectionPoint = glm::normalize(nextPoint - curPoint);
 			}
 
 			if (i - 1 >= 0)
 			{
 				previousPoint = points[i - 1];
-				previousDirection = glm::normalize(curPoint - previousPoint);
+				previousDirectionPoint = glm::normalize(curPoint - previousPoint);
 			}
 			else if (points.front() == points.back())
 			{
 				previousPoint = *(points.end() - 2);
-				previousDirection = glm::normalize(curPoint - previousPoint);
+				previousDirectionPoint = glm::normalize(curPoint - previousPoint);
 			}
 			else
 			{
-				previousDirection = currentDirection;
+				previousDirectionPoint = currentDirectionPoint;
 			}
 
-			const auto [left, right] = getSidePoints(previousDirection, currentDirection, previousPoint, curPoint, nextPoint, width);
+			const auto [left, right] = getSidePoints(previousDirectionPoint, currentDirectionPoint, previousPoint, curPoint, nextPoint, width);
 
 			std::array<VD::PositionVertex, 2> sideVertices;
 			sideVertices[0] = right;
@@ -270,8 +270,8 @@ std::vector<Point> createOutline(const std::vector<Point>& points, float outline
 	std::vector<Point> rightPoints;
 
 	glm::vec3 dirVec;
-	glm::vec3 currentDirection;
-	glm::vec3 previousDirection;
+	glm::vec3 currentDirectionPoint;
+	glm::vec3 previousDirectionPoint;
 	Point previousPoint;
 	Point nextPoint;
 	for (int i = 0; i < points.size(); ++i)
@@ -281,30 +281,30 @@ std::vector<Point> createOutline(const std::vector<Point>& points, float outline
 		if (i + 1 < points.size())
 		{
 			nextPoint = points[i + 1];
-			currentDirection = glm::normalize(nextPoint - curPoint);
+			currentDirectionPoint = glm::normalize(nextPoint - curPoint);
 		}
 		else if (points.front() == points.back())
 		{
 			nextPoint = *(points.begin() + 1);
-			currentDirection = glm::normalize(nextPoint - curPoint);
+			currentDirectionPoint = glm::normalize(nextPoint - curPoint);
 		}
 
 		if (i - 1 >= 0)
 		{
 			previousPoint = points[i - 1];
-			previousDirection = glm::normalize(curPoint - previousPoint);
+			previousDirectionPoint = glm::normalize(curPoint - previousPoint);
 		}
 		else if (points.front() == points.back())
 		{
 			previousPoint = *(points.end() - 2);
-			previousDirection = glm::normalize(curPoint - previousPoint);
+			previousDirectionPoint = glm::normalize(curPoint - previousPoint);
 		}
 		else
 		{
-			previousDirection = currentDirection;
+			previousDirectionPoint = currentDirectionPoint;
 		}
 
-		const auto [left, right] = getSidePoints(previousDirection, currentDirection, previousPoint, curPoint, nextPoint, outlineSize);
+		const auto [left, right] = getSidePoints(previousDirectionPoint, currentDirectionPoint, previousPoint, curPoint, nextPoint, outlineSize);
 			// dont duplicate first and last
 		if (i == 0 || i == points.size() - 1)
 		{
@@ -583,13 +583,104 @@ void SegmentedShape::reverseBody()
 	std::reverse(std::begin(m_joints), std::end(m_joints));
 	for (auto& joint : m_joints)
 		std::swap(joint.side.left, joint.side.right);
+
+	// quiteVerbose
+	if (!m_endDirectionPoints.empty())
+	{
+		if (m_endDirectionPoints.size() == 1)
+		{
+			if (auto connection = m_endDirectionPoints.find(TAIL); connection != m_endDirectionPoints.end())
+			{
+				m_endDirectionPoints[HEAD] = m_endDirectionPoints[TAIL];
+				m_endDirectionPoints.erase(TAIL);
+			}
+			else
+			{
+				m_endDirectionPoints[TAIL] = m_endDirectionPoints[HEAD];
+				m_endDirectionPoints.erase(HEAD);
+			}
+		}
+		else
+		{
+			std::swap(m_endDirectionPoints[HEAD], m_endDirectionPoints[TAIL]);
+		}
+	}
 }
 
-void SegmentedShape::construct(const Points& axis, float width)
+void SegmentedShape::setTailDirectionPoint(Point point)
 {
-	m_width = width;
-	createShape(axis);
+	m_endDirectionPoints[TAIL] = point;
 }
+
+void SegmentedShape::removeTailDirectionPoint()
+{
+	if(hasTailDirectionPoint())
+		m_endDirectionPoints.erase(TAIL);
+}
+
+Point SegmentedShape::getTailDirectionPoint() const
+{
+	return m_endDirectionPoints.find(TAIL)->second;
+}
+
+bool SegmentedShape::hasTailDirectionPoint() const
+{
+	return m_endDirectionPoints.find(TAIL) != m_endDirectionPoints.end();
+}
+
+void SegmentedShape::setHeadDirectionPoint(Point point)
+{
+	m_endDirectionPoints[HEAD] = point;
+}
+
+void SegmentedShape::removeHeadDirectionPoint()
+{
+	if(hasHeadDirectionPoint())
+		m_endDirectionPoints.erase(HEAD);
+}
+
+Point SegmentedShape::getHeadDirectionPoint() const
+{
+	return m_endDirectionPoints.find(HEAD)->second;
+}
+
+bool SegmentedShape::hasHeadDirectionPoint() const
+{
+	return m_endDirectionPoints.find(HEAD) != m_endDirectionPoints.end();
+}
+
+
+void SegmentedShape::clearDirectionPoints()
+{
+	m_endDirectionPoints.clear();
+}
+
+void SegmentedShape::construct(const Points& axisPoints, float width)
+{
+	OrientedConstructionPoints cp{};
+	if (hasTailDirectionPoint()) cp.tailDirectionPoint = getTailDirectionPoint();
+	cp.points = axisPoints;
+	if (hasHeadDirectionPoint()) cp.headDirectionPoint = getHeadDirectionPoint();
+
+	construct(cp, m_width);
+}
+
+void SegmentedShape::construct(const OrientedConstructionPoints& constructionPoints, float width)
+{
+	if (constructionPoints.tailDirectionPoint)
+		setTailDirectionPoint(constructionPoints.tailDirectionPoint.value());
+	if (constructionPoints.headDirectionPoint)
+		setHeadDirectionPoint(constructionPoints.headDirectionPoint.value());
+
+	m_width = width;
+	createShape(constructionPoints.points);
+}
+
+void SegmentedShape::reconstruct()
+{
+	construct(getAxis(), m_width);
+}
+\
 
 void SegmentedShape::mergeWith(const SegmentedShape& otherShape)
 {	
@@ -609,11 +700,23 @@ void SegmentedShape::mergeWith(const SegmentedShape& otherShape)
 	{
 		thisShapeAxis.insert(std::begin(thisShapeAxis),
 			std::begin(otherShapeAxis), std::end(otherShapeAxis) - 1);
+
+		// connections
+		removeTailDirectionPoint();
+		if (otherShape.hasTailDirectionPoint())
+			setTailDirectionPoint(otherShape.getTailDirectionPoint());
+
 		construct(thisShapeAxis, m_width);
 	}
 	else
 	{
 		std::copy(std::begin(otherShapeAxis) + 1, std::end(otherShapeAxis), std::back_inserter(thisShapeAxis));
+
+		// connections
+		removeHeadDirectionPoint();
+		if (otherShape.hasHeadDirectionPoint())
+			setHeadDirectionPoint(otherShape.getHeadDirectionPoint());
+
 		construct(thisShapeAxis, m_width);
 	}
 }
@@ -634,9 +737,14 @@ std::optional<SegmentedShape> SegmentedShape::split(const Point& splitPoint)
 		Points secondSplitAxis(newSplitIter, std::end(newAxis));
 
 
-		construct(curSplitAxis, m_width);
-
 		SegmentedShape optShape;
+		// sort connections
+		if (hasHeadDirectionPoint())
+		{
+			optShape.setHeadDirectionPoint(getHeadDirectionPoint());
+			removeHeadDirectionPoint();
+		}
+		construct(curSplitAxis, m_width);
 		optShape.construct(secondSplitAxis, m_width);
 		optionalSplit = optShape;
 	}
@@ -674,6 +782,7 @@ Point SegmentedShape::shorten(const Point& shapeEnd, float size)
 	Point shortenPosition = {};
 	if (sitsOnTail(shapeEnd))
 	{
+		removeTailDirectionPoint();
 		Points axis = getAxis();
 		auto [firstPoint, secondPoint, travelledDistance] = travellDistanceOnPoints(axis, size);
 		if (secondPoint == std::end(axis))
@@ -696,6 +805,7 @@ Point SegmentedShape::shorten(const Point& shapeEnd, float size)
 	}
 	else
 	{
+		removeHeadDirectionPoint();
 		reverseBody();
 		//reversed 
 		Points reversedAxis = getAxis();
@@ -787,7 +897,11 @@ void SegmentedShape::createShape(const Points& axis)
 				nextPoint = axis[i + 1];
 				currentDirection = glm::normalize(nextPoint - curPoint);
 			}
-	
+			else if (hasHeadDirectionPoint())
+			{
+				nextPoint = getHeadDirectionPoint();
+				currentDirection = glm::normalize(nextPoint - curPoint);
+			}
 			else if (axis.front() == axis.back())
 			{
 				nextPoint = *(axis.begin() + 1);
@@ -797,6 +911,11 @@ void SegmentedShape::createShape(const Points& axis)
 			if (i - 1 >= 0)
 			{
 				previousPoint = axis[i - 1];
+				previousDirection = glm::normalize(curPoint - previousPoint);
+			}
+			else if (hasTailDirectionPoint())
+			{
+				previousPoint = getTailDirectionPoint();
 				previousDirection = glm::normalize(curPoint - previousPoint);
 			}
 			else if (axis.front() == axis.back())
@@ -819,7 +938,6 @@ void SegmentedShape::createShape(const Points& axis)
 		}
 	}
 }
-
 
 Road::RoadParameters Road::getParameters() const
 {
@@ -856,10 +974,20 @@ void Road::construct(Points axisPoints, const RoadParameters& parameters)
 	m_position = {};
 
 	m_parameters = parameters;
-	m_shape.construct(axisPoints, m_parameters.width);
+
+	SegmentedShape::OrientedConstructionPoints cps;
+	cps.points = axisPoints;
+	for (const auto& cp : m_connections)
+	{
+		if (approxSamePoints(axisPoints.front(), cp.point))
+			cps.tailDirectionPoint = cp.road->getConnectionDirectionPoint(this);
+		else
+			cps.headDirectionPoint = cp.road->getConnectionDirectionPoint(this);
+	}
+	m_shape.construct(cps, m_parameters.width);
 
 	// model
-	auto mesh = SegmentedShape::createMesh(m_shape);
+auto mesh = SegmentedShape::createMesh(m_shape);
 	mesh.textures[VD::TextureType::DIFFUSE] = m_parameters.texture;
 
 	Mesh sh;
@@ -877,42 +1005,52 @@ void Road::construct(Points axisPoints, const RoadParameters& parameters)
 
 void Road::reconstruct()
 {
-	auto mesh = SegmentedShape::createMesh(m_shape);
-	mesh.textures[VD::TextureType::DIFFUSE] = m_parameters.texture;
+	construct(m_shape.getAxis(), m_parameters);
+}
 
-	Mesh sh;
-	sh.vertices.positions = m_shape.getAxis();
-	Model model;
-	model.meshes.push_back(mesh);
-	//model.meshes[0] = sh;
-
-	Info::ModelInfo modelInfo;
-	modelInfo.model = &model;
-
-	setupModel(modelInfo, true);
-	createPaths();
+void Road::destruct()
+{
+	disconnectAll(this);
 }
 
 void Road::mergeWith(const Road& road)
 {
+	for (const auto& connection : road.m_connections)
+	{
+		connect(this, connection.road, connection.point);
+	}
+
 	m_shape.mergeWith(road.m_shape);
 	reconstruct();
 }
-std::optional<Road> Road::split(const Point& splitPoint)
+Road::SplitProduct Road::split(const Point& splitPoint)
 {
 	auto optSplit = m_shape.split(splitPoint);
-	reconstruct();
 
-	std::optional<Road> optRoad;
+	Road::SplitProduct product;
 	if (optSplit)
 	{
 		Road road;
+		RoadPointPair connection;
+		// // validate connections
+		for(auto& connection : m_connections)
+		{
+			if (m_shape.sitsOnHead(connection.point))
+			{
+				dismissConnection(connection);
+				connection = connection;
+			}
+		}
+		// then construct
 		road.construct(optSplit.value().getAxis(), m_parameters.laneCount, m_parameters.width, m_parameters.texture);
 
-		optRoad = road;
+		product.road = road;
+		product.connection = connection;
 	}
+	// reconstruct t the end, may be bettter performance, who knows
+	reconstruct();
 
-	return optRoad;
+	return product;
 }
 
 
@@ -1019,6 +1157,16 @@ std::optional<Point> Road::canConnect(std::array<Point, 2> connectionLine, const
 	}
 
 	return recommendedPoint;
+}
+
+glm::vec3 Road::getConnectionDirectionPoint(BasicRoad* road)
+{
+	auto& [_, point] = findConnection(this, road);
+
+	if (m_shape.sitsOnTail(point))
+		return *(m_shape.getAxis().begin() + 1);
+	else
+		return *(m_shape.getAxis().end() - 2);
 }
 
 
