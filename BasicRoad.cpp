@@ -32,6 +32,15 @@ void BasicRoad::connect(BasicRoad* road1, BasicRoad* road2, Point connectionPoin
 	road2->m_connections.push_back(connection);
 }
 
+void BasicRoad::transferConnections(BasicRoad* sourceRoad, BasicRoad* destinationRoad)
+{
+	for (auto& sourceConnections : sourceRoad->m_connections)
+	{
+		connect(destinationRoad, sourceConnections);
+		dismissConnection(sourceConnections);
+	}
+}
+
 void BasicRoad::dismissConnection(RoadPointPair& connection)
 {
 	auto& firstRoad = connection.road;
@@ -49,6 +58,7 @@ void BasicRoad::disconnect(BasicRoad* road1, BasicRoad* road2)
 	firstConnections.erase(std::find(std::begin(firstConnections), std::end(firstConnections), road2));
 	secondConnections.erase(std::find(std::begin(secondConnections), std::end(secondConnections), road1));
 }
+
 
 void BasicRoad::disconnectAll(BasicRoad* road)
 {

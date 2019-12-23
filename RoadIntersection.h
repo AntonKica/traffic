@@ -13,8 +13,8 @@ class RoadIntersection
 public:
 	void construct(std::array<Road*, 3> roads, Point intersectionPoint);
 
-	virtual glm::vec3 getConnectionDirectionPoint(BasicRoad* road);
-
+	glm::vec3 getDirectionPointFromConnectionPoint(Point point) override;
+	ConnectionPossibility canConnect(Line connectionLine, Point connectionPoint) const override;
 private:
 	float m_width = 0;
 	Point m_centre = {};

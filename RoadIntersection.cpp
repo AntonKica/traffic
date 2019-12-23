@@ -87,8 +87,8 @@ Points getCircleSortedPoints(Points points, bool clockwise)
 
 void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionPoint)
 {
-	m_position = intersectionPoint;
-	m_centre = glm::vec3(0);
+	m_position = {};
+	m_centre = intersectionPoint;
 	m_width = roads[0]->getParameters().width;
 	m_connectionPoints.clear();
 
@@ -98,7 +98,7 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 		{
 			auto parameters = road->getParameters();
 			auto shortPoint = road->shorten(intersectionPoint, requiredDistance);
-			m_connectionPoints.push_back(shortPoint - m_position);
+			m_connectionPoints.push_back(shortPoint);
 
 			connect(road, this, shortPoint);
 			road->reconstruct();
@@ -121,7 +121,10 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 		glm::vec3 dirCentreToSecond = glm::normalize(second - m_centre);
 
 		{
-			const auto [left, right] = getSidePoints(dirCurrentToCentre, dirCurrentToCentre, currentPoint, currentPoint, m_centre, m_width);
+			auto connectP = findConnection(this, currentPoint).road->getDirectionPointFromConnectionPoint(currentPoint);
+			glm::vec3 dirConnectToCurrent = glm::normalize(currentPoint - connectP);
+
+			const auto [left, right] = getSidePoints(dirConnectToCurrent, dirCurrentToCentre, connectP, currentPoint, m_centre, m_width);
 
 			sidePoints.insert(sidePoints.end(), { left, right });
 		}
@@ -171,7 +174,13 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 	setupModel(mInfo, true);
 }
 
-glm::vec3 RoadIntersection::getConnectionDirectionPoint(BasicRoad* road)
+glm::vec3 RoadIntersection::getDirectionPointFromConnectionPoint(Point connectionPoint)
 {
-	return m_position;
+	return m_centre;
+}
+
+BasicRoad::ConnectionPossibility RoadIntersection::canConnect(Line connectionLine, Point connectionPoint) const
+{
+	ConnectionPossibility cp{};
+	return cp;
 }

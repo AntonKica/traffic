@@ -81,7 +81,7 @@ private:
 	uint32_t connectCount(const Road& road, const Road& connectingRoad) const;
 	std::vector<Point> connectPoints(const Road& road, const Road& connectingRoad) const;
 
-	void mergeRoads(Road* road, const Road* mergingRoad);
+	void mergeRoads(Road* road, Road* mergingRoad);
 	Road* cutKnot(Road& road);
 	void buildToIntersection(Road* road, Road* connectingRoad);
 

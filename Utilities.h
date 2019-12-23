@@ -27,6 +27,7 @@ namespace Utility
 }
 
 using Point = glm::vec3;
+using Line = std::array<Point, 2>;
 using Points = std::vector<Point>;
 
 static bool approxSamePoints(const Point& p1, const Point& p2)
@@ -185,7 +186,8 @@ static Point vectorIntersection(Point s1, Point e1, Point s2, Point e2)
 	float c2 = a2 * s2.x + b2 * s2.z;
 
 	// round if one degree
-	const float minAngle = 1.0f * (glm::pi<float>() / 180.0f);
+	const float minDegrees = 0.1f;
+	const float minAngle = minDegrees * (glm::pi<float>() / 180.0f);
 	float delta = a1 * b2 - a2 * b1;
 
 	return std::abs(delta) <= minAngle ? s2 : Point((b2 * c1 - b1 * c2) / delta, 0.0f, (a1 * c2 - a2 * c1) / delta);

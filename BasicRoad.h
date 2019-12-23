@@ -10,13 +10,24 @@ class BasicRoad :
 public:
 	virtual ~BasicRoad();
 
-	virtual glm::vec3 getConnectionDirectionPoint(BasicRoad* road) = 0;
+	virtual glm::vec3 getDirectionPointFromConnectionPoint(Point connectionPoint) = 0;
+	struct ConnectionPossibility 
+	{
+		bool canConnect = false;
+		std::optional<Point> recomendedPoint;
+
+		operator bool() const
+		{
+			return canConnect;
+		}
+	};
+	virtual ConnectionPossibility canConnect(Line connectionLine, Point connectionPoint) const = 0;
 
 protected:
 	struct RoadPointPair
 	{
 		BasicRoad* road = nullptr;
-		Point point;
+		Point point = {};
 
 		bool operator==(const BasicRoad* otherRoad) const
 		{
@@ -35,6 +46,7 @@ protected:
 	static RoadPointPair& findConnection(BasicRoad* road, Point connectedPoint);
 	static void connect(BasicRoad* road, const RoadPointPair& connection);
 	static void connect(BasicRoad* road1, BasicRoad* road2, Point connectionPoint);
+	static void transferConnections(BasicRoad* sourceRoad, BasicRoad* destinationRoad);
 	static void dismissConnection(RoadPointPair& connection);
 	static void disconnect(BasicRoad* road1, BasicRoad* road2);
 	static void disconnectAll(BasicRoad* road);

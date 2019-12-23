@@ -301,7 +301,7 @@ std::vector<Point> RoadCreator::connectPoints(const Road& road, const Road& conn
 	return cps;
 }
 
-void RoadCreator::mergeRoads(Road* road, const Road* mergingRoad)
+void RoadCreator::mergeRoads(Road* road, Road* mergingRoad)
 {
 	if (road->m_parameters.width == mergingRoad->m_parameters.width)
 	{
@@ -339,7 +339,7 @@ Road* RoadCreator::cutKnot(Road& road)
 	// swap since cut is now in road shape
 	if (pNewRoad->m_shape.isCirculary())
 	{
-		std::swap(optRoad.value().m_shape, road.m_shape);
+		std::swap(pNewRoad->m_shape, road.m_shape);
 	}
 	if (product.road)
 	{
@@ -359,14 +359,12 @@ void RoadCreator::buildToIntersection(Road* road, Road* connectingRoad)
 	//RoadIntersection intersection;
 	if (connectionPoints.size() == 1)
 	{
-		RoadIntersection ri;
+		RoadIntersection* ri = new RoadIntersection;
 		auto product = road->split(connectionPoints[0]);
 
 		if (!product.road)
 		{
-			ri.construct({ road, road, connectingRoad }, connectionPoints[0]);
-
-			new RoadIntersection(ri);
+			ri->construct({ road, road, connectingRoad }, connectionPoints[0]);
 		}
 		else
 		{
@@ -375,28 +373,24 @@ void RoadCreator::buildToIntersection(Road* road, Road* connectingRoad)
 			if (product.connection.road)
 				Road::connect(addedRoad, product.connection);
 
-			ri.construct({ road, addedRoad, connectingRoad }, connectionPoints[0]);
-
-			new RoadIntersection(ri);
+			ri->construct({ road, addedRoad, connectingRoad }, connectionPoints[0]);
 		}
 	}
 	else //if (connectionPoints.size() == 2)
 	{
-		RoadIntersection ri;
+		RoadIntersection* ri1 = new RoadIntersection;
 		auto product = road->split(connectionPoints[0]);
 
 		if (!product.road)
 		{
-			ri.construct({ road, road, connectingRoad }, connectionPoints[0]);
-			new RoadIntersection(ri);
-
+			ri1->construct({ road, road, connectingRoad }, connectionPoints[0]);
 			auto secondProduct = road->split(connectionPoints[1]);
 			auto addedRoad = &*m_pRoadManager->m_roads.add(secondProduct.road.value());
 			if (product.connection.road)
 				Road::connect(addedRoad, product.connection);
 
-			ri.construct({ road, addedRoad, connectingRoad }, connectionPoints[1]);
-			new RoadIntersection(ri);
+			RoadIntersection* ri2 = new RoadIntersection;
+			ri2->construct({ road, addedRoad, connectingRoad }, connectionPoints[1]);
 		}
 		else
 		{
@@ -405,8 +399,8 @@ void RoadCreator::buildToIntersection(Road* road, Road* connectingRoad)
 			if (product.connection.road)
 				Road::connect(addedRoad, product.connection);
 
-			ri.construct({ road, addedRoad, connectingRoad }, connectionPoints[0]);
-			new RoadIntersection(ri);
+			RoadIntersection* ri1 = new RoadIntersection;
+			ri1->construct({ road, addedRoad, connectingRoad }, connectionPoints[0]);
 
 			// deduce which part of split is the right one
 			Road* rightRoad;
@@ -420,14 +414,14 @@ void RoadCreator::buildToIntersection(Road* road, Road* connectingRoad)
 				rightRoad = road;
 			}
 
-			auto secondProduct = road->split(connectionPoints[1]);
+			auto secondProduct = rightRoad->split(connectionPoints[1]);
 			// add right away as well
 			auto secondAddedRoad = &*m_pRoadManager->m_roads.add(secondProduct.road.value());
 			if (secondProduct.connection.road)
 				Road::connect(secondAddedRoad, secondProduct.connection);
 
-			ri.construct({ secondAddedRoad, rightRoad, connectingRoad }, connectionPoints[1]);
-			new RoadIntersection(ri);
+			RoadIntersection* ri2 = new RoadIntersection;
+			ri2->construct({ secondAddedRoad, rightRoad, connectingRoad }, connectionPoints[1]);
 		}
 	}
 }
@@ -463,13 +457,13 @@ void RoadCreator::updatePoints()
 			if (buildPoints.front().road)
 			{
 				connectPoints = { buildPoints.begin()->point ,(buildPoints.begin() + 1)->point };
-				auto recPoint = buildPoints.front().road->canConnect(connectPoints, connectPoints[0]);
-				if (recPoint)
+				auto conectionPossibility = buildPoints.front().road->canConnect(connectPoints, connectPoints[0]);
+				if (conectionPossibility)
 				{
-					if (connectPoints[0] != recPoint)
+					if (conectionPossibility.recomendedPoint)
 					{
 						SittingPoint sp;
-						sp.point = recPoint.value();
+						sp.point = conectionPossibility.recomendedPoint.value();
 						sp.core = true;
 						buildPoints.insert(buildPoints.begin() + 1, sp);
 						buildPoints.front().core = false;
@@ -483,13 +477,13 @@ void RoadCreator::updatePoints()
 			if (buildPoints.back().road)
 			{
 				connectPoints = { (buildPoints.end() - 1)->point ,(buildPoints.end() - 2)->point };
-				auto recPoint = buildPoints.back().road->canConnect(connectPoints, connectPoints[0]);
-				if (recPoint)
+				auto conectionPossibility = buildPoints.back().road->canConnect(connectPoints, connectPoints[0]);
+				if (conectionPossibility)
 				{
-					if (connectPoints[0] != recPoint)
+					if (conectionPossibility.recomendedPoint)
 					{
 						SittingPoint sp;
-						sp.point = recPoint.value();
+						sp.point = conectionPossibility.recomendedPoint.value();
 						sp.core = true;
 						buildPoints.insert(buildPoints.end() - 1, sp);
 						buildPoints.back().core = false;

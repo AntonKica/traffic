@@ -121,14 +121,15 @@ public:
 	// fancy function
 	void destruct();
 
-	void mergeWith(const Road& otherRoad);
+	void mergeWith(Road& otherRoad);
 	struct SplitProduct;
 	SplitProduct split(const Point& splitPoint);
 	Point shorten(const Point& roadEnd, float size);
 
-	std::optional<Point> canConnect(std::array<Point, 2> connectionLine, const Point& connectionPoint) const;
+	// overrided
+	ConnectionPossibility canConnect(Line connectionLine, Point connectionPoint) const override;
 
-	glm::vec3 getConnectionDirectionPoint(BasicRoad* road) override;
+	glm::vec3 getDirectionPointFromConnectionPoint(Point connectionPoint) override;
 
 private:
 	using Path = Points;

@@ -980,18 +980,20 @@ void Road::construct(Points axisPoints, const RoadParameters& parameters)
 	for (const auto& cp : m_connections)
 	{
 		if (approxSamePoints(axisPoints.front(), cp.point))
-			cps.tailDirectionPoint = cp.road->getConnectionDirectionPoint(this);
+			cps.tailDirectionPoint = cp.road->getDirectionPointFromConnectionPoint(axisPoints.front());
 		else
-			cps.headDirectionPoint = cp.road->getConnectionDirectionPoint(this);
+			cps.headDirectionPoint = cp.road->getDirectionPointFromConnectionPoint(axisPoints.back());
 	}
 	m_shape.construct(cps, m_parameters.width);
 
 	// model
-auto mesh = SegmentedShape::createMesh(m_shape);
+	auto mesh = SegmentedShape::createMesh(m_shape);
 	mesh.textures[VD::TextureType::DIFFUSE] = m_parameters.texture;
 
 	Mesh sh;
 	sh.vertices.positions = m_shape.getAxis();
+	for (auto& v : sh.vertices.positions)
+		v.y += 0.2f;
 	Model model;
 	model.meshes.push_back(mesh);
 	//model.meshes[0] = sh;
@@ -1013,14 +1015,10 @@ void Road::destruct()
 	disconnectAll(this);
 }
 
-void Road::mergeWith(const Road& road)
+void Road::mergeWith(Road& road)
 {
-	for (const auto& connection : road.m_connections)
-	{
-		connect(this, connection.road, connection.point);
-	}
-
 	m_shape.mergeWith(road.m_shape);
+	transferConnections(&road, this);
 	reconstruct();
 }
 Road::SplitProduct Road::split(const Point& splitPoint)
@@ -1031,21 +1029,19 @@ Road::SplitProduct Road::split(const Point& splitPoint)
 	if (optSplit)
 	{
 		Road road;
-		RoadPointPair connection;
 		// // validate connections
 		for(auto& connection : m_connections)
 		{
-			if (m_shape.sitsOnHead(connection.point))
+			if (!sitsOnEndPoints(connection.point))
 			{
+				product.connection = connection;
 				dismissConnection(connection);
-				connection = connection;
 			}
 		}
 		// then construct
 		road.construct(optSplit.value().getAxis(), m_parameters.laneCount, m_parameters.width, m_parameters.texture);
 
 		product.road = road;
-		product.connection = connection;
 	}
 	// reconstruct t the end, may be bettter performance, who knows
 	reconstruct();
@@ -1061,14 +1057,13 @@ Point Road::shorten(const Point& roadEnd, float size)
 	return shortPoint;
 }
 
-
-std::optional<Point> Road::canConnect(std::array<Point, 2> connectionLine, const Point& connectionPoint) const
+BasicRoad::ConnectionPossibility Road::canConnect(Line connectionLine, Point connectionPoint) const
 {
+	ConnectionPossibility connectionPossibility{};
 	//reored 
 	if (approxSamePoints(connectionLine[0], connectionPoint))
 		std::swap(connectionLine[0], connectionLine[1]);
 
-	std::optional<Point> recommendedPoint;
 	// sits on corner?
 	if (m_shape.sitsOnAnySegmentCorner(connectionPoint))
 	{
@@ -1088,7 +1083,7 @@ std::optional<Point> Road::canConnect(std::array<Point, 2> connectionLine, const
 
 			if (connectionAngle <= 90.0f)
 			{
-				recommendedPoint = connectionPoint;
+				connectionPossibility.canConnect = true;
 			}
 			else
 			{
@@ -1107,7 +1102,7 @@ std::optional<Point> Road::canConnect(std::array<Point, 2> connectionLine, const
 			auto calcAngle = [](const glm::vec3& v1, const glm::vec3& v2)
 			{
 				auto dot = v1.x * v2.x + v1.z * v2.z;
-  				auto det = v1.x * v2.z - v1.z * v2.x;
+				auto det = v1.x * v2.z - v1.z * v2.x;
 				auto res = std::atan2(det, dot);
 
 				return res > 0 ? res : res + glm::two_pi<float>();
@@ -1121,8 +1116,10 @@ std::optional<Point> Road::canConnect(std::array<Point, 2> connectionLine, const
 			// direction matters
 			float angleLineS2 = calcAngle(dirS2, conLineDir);
 
-			if(angleLineS1 > roadAngle || angleLineS2 > roadAngle)
-				recommendedPoint = connectionPoint;
+			if (angleLineS1 > roadAngle || angleLineS2 > roadAngle)
+			{
+				connectionPossibility.canConnect = true;
+			}
 		}
 	}
 	else // sits between corners/ joints
@@ -1136,8 +1133,8 @@ std::optional<Point> Road::canConnect(std::array<Point, 2> connectionLine, const
 		if (connectionAngle > glm::half_pi<float>())
 			connectionAngle = glm::pi<float>() - connectionAngle;
 
-		const float sinkAngle = glm::half_pi<float>()- connectionAngle;
-		const float distance = 0.5 * m_parameters.width * (1 +  glm::sin(sinkAngle));
+		const float sinkAngle = glm::half_pi<float>() - connectionAngle;
+		const float distance = 0.5 * m_parameters.width * (1 + glm::sin(sinkAngle));
 		const glm::vec3 up(0.0, 1.0, 0.0);
 		Point axisPerpDir;
 		// get correct point  from perpendicular
@@ -1153,22 +1150,22 @@ std::optional<Point> Road::canConnect(std::array<Point, 2> connectionLine, const
 				axisPerpDir = -glm::normalize(axisPerpVec);
 		}
 
-		recommendedPoint = connectionPoint + axisPerpDir * distance;
+		connectionPossibility.canConnect = true;
+		connectionPossibility.recomendedPoint = connectionPoint + axisPerpDir * distance;;
 	}
 
-	return recommendedPoint;
+	return connectionPossibility;
 }
 
-glm::vec3 Road::getConnectionDirectionPoint(BasicRoad* road)
+glm::vec3 Road::getDirectionPointFromConnectionPoint(Point connectionPoint)
 {
-	auto& [_, point] = findConnection(this, road);
+	auto& [_, point] = findConnection(this, connectionPoint);
 
 	if (m_shape.sitsOnTail(point))
 		return *(m_shape.getAxis().begin() + 1);
 	else
 		return *(m_shape.getAxis().end() - 2);
 }
-
 
 void Road::createPaths()
 {
