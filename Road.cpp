@@ -980,9 +980,9 @@ void Road::construct(Points axisPoints, const RoadParameters& parameters)
 	for (const auto& cp : m_connections)
 	{
 		if (approxSamePoints(axisPoints.front(), cp.point))
-			cps.tailDirectionPoint = cp.road->getDirectionPointFromConnectionPoint(axisPoints.front());
+			cps.tailDirectionPoint = cp.connected->getDirectionPointFromConnectionPoint(axisPoints.front());
 		else
-			cps.headDirectionPoint = cp.road->getDirectionPointFromConnectionPoint(axisPoints.back());
+			cps.headDirectionPoint = cp.connected->getDirectionPointFromConnectionPoint(axisPoints.back());
 	}
 	m_shape.construct(cps, m_parameters.width);
 
@@ -1010,15 +1010,10 @@ void Road::reconstruct()
 	construct(m_shape.getAxis(), m_parameters);
 }
 
-void Road::destruct()
-{
-	disconnectAll(this);
-}
-
 void Road::mergeWith(Road& road)
 {
 	m_shape.mergeWith(road.m_shape);
-	transferConnections(&road, this);
+	road.transferConnections(this);
 	reconstruct();
 }
 Road::SplitProduct Road::split(const Point& splitPoint)
@@ -1159,9 +1154,9 @@ BasicRoad::ConnectionPossibility Road::canConnect(Line connectionLine, Point con
 
 glm::vec3 Road::getDirectionPointFromConnectionPoint(Point connectionPoint)
 {
-	auto& [_, point] = findConnection(this, connectionPoint);
+	auto& connection = findConnection(connectionPoint);
 
-	if (m_shape.sitsOnTail(point))
+	if (m_shape.sitsOnTail(connection.point))
 		return *(m_shape.getAxis().begin() + 1);
 	else
 		return *(m_shape.getAxis().end() - 2);

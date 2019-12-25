@@ -118,8 +118,6 @@ public:
 	void construct(Points axisPoints, uint32_t laneCount, float width, std::string texture);
 	void construct(Points axisPoints, const RoadParameters& parameters);
 	void reconstruct();
-	// fancy function
-	void destruct();
 
 	void mergeWith(Road& otherRoad);
 	struct SplitProduct;
@@ -145,7 +143,8 @@ public:
 struct Road::SplitProduct
 {
 	std::optional<Road> road;
-	RoadPointPair connection{};
+
+	std::optional<Connection> connection;
 };
 
 

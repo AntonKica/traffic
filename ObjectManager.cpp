@@ -25,8 +25,6 @@ ObjectManager::ObjectManager(SimulationArea* pSimulationArea)
 
 ObjectManager::~ObjectManager()
 {
-	for (auto& road : m_roads.data)
-		road.destruct();
 }
 
 void ObjectManager::update()

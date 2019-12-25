@@ -100,7 +100,7 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 			auto shortPoint = road->shorten(intersectionPoint, requiredDistance);
 			m_connectionPoints.push_back(shortPoint);
 
-			connect(road, this, shortPoint);
+			connect(road, shortPoint);
 			road->reconstruct();
 		}
 	}
@@ -121,7 +121,7 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 		glm::vec3 dirCentreToSecond = glm::normalize(second - m_centre);
 
 		{
-			auto connectP = findConnection(this, currentPoint).road->getDirectionPointFromConnectionPoint(currentPoint);
+			auto connectP = findConnection(currentPoint).connected->getDirectionPointFromConnectionPoint(currentPoint);
 			glm::vec3 dirConnectToCurrent = glm::normalize(currentPoint - connectP);
 
 			const auto [left, right] = getSidePoints(dirConnectToCurrent, dirCurrentToCentre, connectP, currentPoint, m_centre, m_width);

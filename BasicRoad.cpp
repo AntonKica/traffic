@@ -1,69 +1,103 @@
 #include "BasicRoad.h"
 
+
+BasicRoad::BasicRoad()
+{
+}
+
 BasicRoad::~BasicRoad()
 {
-	//for (auto& connection : m_connections)
-	//	disconnect(this, connection.road);
+	disconnectAll();
 }
 
-BasicRoad::RoadPointPair& BasicRoad::findConnection(BasicRoad* road, BasicRoad* connectedRoad)
+BasicRoad::BasicRoad(const BasicRoad& copy)
+	: SimulationAreaObject(copy)
 {
-	return *std::find(std::begin(road->m_connections), std::end(road->m_connections), connectedRoad);
+	copy.copyConnections(this);
 }
 
-BasicRoad::RoadPointPair& BasicRoad::findConnection(BasicRoad* road, Point connectedPoint)
+BasicRoad::BasicRoad(BasicRoad&& move)
+	:SimulationAreaObject(move)
 {
-	return *std::find(std::begin(road->m_connections), std::end(road->m_connections), connectedPoint);
+	move.transferConnections(this);
 }
 
-void BasicRoad::connect(BasicRoad* road, const RoadPointPair& connection)
+BasicRoad& BasicRoad::operator=(const BasicRoad& copy)
 {
-	connect(road, connection.road, connection.point);
+	copy.copyConnections(this);
+
+	// TODO: insert return statement here
+	return *this;
 }
 
-void BasicRoad::connect(BasicRoad* road1, BasicRoad* road2, Point connectionPoint)
+BasicRoad& BasicRoad::operator=(BasicRoad&& move)
 {
-	RoadPointPair connection;
+	move.transferConnections(this);
+	// TODO: insert return statement here
+	return *this;
+}
+
+
+/*BasicRoad::Connection& BasicRoad::findConnection(BasicRoad* connectedRoad)
+{
+	return *std::find(std::begin(m_connections), std::end(m_connections), connectedRoad);
+}*/
+
+BasicRoad::Connection& BasicRoad::findConnection(Point connectedPoint)
+{
+	return *std::find(std::begin(m_connections), std::end(m_connections), connectedPoint);
+}
+
+void BasicRoad::connect(BasicRoad* connectionRoad, Point connectionPoint)
+{
+	Connection connection;
 	connection.point = connectionPoint;
-	connection.road = road2;
-	road1->m_connections.push_back(connection);
+	connection.connected = connectionRoad;
+	m_connections.push_back(connection);
 
-	connection.road = road1;
-	road2->m_connections.push_back(connection);
+	connection.connected = this;
+	connectionRoad->m_connections.push_back(connection);
 }
 
-void BasicRoad::transferConnections(BasicRoad* sourceRoad, BasicRoad* destinationRoad)
+
+void BasicRoad::addConnection(Connection connection)
 {
-	for (auto& sourceConnections : sourceRoad->m_connections)
-	{
-		connect(destinationRoad, sourceConnections);
-		dismissConnection(sourceConnections);
-	}
+	connect(connection.connected, connection.point);
 }
 
-void BasicRoad::dismissConnection(RoadPointPair& connection)
+void BasicRoad::copyConnections(BasicRoad* destinationRoad) const
 {
-	auto& firstRoad = connection.road;
-	auto& secondRoad = findConnection(firstRoad, connection.point).road;
-
-	disconnect(firstRoad, secondRoad);
+	for (auto& connection : m_connections)
+		destinationRoad->addConnection(connection);
 }
 
-void BasicRoad::disconnect(BasicRoad* road1, BasicRoad* road2)
+void BasicRoad::transferConnections(BasicRoad* destinationRoad)
 {
-	auto& firstConnections = road1->m_connections;
-	auto& secondConnections = road2->m_connections;
+	copyConnections(destinationRoad);
+
+	disconnectAll();
+}
+
+void BasicRoad::dismissConnection(Connection& connection)
+{
+	disconnect(connection.point);
+}
+
+
+void BasicRoad::disconnect(Point point)
+{
+	auto& otherConnections = findConnection(point).connected->m_connections;
 
 	// no control
-	firstConnections.erase(std::find(std::begin(firstConnections), std::end(firstConnections), road2));
-	secondConnections.erase(std::find(std::begin(secondConnections), std::end(secondConnections), road1));
+	m_connections.erase(std::find(std::begin(m_connections), std::end(m_connections), point));
+	otherConnections.erase(std::find(std::begin(otherConnections), std::end(otherConnections), point));
 }
 
 
-void BasicRoad::disconnectAll(BasicRoad* road)
+void BasicRoad::disconnectAll()
 {
-	while (road->m_connections.size())
+	while (m_connections.size())
 	{
-		dismissConnection(*road->m_connections.begin());
+		dismissConnection(*m_connections.begin());
 	}
 }

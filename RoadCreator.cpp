@@ -331,19 +331,19 @@ Road* RoadCreator::cutKnot(Road& road)
 			break;
 		}
 	}
-	auto [optRoad, product] = road.split(cp);
+	auto [optRoad, optConnection] = road.split(cp);
 	auto pNewRoad = &*m_pRoadManager->m_roads.add(optRoad.value());
 	
 	// disconnect all from previous
-	road.disconnectAll(&road);
+	road.disconnectAll();
 	// swap since cut is now in road shape
 	if (pNewRoad->m_shape.isCirculary())
 	{
 		std::swap(pNewRoad->m_shape, road.m_shape);
 	}
-	if (product.road)
+	if (optConnection)
 	{
-		Road::connect(pNewRoad, product.road, product.point);
+		pNewRoad->addConnection(optConnection.value());
 	}
 	// then construct both
 	road.reconstruct();
@@ -370,8 +370,10 @@ void RoadCreator::buildToIntersection(Road* road, Road* connectingRoad)
 		{
 			// add right awaY
 			auto addedRoad = &*m_pRoadManager->m_roads.add(product.road.value());
-			if (product.connection.road)
-				Road::connect(addedRoad, product.connection);
+			if (product.connection)
+			{
+				addedRoad->addConnection(product.connection.value());
+			}
 
 			ri->construct({ road, addedRoad, connectingRoad }, connectionPoints[0]);
 		}
@@ -379,15 +381,15 @@ void RoadCreator::buildToIntersection(Road* road, Road* connectingRoad)
 	else //if (connectionPoints.size() == 2)
 	{
 		RoadIntersection* ri1 = new RoadIntersection;
-		auto product = road->split(connectionPoints[0]);
+		auto [optRoad, optConnection] = road->split(connectionPoints[0]);
 
-		if (!product.road)
+		if (!optRoad)
 		{
 			ri1->construct({ road, road, connectingRoad }, connectionPoints[0]);
 			auto secondProduct = road->split(connectionPoints[1]);
 			auto addedRoad = &*m_pRoadManager->m_roads.add(secondProduct.road.value());
-			if (product.connection.road)
-				Road::connect(addedRoad, product.connection);
+			if (optConnection)
+				addedRoad->addConnection(optConnection.value());
 
 			RoadIntersection* ri2 = new RoadIntersection;
 			ri2->construct({ road, addedRoad, connectingRoad }, connectionPoints[1]);
@@ -395,9 +397,9 @@ void RoadCreator::buildToIntersection(Road* road, Road* connectingRoad)
 		else
 		{
 			// add right awaY
-			auto addedRoad = &*m_pRoadManager->m_roads.add(product.road.value());
-			if (product.connection.road)
-				Road::connect(addedRoad, product.connection);
+			auto addedRoad = &*m_pRoadManager->m_roads.add(optRoad.value());
+			if (optConnection)
+				addedRoad->addConnection(optConnection.value());
 
 			RoadIntersection* ri1 = new RoadIntersection;
 			ri1->construct({ road, addedRoad, connectingRoad }, connectionPoints[0]);
@@ -414,14 +416,14 @@ void RoadCreator::buildToIntersection(Road* road, Road* connectingRoad)
 				rightRoad = road;
 			}
 
-			auto secondProduct = rightRoad->split(connectionPoints[1]);
+			auto [optRoad2, optConnection2] = rightRoad->split(connectionPoints[1]);
 			// add right away as well
-			auto secondAddedRoad = &*m_pRoadManager->m_roads.add(secondProduct.road.value());
-			if (secondProduct.connection.road)
-				Road::connect(secondAddedRoad, secondProduct.connection);
+			auto addedRoad2 = &*m_pRoadManager->m_roads.add(optRoad2.value());
+			if (optConnection2)
+				addedRoad2->addConnection(optConnection2.value());
 
 			RoadIntersection* ri2 = new RoadIntersection;
-			ri2->construct({ secondAddedRoad, rightRoad, connectingRoad }, connectionPoints[1]);
+			ri2->construct({ addedRoad2, rightRoad, connectingRoad }, connectionPoints[1]);
 		}
 	}
 }

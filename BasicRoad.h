@@ -8,7 +8,13 @@ class BasicRoad :
 	public SimulationAreaObject
 {
 public:
+	BasicRoad();
 	virtual ~BasicRoad();
+
+	BasicRoad(const BasicRoad& copy);
+	BasicRoad(BasicRoad&& move);
+	BasicRoad& operator=(const BasicRoad& copy);
+	BasicRoad& operator=(BasicRoad&& move);
 
 	virtual glm::vec3 getDirectionPointFromConnectionPoint(Point connectionPoint) = 0;
 	struct ConnectionPossibility 
@@ -24,33 +30,35 @@ public:
 	virtual ConnectionPossibility canConnect(Line connectionLine, Point connectionPoint) const = 0;
 
 protected:
-	struct RoadPointPair
+	struct Connection
 	{
-		BasicRoad* road = nullptr;
+		BasicRoad* connected = nullptr;
 		Point point = {};
 
 		bool operator==(const BasicRoad* otherRoad) const
 		{
-			return this->road == otherRoad;
+			return this->connected == otherRoad;
 		}
 		bool operator==(const Point& otherPoint) const
 		{
 			return approxSamePoints(this->point, otherPoint);
 		}
-		bool operator==(const RoadPointPair& otherPair) const
+		bool operator==(const Connection& otherPair) const
 		{
-			return operator==(otherPair.road) && operator==(otherPair.point);
+			return operator==(otherPair.connected) && operator==(otherPair.point);
 		}
 	};
-	static RoadPointPair& findConnection(BasicRoad* road, BasicRoad* connectedRoad);
-	static RoadPointPair& findConnection(BasicRoad* road, Point connectedPoint);
-	static void connect(BasicRoad* road, const RoadPointPair& connection);
-	static void connect(BasicRoad* road1, BasicRoad* road2, Point connectionPoint);
-	static void transferConnections(BasicRoad* sourceRoad, BasicRoad* destinationRoad);
-	static void dismissConnection(RoadPointPair& connection);
-	static void disconnect(BasicRoad* road1, BasicRoad* road2);
-	static void disconnectAll(BasicRoad* road);
 
-	std::vector<RoadPointPair> m_connections;
+	//Connection& findConnection(BasicRoad* connectedRoad);
+	Connection& findConnection(Point connectedPoint);
+	void connect(BasicRoad* connectionRoad, Point connectionPoint);
+	void addConnection(Connection connection);
+	void copyConnections(BasicRoad* destinationRoad) const;
+	void transferConnections(BasicRoad* destinationRoad);
+	void dismissConnection(Connection& connection);
+	void disconnect(Point connectedPoint);
+	void disconnectAll();
+
+	std::vector<Connection> m_connections;
 };
 
