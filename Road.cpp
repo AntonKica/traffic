@@ -833,20 +833,39 @@ Point SegmentedShape::shorten(const Point& shapeEnd, float size)
 	return shortenPosition;
 }
 
-void SegmentedShape::setNewCircularEndPoints(const Point& point)
+SegmentedShape::ShapeCut SegmentedShape::getShapeCut(Point axisPoint, float radius) const
 {
-	auto newAxiss = getAxis();
-	eraseCommonPoints();
-	auto newAxis = getAxis();
-	auto pointIt = std::find(std::begin(newAxis), std::end(newAxis), point);// findJoint(m_joints, point);
+	if (!isCirculary())
 	{
-		int elementsToErase = pointIt - newAxis.begin();
-		newAxis.insert(newAxis.end(), newAxis.begin(), pointIt);
-		newAxis.erase(newAxis.begin(), newAxis.begin() + elementsToErase);
+		auto axis = getAxis();
+		//auto position = positionOfPointRelativeToTrailEnds(axis, axisPoint);
+		auto [firstJoint, secondJoint] = selectSegment(axisPoint).value();
+		auto insertIter = insertElemementBetween(axis, firstJoint->centre, secondJoint->centre, axisPoint);
 
-		/// add same point to other end
-		newAxis.insert(newAxis.end(), newAxis.front());
+		auto start = travellDistanceFromPointOnTrailToEnd(axis, axisPoint, -radius / 2.0f);
+		auto end = travellDistanceFromPointOnTrailToEnd(axis, axisPoint, radius / 2.0f);
+
+		SegmentedShape::ShapeCut cut;
+		cut.axis = { start ,axisPoint, end };
+
+		return cut;
 	}
+	else
+	{
+		auto newAxis = getAxis();
+		while (true)
+		{
+
+		}
+		insertElemementBetween()
+		setNewCirclePointsStart(newAxis, axisPoint);
+	}
+}
+
+void SegmentedShape::setNewCircularEndPoints(const Point& axisPoint)
+{
+	auto newAxis = getAxis();
+	setNewCirclePointsStart(newAxis, axisPoint);
 
 	construct(newAxis, m_width);
 }
@@ -871,7 +890,6 @@ void SegmentedShape::eraseCommonPoints()
 
 		++current;
 	}
-
 }
 
 void SegmentedShape::createShape(const Points& axis)

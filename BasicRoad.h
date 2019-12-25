@@ -22,7 +22,7 @@ public:
 		bool canConnect = false;
 		std::optional<Point> recomendedPoint;
 
-		operator bool() const
+		inline operator bool() const
 		{
 			return canConnect;
 		}

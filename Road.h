@@ -58,11 +58,12 @@ public:
 	void reverseBody();
 
 	// Connections
+	// Tail
 	void setTailDirectionPoint(Point point);
 	void removeTailDirectionPoint();
 	Point getTailDirectionPoint() const;
 	bool hasTailDirectionPoint() const;
-	//
+	// Head
 	void setHeadDirectionPoint(Point point);
 	void removeHeadDirectionPoint();
 	Point getHeadDirectionPoint() const;
@@ -70,7 +71,9 @@ public:
 
 	void clearDirectionPoints();
 
-	//
+
+
+	// Creation and configration
 	struct OrientedConstructionPoints
 	{
 		std::optional<Point> tailDirectionPoint;
@@ -84,8 +87,13 @@ public:
 	std::optional<SegmentedShape> split(const Point& splitPoint);
 	Point shorten(const Point& shapeEnd, float size);
 
+	struct ShapeCut
+	{
+		Points axis;
+	};
+	ShapeCut getShapeCut(Point axisPoint, float radius) const;
 private:
-	void setNewCircularEndPoints(const Point& point);
+	void setNewCircularEndPoints(const Point& axisPoint);
 	void eraseCommonPoints();
 	void createShape(const Points& axis);
 
