@@ -76,7 +76,7 @@ namespace
 		std::vector<VkSemaphore> imageAvailableSemaphores;
 		std::vector<VkSemaphore> renderFinishedSemaphores;
 		std::vector<VkFence> inFlightFences;
-		size_t currentFrame;
+		size_t currentFrame = 0;
 
 		void cleanUp(VkDevice device, const VkAllocationCallbacks* pAllocator)
 		{

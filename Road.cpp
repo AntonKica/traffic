@@ -31,7 +31,8 @@ glm::vec3 getAveragePosition(const Points& points)
 	return averagePosition / float(points.size());
 }
 
-std::tuple<Points::iterator, Points::iterator, float> travellDistanceOnPoints(Points& points, float distance)
+template <class PointsType> auto //std::tuple<typename PointsType::iterator, typename PointsType::iterator, float> 
+	travellDistanceOnPoints(PointsType& points, float distance)
 {
 	float travelledDistance = 0;
 	auto currentPoint = points.begin();
@@ -52,14 +53,14 @@ std::tuple<Points::iterator, Points::iterator, float> travellDistanceOnPoints(Po
 bool polygonPointCollision(const Points& polygon, const Point& point)
 {
 	bool collision = false;
-	glm::vec3 hitPos;
 	for (auto vert = polygon.begin(); vert != polygon.end(); ++vert)
 	{
 		auto nextVert = (vert + 1) ==
 			polygon.end() ? polygon.begin() : vert + 1;
 
 		// z test
-		if ((vert->z >= point.z && nextVert->z < point.z) || (vert->z < point.z && nextVert->z >= point.z))
+		if (((vert->z > point.z) && nextVert->z < point.z)
+			|| (vert->z < point.z && (nextVert->z >point.z)))
 		{
 			if (point.x < (nextVert->x - vert->x) * (point.z - vert->z) / (nextVert->z - vert->z) + vert->x)
 			{
@@ -347,17 +348,17 @@ VD::Indices createTriangledIndices(const Points& points)
 	return indices;
 }
 
-std::optional<SegmentedShape::Segment> SegmentedShape::selectSegment(const Point& point) const
+std::optional<SegmentedShape::Segment> SegmentedShape::selectSegment(Point arbitraryPoint) const
 {
 	std::optional<Segment> selectedSegment;
 
 	for (int index = 0; index + 1 < m_joints.size(); ++index)
 	{
 		Points vertices = {
-			m_joints[index].side.left, m_joints[index + 1].side.left,
-			m_joints[index + 1].side.right, m_joints[index].side.right };
+			m_joints[index].left, m_joints[index + 1].left,
+			m_joints[index + 1].right, m_joints[index].right };
 
-		if (polygonPointCollision(vertices, point))
+		if (polygonPointCollision(vertices, arbitraryPoint))
 		{
 			Segment segment;
 			segment.start = &m_joints[index];
@@ -370,7 +371,7 @@ std::optional<SegmentedShape::Segment> SegmentedShape::selectSegment(const Point
 	return selectedSegment;
 }
 
-std::vector<SegmentedShape::Segment> SegmentedShape::getJointSegments(const Point& jointPoint) const
+std::vector<SegmentedShape::Segment> SegmentedShape::getJointSegments(Shape::AxisPoint jointPoint) const
 {
 	std::vector<SegmentedShape::Segment> segments;
 	for (int index = 0; index < m_joints.size(); ++index)
@@ -410,18 +411,21 @@ std::vector<SegmentedShape::Segment> SegmentedShape::getJointSegments(const Poin
 	return segments;
 }
 
-std::optional<Point> SegmentedShape::getShapeAxisPoint(const Point& point) const
+std::optional<Shape::AxisPoint> SegmentedShape::getShapeAxisPoint(Point arbitraryPoint) const
 {
-	std::optional<Point> axisPoint;
+	std::optional<Shape::AxisPoint> axisPoint;
 
-	auto selectedSegment = selectSegment(point);
+	auto selectedSegment = selectSegment(arbitraryPoint);
 	if (selectedSegment)
 	{
 		const auto& [start, end] = selectedSegment.value();
-		Point shapePoint = getClosestPointToLine(start->centre, end->centre, point);
-
+		Shape::AxisPoint shapePoint = getClosestPointToLine(start->centre, end->centre, arbitraryPoint);
 		// dont oveerlap actual shape and snap to joint
 		{
+			/*std::cout << glm::length(Point(shapePoint));
+			if (glm::length(Point(shapePoint)) > 100.0f)
+				std::cout << "Woah\n";*/
+
 			const float minDistanceFromJoint = m_width / 2.0f;
 			const float shapeLength = glm::length(start->centre - end->centre);
 
@@ -437,7 +441,7 @@ std::optional<Point> SegmentedShape::getShapeAxisPoint(const Point& point) const
 		if (auto head = getHead(), tail = getTail(); (arePointsInRange(head, shapePoint, minDistanceFromEndPoints) ||
 			arePointsInRange(tail, shapePoint, minDistanceFromEndPoints)) 
 			&& !isCirculary())
-			axisPoint = glm::length(head - point) < glm::length(tail - point) ? head : tail;
+			axisPoint = glm::length(head - arbitraryPoint) < glm::length(tail - arbitraryPoint) ? head : tail;
 		else
 			axisPoint = shapePoint;
 	}
@@ -462,8 +466,8 @@ Mesh SegmentedShape::createMesh(const SegmentedShape& shape)
 		travelledLength += glm::length(previousTravellPoint - joint.centre);
 		previousTravellPoint = joint.centre;
 
-		*verticesIter++ = joint.side.left;
-		*verticesIter++ = joint.side.right;
+		*verticesIter++ = joint.left;
+		*verticesIter++ = joint.right;
 
 		VD::TextureVertex left, right;
 		left.x = 1.0;
@@ -496,16 +500,16 @@ Points SegmentedShape::getSkeleton()  const
 	auto skeletonIter = skeleton.begin();
 	for (const auto& joint : m_joints)
 	{
-		*skeletonIter++ = joint.side.left;
-		*skeletonIter++ = joint.side.right;
+		*skeletonIter++ = joint.left;
+		*skeletonIter++ = joint.right;
 	}
 
 	return skeleton;
 }
 
-Points SegmentedShape::getAxis() const
+Shape::Axis SegmentedShape::getAxis() const
 {
-	Points axis(m_joints.size());
+	Shape::Axis axis(m_joints.size());
 
 	auto axisIter = axis.begin();
 	for (const auto& joint : m_joints)
@@ -514,12 +518,12 @@ Points SegmentedShape::getAxis() const
 	return axis;
 }
 
-Point SegmentedShape::getHead() const
+Shape::AxisPoint  SegmentedShape::getHead() const
 {
 	return m_joints.back().centre;
 }
 
-Point SegmentedShape::getTail() const
+Shape::AxisPoint SegmentedShape::getTail() const
 {
 	return m_joints.front().centre;
 }
@@ -541,7 +545,8 @@ bool SegmentedShape::sitsOnTailOrHead(const Point& point) const
 
 bool SegmentedShape::sitsOnShape(const Point& point) const
 {
-	for (int index = 0; index + 1 < m_joints.size(); ++index)
+	return selectSegment(point).has_value();
+	/*for (int index = 0; index + 1 < m_joints.size(); ++index)
 	{
 		Points vertices = {
 			m_joints[index].side.left, m_joints[index + 1].side.left, 
@@ -549,7 +554,7 @@ bool SegmentedShape::sitsOnShape(const Point& point) const
 		if (polygonPointCollision(vertices, point))
 			return true;
 	}
-	return false;
+	return false;*/
 }
 
 bool SegmentedShape::sitsOnAxis(const Point& point) const
@@ -582,7 +587,7 @@ void SegmentedShape::reverseBody()
 {
 	std::reverse(std::begin(m_joints), std::end(m_joints));
 	for (auto& joint : m_joints)
-		std::swap(joint.side.left, joint.side.right);
+		std::swap(joint.left, joint.right);
 
 	// quiteVerbose
 	if (!m_endDirectionPoints.empty())
@@ -655,11 +660,18 @@ void SegmentedShape::clearDirectionPoints()
 	m_endDirectionPoints.clear();
 }
 
-void SegmentedShape::construct(const Points& axisPoints, float width)
+void SegmentedShape::construct(const Shape::Axis& axisPoints, float width)
+{
+	Points points(std::begin(axisPoints), std::end(axisPoints));
+
+	construct(points, width);
+}
+
+void SegmentedShape::construct(const Points& constructionPoints, float width)
 {
 	OrientedConstructionPoints cp{};
 	if (hasTailDirectionPoint()) cp.tailDirectionPoint = getTailDirectionPoint();
-	cp.points = axisPoints;
+	cp.points = constructionPoints;
 	if (hasHeadDirectionPoint()) cp.headDirectionPoint = getHeadDirectionPoint();
 
 	construct(cp, m_width);
@@ -678,7 +690,10 @@ void SegmentedShape::construct(const OrientedConstructionPoints& constructionPoi
 
 void SegmentedShape::reconstruct()
 {
-	construct(getAxis(), m_width);
+	auto axis = getAxis();
+	Points points(std::begin(axis), std::end(axis));
+
+	construct(points, m_width);
 }
 \
 
@@ -727,14 +742,14 @@ std::optional<SegmentedShape> SegmentedShape::split(const Point& splitPoint)
 
 	if (!isCirculary())
 	{
-		Points newAxis = getAxis();
+		auto newAxis = getAxis();
 		const auto [firstPoint, secondPoint] = selectSegment(splitPoint).value();
 
 		auto newSplitIter = insertElemementBetween(newAxis, firstPoint->centre, secondPoint->centre, splitPoint);
 		//dont erase if same 
 		// recteate this worldAxis
-		Points curSplitAxis (std::begin(newAxis), newSplitIter + 1);
-		Points secondSplitAxis(newSplitIter, std::end(newAxis));
+		Shape::Axis curSplitAxis (std::begin(newAxis), newSplitIter + 1);
+		Shape::Axis secondSplitAxis(newSplitIter, std::end(newAxis));
 
 
 		SegmentedShape optShape;
@@ -751,7 +766,7 @@ std::optional<SegmentedShape> SegmentedShape::split(const Point& splitPoint)
 	else //if ()
 	{
 		// move axis to splitPoints
-		Points newAxis = getAxis();
+		auto newAxis = getAxis();
 
 		// remove uniquePoints
 		const auto [firstPoint, secondPoint] = selectSegment(splitPoint).value();
@@ -776,14 +791,14 @@ std::optional<SegmentedShape> SegmentedShape::split(const Point& splitPoint)
 	return optionalSplit;
 }
 
-Point SegmentedShape::shorten(const Point& shapeEnd, float size)
+Shape::AxisPoint SegmentedShape::shorten(Shape::AxisPoint shapeEnd, float size)
 {
-	Points newAxis;
+	Shape::Axis newAxis;
 	Point shortenPosition = {};
 	if (sitsOnTail(shapeEnd))
 	{
 		removeTailDirectionPoint();
-		Points axis = getAxis();
+		auto axis = getAxis();
 		auto [firstPoint, secondPoint, travelledDistance] = travellDistanceOnPoints(axis, size);
 		if (secondPoint == std::end(axis))
 			throw std::runtime_error("Too far size to shorten");
@@ -808,7 +823,7 @@ Point SegmentedShape::shorten(const Point& shapeEnd, float size)
 		removeHeadDirectionPoint();
 		reverseBody();
 		//reversed 
-		Points reversedAxis = getAxis();
+		auto reversedAxis = getAxis();
 		auto [firstPoint, secondPoint, travelledDistance] = travellDistanceOnPoints(reversedAxis, size);
 
 		if (firstPoint == std::end(reversedAxis))
@@ -833,36 +848,56 @@ Point SegmentedShape::shorten(const Point& shapeEnd, float size)
 	return shortenPosition;
 }
 
-SegmentedShape::ShapeCut SegmentedShape::getShapeCut(Point axisPoint, float radius) const
+SegmentedShape::ShapeCut SegmentedShape::getShapeCut(Shape::AxisPoint axisPoint, float radius) const
 {
-	if (!isCirculary())
+	auto axis = getAxis();
+	if (isCirculary())
 	{
-		auto axis = getAxis();
-		//auto position = positionOfPointRelativeToTrailEnds(axis, axisPoint);
-		auto [firstJoint, secondJoint] = selectSegment(axisPoint).value();
-		auto insertIter = insertElemementBetween(axis, firstJoint->centre, secondJoint->centre, axisPoint);
-
-		auto start = travellDistanceFromPointOnTrailToEnd(axis, axisPoint, -radius / 2.0f);
-		auto end = travellDistanceFromPointOnTrailToEnd(axis, axisPoint, radius / 2.0f);
-
-		SegmentedShape::ShapeCut cut;
-		cut.axis = { start ,axisPoint, end };
-
-		return cut;
+		setNewCirclePointsStart(axis, axisPoint);
 	}
-	else
+	
+	auto [firstPoint, secondPoint] = getEdgesOfAxisPoint(axisPoint);
+	auto insertIter = insertElemementBetween(axis, firstPoint, secondPoint, axisPoint);
+
+	auto [start, remainingFromStart] = travellDistanceFromPointOnTrailToEnd(axis, axisPoint, -radius / 2.0f);
+	auto [end, remainingFromEnd] = travellDistanceFromPointOnTrailToEnd(axis, axisPoint, radius / 2.0f);
+	// correcting, nothing else
+	if (remainingFromStart)
 	{
-		auto newAxis = getAxis();
-		while (true)
-		{
+		float distance = radius / 2.0f + remainingFromStart.value();
+		auto [newEnd, _] = travellDistanceFromPointOnTrailToEnd(axis, axisPoint, distance);
 
-		}
-		insertElemementBetween()
-		setNewCirclePointsStart(newAxis, axisPoint);
+		end = newEnd;
 	}
+	else if(remainingFromEnd)
+	{
+		float distance = -radius / 2.0f - remainingFromEnd.value();
+		auto [newStart, _] = travellDistanceFromPointOnTrailToEnd(axis, axisPoint, distance);
+
+		start = newStart;
+	}
+
+	SegmentedShape::ShapeCut cut;
+	cut.axis = { start ,axisPoint, end };
+	removeDuplicates(cut.axis);
+
+	return cut;
 }
 
-void SegmentedShape::setNewCircularEndPoints(const Point& axisPoint)
+Shape::AxisSegment SegmentedShape::getEdgesOfAxisPoint(Shape::AxisPoint axisPoint) const
+{
+
+	for (int index = 0; index + 1 < m_joints.size(); ++index)
+	{
+		Shape::AxisSegment axisSegment = { m_joints[index].centre, m_joints[index + 1].centre };
+		if (pointSitsOnLine(axisSegment[0], axisSegment[1], axisPoint))
+			return axisSegment;
+	}
+
+	throw std::runtime_error("Suppleid non axis point for edges!");
+}
+
+void SegmentedShape::setNewCircularEndPoints(Shape::AxisPoint axisPoint)
 {
 	auto newAxis = getAxis();
 	setNewCirclePointsStart(newAxis, axisPoint);
@@ -948,9 +983,7 @@ void SegmentedShape::createShape(const Points& axis)
 			
 			const auto [left, right] = getSidePoints(previousDirection, currentDirection, previousPoint, curPoint, nextPoint, m_width);
 
-			Joint newJoint;
-			newJoint.centre = curPoint;
-			newJoint.side = { left, right };
+			Joint newJoint(left, curPoint, right);
 
 			currentJoint = newJoint;
 		}
@@ -977,30 +1010,37 @@ Point Road::getPointOnRoad(const Point& point)
 	return m_shape.getShapeAxisPoint(point).value();
 }
 
-void Road::construct(Points axisPoints, uint32_t laneCount, float width, std::string texture)
+void Road::construct(Shape::Axis axisPoints, uint32_t laneCount, float width, std::string texture)
+{
+	Points points(std::begin(axisPoints), std::end(axisPoints));
+
+	construct(points, laneCount, width, texture);
+}
+
+void Road::construct(Points creationPoints, uint32_t laneCount, float width, std::string texture)
 {
 	RoadParameters parameters;
 	parameters.laneCount = laneCount;
 	parameters.width = width;
 	parameters.texture = texture;
 
-	construct(axisPoints, parameters);
+	construct(creationPoints, parameters);
 }
 
-void Road::construct(Points axisPoints, const RoadParameters& parameters)
+void Road::construct(Points creationPoints, const RoadParameters& parameters)
 {
 	m_position = {};
 
 	m_parameters = parameters;
 
 	SegmentedShape::OrientedConstructionPoints cps;
-	cps.points = axisPoints;
+	cps.points = creationPoints;
 	for (const auto& cp : m_connections)
 	{
-		if (approxSamePoints(axisPoints.front(), cp.point))
-			cps.tailDirectionPoint = cp.connected->getDirectionPointFromConnectionPoint(axisPoints.front());
+		if (approxSamePoints(creationPoints.front(), cp.point))
+			cps.tailDirectionPoint = cp.connected->getDirectionPointFromConnectionPoint(creationPoints.front());
 		else
-			cps.headDirectionPoint = cp.connected->getDirectionPointFromConnectionPoint(axisPoints.back());
+			cps.headDirectionPoint = cp.connected->getDirectionPointFromConnectionPoint(creationPoints.back());
 	}
 	m_shape.construct(cps, m_parameters.width);
 
@@ -1008,13 +1048,8 @@ void Road::construct(Points axisPoints, const RoadParameters& parameters)
 	auto mesh = SegmentedShape::createMesh(m_shape);
 	mesh.textures[VD::TextureType::DIFFUSE] = m_parameters.texture;
 
-	Mesh sh;
-	sh.vertices.positions = m_shape.getAxis();
-	for (auto& v : sh.vertices.positions)
-		v.y += 0.2f;
 	Model model;
 	model.meshes.push_back(mesh);
-	//model.meshes[0] = sh;
 
 	Info::ModelInfo modelInfo;
 	modelInfo.model = &model;
@@ -1025,7 +1060,10 @@ void Road::construct(Points axisPoints, const RoadParameters& parameters)
 
 void Road::reconstruct()
 {
-	construct(m_shape.getAxis(), m_parameters);
+	auto axis = m_shape.getAxis();
+	Points points(std::begin(axis), std::end(axis));
+
+	construct(points, m_parameters);
 }
 
 void Road::mergeWith(Road& road)
@@ -1068,6 +1106,11 @@ Point Road::shorten(const Point& roadEnd, float size)
 	auto shortPoint = m_shape.shorten(roadEnd, size);
 	reconstruct();
 	return shortPoint;
+}
+
+Shape::Axis  Road::getCut(Point roadAxisPoint) const
+{
+	return m_shape.getShapeCut(roadAxisPoint, m_parameters.width).axis;
 }
 
 BasicRoad::ConnectionPossibility Road::canConnect(Line connectionLine, Point connectionPoint) const

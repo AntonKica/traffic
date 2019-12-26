@@ -51,12 +51,15 @@ static bool pointsSitsOnSameHalfOfPlane(Point s1, Point e1, Point p1, Point p2)
 
 static bool pointSitsOnLine(Point s, Point e, Point p)
 {
-	glm::dvec3 ds = s;
-	glm::dvec3 de = e;
-	glm::dvec3 dp = p;
+	if (p == s || p == e)
+		return true;
 
-	constexpr const double maxDifference = 0.000'001;
-	return std::abs(glm::length(ds - dp) + glm::length(de - dp) - glm::length(ds - de)) <= maxDifference;
+	constexpr const float maxDifference = 0.001f;
+	auto lengthSP = glm::length(s - p);
+	auto lengthPE = glm::length(p - e);
+	auto lengthSE = glm::length(s - e);
+
+	return glm::epsilonEqual(lengthSP + lengthPE, lengthSE, maxDifference);
 }
 
 
@@ -71,7 +74,7 @@ enum class TrailPosiition
 	IN_THE_MIDDLE,
 	CLOSER_TO_END
 };
-TrailPosiition positionOfPointRelativeToTrailEnds(const Trail& trail, Point point)
+static TrailPosiition positionOfPointRelativeToTrailEnds(const Trail& trail, Point point)
 {
 	// precaution
 	if (approxSamePoints(point, trail.front()))
@@ -105,63 +108,87 @@ TrailPosiition positionOfPointRelativeToTrailEnds(const Trail& trail, Point poin
 		return TrailPosiition::CLOSER_TO_END;
 }
 
-static Point travellDistanceFromPointOnTrailToEnd(const Points& trail, const Point& trailPoint, float distance)
+/*	
+*	Travells distance along trail
+*	returns also remaining distance if hit the end
+*	also, if the trail is circle, it doesn't care
+*/
+template <class TrailType, class TrailPointType> std::pair<TrailPointType, std::optional<float>> 
+	travellDistanceFromPointOnTrailToEnd(const TrailType& trail, TrailPointType trailPoint, float distance)
 {
 	auto pointIt = std::find(std::begin(trail), std::end(trail), trailPoint);
 	if (pointIt == std::end(trail))
 	{
 		throw std::runtime_error("Given wrong trail point!");
 	}
-	else if (*pointIt == trail.back() && !std::signbit(distance) ||
-		*pointIt == trail.front() && std::signbit(distance))
+	if ((*pointIt == trail.back() && !std::signbit(distance) ||
+		*pointIt == trail.front() && std::signbit(distance)) && 
+		trail.front() != trail.back())
 	{
-		return *pointIt;
+		return std::make_pair(*pointIt, std::optional(std::abs(distance)));
 	}
 
-
-	auto travelledDistance = 0;
+	TrailPointType finalPoint = {};
+	float travelledDistance = 0.0f;
 	if (distance > 0)
 	{
+		finalPoint = trail.front();
 		auto oneBeforePointIt = pointIt++;
-		while (pointIt != std::end(trail))
+		while (true)
 		{
-			travelledDistance += glm::length(*pointIt - *oneBeforePointIt);
+			travelledDistance += glm::length(*oneBeforePointIt - *pointIt);
 
 			if (travelledDistance > distance)
 			{
-				glm::vec3 curDir = glm::normalize(*pointIt - *oneBeforePointIt);
-				float curDst = glm::length(*pointIt - *oneBeforePointIt);
+				travelledDistance = distance;
 
+				glm::vec3 dir = glm::normalize(*oneBeforePointIt - *pointIt);
+				float dst = glm::length(*oneBeforePointIt - *pointIt);
 				// voila
-				return *pointIt + (curDir * (curDst - (travelledDistance - distance)));
+				finalPoint = *pointIt + (dir * (dst - distance));
+				break;
 			}
 			
-			oneBeforePointIt = pointIt++;
+			if (pointIt != std::begin(trail))
+				oneBeforePointIt = pointIt--;
+			else
+				break;
 		}
-		return trail.back();
 	}
 	else
 	{
+		finalPoint = trail.back();
 		// 
 		distance = std::abs(distance);
 
 		auto onePastPointIt = pointIt--;
-		while (pointIt != std::begin(trail) - 1)
+		while (true)
 		{
-			travelledDistance += glm::length(*onePastPointIt - *pointIt);
+			travelledDistance += glm::length(*pointIt - *onePastPointIt);
 
 			if (travelledDistance > distance)
 			{
-				glm::vec3 curDir = glm::normalize(*onePastPointIt - *pointIt);
-				float curDst = glm::length(*onePastPointIt - *pointIt);
+				travelledDistance = distance;
 
+				glm::vec3 curDir = glm::normalize(*pointIt - *onePastPointIt);
+				float curDst = glm::length(*pointIt - *onePastPointIt);
 				// voila
-				return *onePastPointIt + (curDir * (curDst - (travelledDistance - distance)));
+				finalPoint = *onePastPointIt + (curDir * distance);
+				break;
 			}
-			onePastPointIt = pointIt--;
+
+			if (pointIt == std::begin(trail))
+				break;
+			else
+				onePastPointIt = pointIt--;
 		}
-		return trail.back();
 	}
+
+	std::optional<float> remainingDistance;
+		if (travelledDistance - distance)
+			remainingDistance = travelledDistance - distance;
+	
+	return std::make_pair(finalPoint, remainingDistance);
 }
 template<class Container> void removeDuplicates(Container& container)
 {
@@ -170,8 +197,10 @@ template<class Container> void removeDuplicates(Container& container)
 		auto cursor = begin + 1;
 		while (true)
 		{
-			cursor = container.erase(std::find(cursor, std::end(container), *begin), std::end(container));
-			if (cursor == std::end(container))
+			cursor = std::find(cursor, std::end(container), *begin);
+			if (cursor != std::end(container))
+				cursor = container.erase(cursor);
+			else
 				break;
 		}
 	}
@@ -272,7 +301,10 @@ static std::pair<Point, Point> getClosestSideFromThreePoints(const Point& lineSt
 	return line;
 }
 
-static Point getClosestPointToLine(const Point& lineStart, const Point& lineEnd, const Point& point)
+template<class PointType1, class PointType2, class PointType3> PointType1 getClosestPointToLine
+(const PointType1& lineStart,
+	const PointType2& lineEnd,
+	const PointType3& point)
 {
 	if (approxSamePoints(lineStart, lineEnd)) return lineStart;
 
@@ -286,7 +318,7 @@ static Point getClosestPointToLine(const Point& lineStart, const Point& lineEnd,
 	return lineStart + lineDirection * lineDistanceFromPointOne;
 }
 
-void setNewCirclePointsStart(Points& points, const Point& point)
+template<class PointsType, class PointType> void setNewCirclePointsStart(PointsType& points, PointType point)
 {
 	removeDuplicates(points);
 	auto pointIt = std::find(std::begin(points), std::end(points), point);// findJoint(m_joints, point);

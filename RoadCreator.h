@@ -70,12 +70,15 @@ private:
 	struct SittingPoint;
 	void handleConstruction(Road road, std::vector<SittingPoint> constructionPoints);
 
+	void deleteRoadIfPossible();
+
+	/*
 	struct ConnectProducts
 	{
 		std::vector<Road> roads;
 		std::vector<RoadIntersection> intersections;
 		//std::vector<
-	};
+	};*/
 	// return if merged
 	bool connectRoads(Road* road, Road* connectingRoad);
 	uint32_t connectCount(const Road& road, const Road& connectingRoad) const;
@@ -86,14 +89,20 @@ private:
 	void buildToIntersection(Road* road, Road* connectingRoad);
 
 	void updatePoints();
-	enum class Mode
+	enum class CreateMode
+	{
+		CREATOR,
+		DELETOR
+	};
+	enum class BuildMode
 	{
 		STRAIGHT_LINE,
 		CURVED_LINE
 	};
 	ObjectManager* m_pRoadManager;
 
-	Mode creatorMode{};
+	BuildMode buildMode{};
+	CreateMode createMode{};
 	CreatorVisualizer visualizer;
 
 	struct SittingPoint
@@ -118,7 +127,8 @@ public:
 
 	// temp function
 	std::vector<std::string> getRoadNames() const;
-	void setMode(int mode);
+	void setBuildMode(int mode);
+	void setCreateMode(int mode);
 	void setPrototype(int prototype);
 };
 

@@ -5,24 +5,33 @@
 #include <vector>
 
 bool polygonPointCollision(const Points& polygon, const Point& point);
-bool polygonPointCollision(const Points& vertices, float px, float py);
+//bool polygonPointCollision(const Points& vertices, float px, float py);
 bool polygonPolygonCollision(const Points& polygonOne, const Points& polygonTwo);
-
-using Point = glm::vec3;
-using Points = std::vector<Point>;
+namespace Shape
+{
+	struct AxisPoint : Point {
+		AxisPoint() = default;
+		AxisPoint(Point p) 
+			: Point(p)
+		{}
+	};
+	using Axis = std::vector<AxisPoint>;
+	using AxisSegment = std::array<AxisPoint, 2>;
+}
 
 class SegmentedShape
 {
 public:
-	struct Side
-	{
-		Point left, right;
-	};
-	using Sides = std::vector<Side>;
 	struct Joint
 	{
-		Side side;
-		Point centre;
+		Point left;
+		Shape::AxisPoint centre;
+		Point right;
+
+		Joint() = default;
+		Joint(Point left_, Shape::AxisPoint centre_, Point right_)
+			: left(left_), centre(centre_), right(right_)
+		{}
 	};
 	using Joints = std::vector<Joint>;
 	struct Segment
@@ -36,17 +45,17 @@ public:
 		HEAD
 	};
 
-	std::optional<Segment> selectSegment(const Point& point) const;
-	std::vector<Segment> getJointSegments(const Point& jointPoint) const;
-	std::optional<Point> getShapeAxisPoint(const Point& point) const;
+	std::optional<Segment> selectSegment(Point arbitraryPoint) const;
+	std::vector<Segment> getJointSegments(Shape::AxisPoint jointPoint) const;
+	std::optional<Shape::AxisPoint> getShapeAxisPoint(Point arbitraryPoint) const;
 
 	static Mesh createMesh(const SegmentedShape& shape);
 	// getters
 	const Joints& getShape() const;
 	Points getSkeleton() const;
-	Points getAxis() const;
-	Point getHead() const;
-	Point getTail() const;
+	Shape::Axis getAxis() const;
+	Shape::AxisPoint getHead() const;
+	Shape::AxisPoint getTail() const;
 	bool sitsOnHead(const Point& point) const;
 	bool sitsOnTail(const Point& point) const;
 	bool sitsOnTailOrHead(const Point& point) const;
@@ -80,20 +89,23 @@ public:
 		Points points;
 		std::optional<Point> headDirectionPoint;
 	};
-	void construct(const Points& axisPoints, float width);
+	void construct(const Shape::Axis& axisPoints, float width);
+	void construct(const Points& constructionPoints, float width);
 	void construct(const OrientedConstructionPoints& constructionPoints, float width);
 	void reconstruct();
 	void mergeWith(const SegmentedShape& otherShape);
 	std::optional<SegmentedShape> split(const Point& splitPoint);
-	Point shorten(const Point& shapeEnd, float size);
+	Shape::AxisPoint shorten(Shape::AxisPoint shapeEnd, float size);
 
 	struct ShapeCut
 	{
-		Points axis;
+		Shape::Axis axis;
 	};
-	ShapeCut getShapeCut(Point axisPoint, float radius) const;
+	ShapeCut getShapeCut(Shape::AxisPoint axisPoint, float radius) const;
+	Shape::AxisSegment getEdgesOfAxisPoint(Shape::AxisPoint axisPoint) const;
+
 private:
-	void setNewCircularEndPoints(const Point& axisPoint);
+	void setNewCircularEndPoints(Shape::AxisPoint axisPoint);
 	void eraseCommonPoints();
 	void createShape(const Points& axis);
 
@@ -123,15 +135,16 @@ public:
 	Point getPointOnRoad(const Point& point);
 
 	//
-	void construct(Points axisPoints, uint32_t laneCount, float width, std::string texture);
-	void construct(Points axisPoints, const RoadParameters& parameters);
+	void construct(Shape::Axis axisPoints, uint32_t laneCount, float width, std::string texture);
+	void construct(Points creationPoints, uint32_t laneCount, float width, std::string texture);
+	void construct(Points creationPoints, const RoadParameters& parameters);
 	void reconstruct();
 
 	void mergeWith(Road& otherRoad);
 	struct SplitProduct;
 	SplitProduct split(const Point& splitPoint);
 	Point shorten(const Point& roadEnd, float size);
-
+	Shape::Axis getCut(Point roadAxisPoint) const;
 	// overrided
 	ConnectionPossibility canConnect(Line connectionLine, Point connectionPoint) const override;
 
