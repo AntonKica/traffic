@@ -419,7 +419,7 @@ std::optional<Shape::AxisPoint> SegmentedShape::getShapeAxisPoint(Point arbitrar
 	if (selectedSegment)
 	{
 		const auto& [start, end] = selectedSegment.value();
-		Shape::AxisPoint shapePoint = getClosestPointToLine(start->centre, end->centre, arbitraryPoint);
+		Point shapePoint = getClosestPointToLine<Point>(start->centre, end->centre, arbitraryPoint);
 		// dont oveerlap actual shape and snap to joint
 		{
 			/*std::cout << glm::length(Point(shapePoint));
@@ -443,7 +443,7 @@ std::optional<Shape::AxisPoint> SegmentedShape::getShapeAxisPoint(Point arbitrar
 			&& !isCirculary())
 			axisPoint = glm::length(head - arbitraryPoint) < glm::length(tail - arbitraryPoint) ? head : tail;
 		else
-			axisPoint = shapePoint;
+			axisPoint.emplace(shapePoint);
 	}
 
 	return axisPoint;
@@ -674,7 +674,7 @@ void SegmentedShape::construct(const Points& constructionPoints, float width)
 	cp.points = constructionPoints;
 	if (hasHeadDirectionPoint()) cp.headDirectionPoint = getHeadDirectionPoint();
 
-	construct(cp, m_width);
+	construct(cp, width);
 }
 
 void SegmentedShape::construct(const OrientedConstructionPoints& constructionPoints, float width)
@@ -736,16 +736,16 @@ void SegmentedShape::mergeWith(const SegmentedShape& otherShape)
 	}
 }
 
-std::optional<SegmentedShape> SegmentedShape::split(const Point& splitPoint)
+std::optional<SegmentedShape> SegmentedShape::split(Shape::AxisPoint splitPoint)
 {
 	std::optional<SegmentedShape> optionalSplit;
 
 	if (!isCirculary())
 	{
 		auto newAxis = getAxis();
-		const auto [firstPoint, secondPoint] = selectSegment(splitPoint).value();
+		const auto [firstPoint, secondPoint] = getEdgesOfAxisPoint(splitPoint);
 
-		auto newSplitIter = insertElemementBetween(newAxis, firstPoint->centre, secondPoint->centre, splitPoint);
+		auto newSplitIter = insertElemementBetween(newAxis, firstPoint, secondPoint, splitPoint);
 		//dont erase if same 
 		// recteate this worldAxis
 		Shape::Axis curSplitAxis (std::begin(newAxis), newSplitIter + 1);
@@ -794,7 +794,7 @@ std::optional<SegmentedShape> SegmentedShape::split(const Point& splitPoint)
 Shape::AxisPoint SegmentedShape::shorten(Shape::AxisPoint shapeEnd, float size)
 {
 	Shape::Axis newAxis;
-	Point shortenPosition = {};
+	Shape::AxisPoint shortenPosition = {};
 	if (sitsOnTail(shapeEnd))
 	{
 		removeTailDirectionPoint();
@@ -808,10 +808,10 @@ Shape::AxisPoint SegmentedShape::shorten(Shape::AxisPoint shapeEnd, float size)
 		{
 			// reverse direction and go from second point
 			glm::vec3 direction = glm::normalize(*firstPoint - *secondPoint);
-			Point pointPos = *secondPoint + (direction * newVecLength);
+			auto pointPos = *secondPoint + (direction * newVecLength);
 
 			// overwrite
-			shortenPosition = *firstPoint = pointPos;
+			shortenPosition = *firstPoint = Shape::AxisPoint(pointPos);
 		}
 
 		// remove unsuitable points
@@ -834,10 +834,10 @@ Shape::AxisPoint SegmentedShape::shorten(Shape::AxisPoint shapeEnd, float size)
 		{
 			// reverse direction and go from second point
 			glm::vec3 direction = glm::normalize(*firstPoint - *secondPoint);
-			Point pointPos = *secondPoint + (direction * newVecLength);
+			auto pointPos = *secondPoint + (direction * newVecLength);
 
 			// overwrite
-			shortenPosition = *firstPoint = pointPos;
+			shortenPosition = *firstPoint = Shape::AxisPoint(pointPos);
 		}
 
 		// remove unsuitable points
@@ -856,30 +856,38 @@ SegmentedShape::ShapeCut SegmentedShape::getShapeCut(Shape::AxisPoint axisPoint,
 		setNewCirclePointsStart(axis, axisPoint);
 	}
 	
-	auto [firstPoint, secondPoint] = getEdgesOfAxisPoint(axisPoint);
-	auto insertIter = insertElemementBetween(axis, firstPoint, secondPoint, axisPoint);
+	// insert if unique
+	if (std::find(std::begin(axis), std::end(axis), axisPoint) == std::end(axis))
+	{
+		auto [firstPoint, secondPoint] = getEdgesOfAxisPoint(axisPoint);
+		insertElemementBetween(axis, firstPoint, secondPoint, axisPoint);
+	}
 
-	auto [start, remainingFromStart] = travellDistanceFromPointOnTrailToEnd(axis, axisPoint, -radius / 2.0f);
-	auto [end, remainingFromEnd] = travellDistanceFromPointOnTrailToEnd(axis, axisPoint, radius / 2.0f);
+	float halfRadius = radius / 2.0f;
+	auto [startTrail, remainingFromStart] = travellDistanceOnTrailFromPointInDirection(halfRadius, axis, axisPoint, true);
+	auto [endTrail, remainingFromEnd] = travellDistanceOnTrailFromPointInDirection(halfRadius, axis, axisPoint, false);
 	// correcting, nothing else
 	if (remainingFromStart)
 	{
-		float distance = radius / 2.0f + remainingFromStart.value();
-		auto [newEnd, _] = travellDistanceFromPointOnTrailToEnd(axis, axisPoint, distance);
+		float distance = halfRadius + remainingFromStart.value();
+		auto [newEndTrail, _] = travellDistanceOnTrailFromPointInDirection(distance, axis, axisPoint, false);
 
-		end = newEnd;
+		endTrail = newEndTrail;
 	}
 	else if(remainingFromEnd)
 	{
-		float distance = -radius / 2.0f - remainingFromEnd.value();
-		auto [newStart, _] = travellDistanceFromPointOnTrailToEnd(axis, axisPoint, distance);
+		float distance = halfRadius + remainingFromEnd.value();
+		auto [newStartTrail, _] = travellDistanceOnTrailFromPointInDirection(distance, axis, axisPoint, true);
 
-		start = newStart;
+		startTrail = newStartTrail;
 	}
 
-	SegmentedShape::ShapeCut cut;
-	cut.axis = { start ,axisPoint, end };
-	removeDuplicates(cut.axis);
+	// copy result
+	Shape::Axis cutAxis(startTrail.size() - 1 + endTrail.size());
+	auto copyIt = std::reverse_copy(std::begin(startTrail), std::end(startTrail), std::begin(cutAxis));
+	copyIt = std::copy(std::begin(endTrail) + 1, std::end(endTrail), copyIt);
+
+	SegmentedShape::ShapeCut cut{ cutAxis };
 
 	return cut;
 }
@@ -895,6 +903,34 @@ Shape::AxisSegment SegmentedShape::getEdgesOfAxisPoint(Shape::AxisPoint axisPoin
 	}
 
 	throw std::runtime_error("Suppleid non axis point for edges!");
+}
+
+std::optional<SegmentedShape> SegmentedShape::cut(ShapeCut cutPoints)
+{
+	std::optional<SegmentedShape> optShape;
+	auto axis = getAxis();
+	// we assume that point are in the same direction
+	if (!isCirculary())
+	{
+		// we dont need cut
+		auto cut = split(cutPoints.axis.front()).value();
+
+		// next point is on the other shape
+		auto newShape = cut.split(cutPoints.axis.back()).value();
+		if (hasHeadDirectionPoint())
+		{
+			newShape.setHeadDirectionPoint(getHeadDirectionPoint());
+			removeHeadDirectionPoint();
+		}
+
+		optShape = newShape;
+	}
+	else
+	{
+		// circle not implemented yet
+	}
+
+	return optShape;
 }
 
 void SegmentedShape::setNewCircularEndPoints(Shape::AxisPoint axisPoint)
@@ -982,9 +1018,8 @@ void SegmentedShape::createShape(const Points& axis)
 			}
 			
 			const auto [left, right] = getSidePoints(previousDirection, currentDirection, previousPoint, curPoint, nextPoint, m_width);
-
-			Joint newJoint(left, curPoint, right);
-
+			Joint newJoint(left, Shape::AxisPoint(curPoint), right);
+	
 			currentJoint = newJoint;
 		}
 	}
@@ -1005,7 +1040,7 @@ bool Road::sitsOnRoad(const Point& point) const
 	return m_shape.sitsOnShape(point);
 }
 
-Point Road::getPointOnRoad(const Point& point)
+Shape::AxisPoint Road::getPointOnRoad(const Point& point)
 {
 	return m_shape.getShapeAxisPoint(point).value();
 }
@@ -1072,12 +1107,11 @@ void Road::mergeWith(Road& road)
 	road.transferConnections(this);
 	reconstruct();
 }
-Road::SplitProduct Road::split(const Point& splitPoint)
+Road::SplitProduct Road::split(Shape::AxisPoint splitPoint)
 {
-	auto optSplit = m_shape.split(splitPoint);
 
 	Road::SplitProduct product;
-	if (optSplit)
+	if (auto optSplit = m_shape.split(splitPoint))
 	{
 		Road road;
 		// // validate connections
@@ -1101,19 +1135,45 @@ Road::SplitProduct Road::split(const Point& splitPoint)
 }
 
 
-Point Road::shorten(const Point& roadEnd, float size)
+Shape::AxisPoint Road::shorten(Shape::AxisPoint roadEnd, float size)
 {
 	auto shortPoint = m_shape.shorten(roadEnd, size);
 	reconstruct();
 	return shortPoint;
 }
 
-Shape::Axis  Road::getCut(Point roadAxisPoint) const
+SegmentedShape::ShapeCut Road::getCut(Shape::AxisPoint roadAxisPoint) const
 {
-	return m_shape.getShapeCut(roadAxisPoint, m_parameters.width).axis;
+	return m_shape.getShapeCut(roadAxisPoint, m_parameters.width);
 }
 
-BasicRoad::ConnectionPossibility Road::canConnect(Line connectionLine, Point connectionPoint) const
+Road::CutProduct Road::cut(SegmentedShape::ShapeCut cutPoints)
+{
+	Road::CutProduct product;
+	if (auto optSplit = m_shape.cut(cutPoints))
+	{
+		Road road;
+		// // validate connections
+		for (auto& connection : m_connections)
+		{
+			if (!sitsOnEndPoints(connection.point))
+			{
+				product.connection = connection;
+				dismissConnection(connection);
+			}
+		}
+		// then construct
+		road.construct(optSplit.value().getAxis(), m_parameters.laneCount, m_parameters.width, m_parameters.texture);
+
+		product.road = road;
+	}
+
+	reconstruct();
+
+	return product;
+}
+
+BasicRoad::ConnectionPossibility Road::canConnect(Line connectionLine, Shape::AxisPoint connectionPoint) const
 {
 	ConnectionPossibility connectionPossibility{};
 	//reored 

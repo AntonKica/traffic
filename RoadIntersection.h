@@ -14,7 +14,7 @@ public:
 	void construct(std::array<Road*, 3> roads, Point intersectionPoint);
 
 	glm::vec3 getDirectionPointFromConnectionPoint(Point point) override;
-	ConnectionPossibility canConnect(Line connectionLine, Point connectionPoint) const override;
+	ConnectionPossibility canConnect(Line connectionLine, Shape::AxisPoint connectionPoint) const override;
 private:
 	float m_width = 0;
 	Point m_centre = {};

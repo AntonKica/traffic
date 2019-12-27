@@ -48,7 +48,7 @@ private:
 };
 
 
-namespace
+namespace RC
 {
 	struct Prototypes
 	{
@@ -56,6 +56,26 @@ namespace
 		uint32_t laneCount;
 		float width;
 		std::string texture;
+	};
+
+	struct SittingPoint
+	{
+		struct SittingAxisPoint
+		{
+			Shape::AxisPoint axisPoint;
+			Road* road = nullptr;
+		};
+		using SAP = SittingAxisPoint;
+
+		std::variant<Point, SAP> point;
+
+		Point getPoint() const
+		{
+			if (auto point = std::get_if<Point>(&this->point))
+				return *point;
+			else
+				return std::get<RC::SittingPoint::SAP>(this->point).axisPoint;
+		}
 	};
 }
 
@@ -67,8 +87,7 @@ private:
 	void setPoint();
 	void createRoadIfPossible();
 	void createRoad(const Points& creationPoints);
-	struct SittingPoint;
-	void handleConstruction(Road road, std::vector<SittingPoint> constructionPoints);
+	void handleConstruction(Road road, std::vector<RC::SittingPoint::SAP> connectPoints);
 
 	void deleteRoadIfPossible();
 
@@ -79,10 +98,10 @@ private:
 		std::vector<RoadIntersection> intersections;
 		//std::vector<
 	};*/
-	// return if merged
-	bool connectRoads(Road* road, Road* connectingRoad);
+	// returns road you should use next
+	Road* connectRoads(Road* road, Road* connectingRoad);
 	uint32_t connectCount(const Road& road, const Road& connectingRoad) const;
-	std::vector<Point> connectPoints(const Road& road, const Road& connectingRoad) const;
+	std::vector<Shape::AxisPoint> connectPoints(const Road& road, const Road& connectingRoad) const;
 
 	void mergeRoads(Road* road, Road* mergingRoad);
 	Road* cutKnot(Road& road);
@@ -105,17 +124,11 @@ private:
 	CreateMode createMode{};
 	CreatorVisualizer visualizer;
 
-	struct SittingPoint
-	{
-		Point point = {};
-		Road* road = nullptr;
-		bool core = false;
-	};
-	std::vector<SittingPoint> setPoints;
-	std::vector<SittingPoint> buildPoints;
-	std::optional<SittingPoint> mousePoint;
+	std::vector<RC::SittingPoint> setPoints;
+	std::vector<RC::SittingPoint> buildPoints;
+	std::optional<RC::SittingPoint> mousePoint;
 
-	std::map<int, ::Prototypes> hardcodedRoadPrototypes;
+	std::map<int, RC::Prototypes> hardcodedRoadPrototypes;
 	int currentPrototypeID = 0;
 	bool validRoad = false;
 public:

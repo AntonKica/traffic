@@ -7,17 +7,6 @@
 bool polygonPointCollision(const Points& polygon, const Point& point);
 //bool polygonPointCollision(const Points& vertices, float px, float py);
 bool polygonPolygonCollision(const Points& polygonOne, const Points& polygonTwo);
-namespace Shape
-{
-	struct AxisPoint : Point {
-		AxisPoint() = default;
-		AxisPoint(Point p) 
-			: Point(p)
-		{}
-	};
-	using Axis = std::vector<AxisPoint>;
-	using AxisSegment = std::array<AxisPoint, 2>;
-}
 
 class SegmentedShape
 {
@@ -29,7 +18,7 @@ public:
 		Point right;
 
 		Joint() = default;
-		Joint(Point left_, Shape::AxisPoint centre_, Point right_)
+		explicit Joint(const Point& left_,const Shape::AxisPoint& centre_, const Point& right_)
 			: left(left_), centre(centre_), right(right_)
 		{}
 	};
@@ -94,7 +83,7 @@ public:
 	void construct(const OrientedConstructionPoints& constructionPoints, float width);
 	void reconstruct();
 	void mergeWith(const SegmentedShape& otherShape);
-	std::optional<SegmentedShape> split(const Point& splitPoint);
+	std::optional<SegmentedShape> split(Shape::AxisPoint splitPoint);
 	Shape::AxisPoint shorten(Shape::AxisPoint shapeEnd, float size);
 
 	struct ShapeCut
@@ -103,6 +92,7 @@ public:
 	};
 	ShapeCut getShapeCut(Shape::AxisPoint axisPoint, float radius) const;
 	Shape::AxisSegment getEdgesOfAxisPoint(Shape::AxisPoint axisPoint) const;
+	std::optional<SegmentedShape> cut(ShapeCut cutPoints);
 
 private:
 	void setNewCircularEndPoints(Shape::AxisPoint axisPoint);
@@ -132,7 +122,7 @@ public:
 	RoadParameters getParameters() const;
 	bool sitsOnEndPoints(const Point& point) const;
 	bool sitsOnRoad(const Point& point) const;
-	Point getPointOnRoad(const Point& point);
+	Shape::AxisPoint getPointOnRoad(const Point& point);
 
 	//
 	void construct(Shape::Axis axisPoints, uint32_t laneCount, float width, std::string texture);
@@ -142,11 +132,14 @@ public:
 
 	void mergeWith(Road& otherRoad);
 	struct SplitProduct;
-	SplitProduct split(const Point& splitPoint);
-	Point shorten(const Point& roadEnd, float size);
-	Shape::Axis getCut(Point roadAxisPoint) const;
+	SplitProduct split(Shape::AxisPoint splitPoint);
+	Shape::AxisPoint shorten(Shape::AxisPoint roadEnd, float size);
+	SegmentedShape::ShapeCut getCut(Shape::AxisPoint roadAxisPoint) const;
+	using CutProduct = SplitProduct;
+	CutProduct cut(SegmentedShape::ShapeCut cutPoints);
+
 	// overrided
-	ConnectionPossibility canConnect(Line connectionLine, Point connectionPoint) const override;
+	ConnectionPossibility canConnect(Line connectionLine, Shape::AxisPoint connectionPoint) const override;
 
 	glm::vec3 getDirectionPointFromConnectionPoint(Point connectionPoint) override;
 

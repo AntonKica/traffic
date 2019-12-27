@@ -97,7 +97,7 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 		for (auto& road : roads)
 		{
 			auto parameters = road->getParameters();
-			auto shortPoint = road->shorten(intersectionPoint, requiredDistance);
+			auto shortPoint = road->shorten(Shape::AxisPoint(intersectionPoint), requiredDistance);
 			m_connectionPoints.push_back(shortPoint);
 
 			connect(road, shortPoint);
@@ -179,7 +179,7 @@ glm::vec3 RoadIntersection::getDirectionPointFromConnectionPoint(Point connectio
 	return m_centre;
 }
 
-BasicRoad::ConnectionPossibility RoadIntersection::canConnect(Line connectionLine, Point connectionPoint) const
+BasicRoad::ConnectionPossibility RoadIntersection::canConnect(Line connectionLine, Shape::AxisPoint connectionPoint) const
 {
 	ConnectionPossibility cp{};
 	return cp;

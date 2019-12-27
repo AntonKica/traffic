@@ -4,6 +4,25 @@
 #include <map>
 #include <glm/glm.hpp>
 
+namespace Shape
+{
+	struct AxisPoint : Point {
+		AxisPoint()										= default;
+		AxisPoint(const AxisPoint& other)				= default;
+		AxisPoint(AxisPoint&& other)					= default;
+		AxisPoint& operator=(const AxisPoint& other)	= default;
+		AxisPoint& operator=(AxisPoint&& other)			= default;
+
+		explicit AxisPoint(const Point& p)
+			: Point(p)
+		{}
+
+	};
+
+	using Axis = std::vector<AxisPoint>;
+	using AxisSegment = std::array<AxisPoint, 2>;
+}
+
 class BasicRoad :
 	public SimulationAreaObject
 {
@@ -27,7 +46,7 @@ public:
 			return canConnect;
 		}
 	};
-	virtual ConnectionPossibility canConnect(Line connectionLine, Point connectionPoint) const = 0;
+	virtual ConnectionPossibility canConnect(Line connectionLine, Shape::AxisPoint connectionPoint) const = 0;
 
 protected:
 	struct Connection
