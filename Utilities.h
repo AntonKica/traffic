@@ -133,25 +133,27 @@ template <class TrailContainer, class TrailPointType> std::pair<TrailContainer, 
 		if(*pointIt != trail.back() && trail.front() != trail.back())
 		{
 			float travelledDistance = 0;
-			for (auto nextIter = pointIt + 1; nextIter != std::end(trail); pointIt = nextIter++)
+			for (auto previousIter = pointIt++; pointIt != std::end(trail); previousIter = pointIt++)
 			{
-				float thisLineDistance = glm::length(*nextIter - *pointIt);
+				float thisLineDistance = glm::length(*pointIt - *previousIter);
 				travelledDistance += thisLineDistance;
 
 				if (travelledDistance > distanceToTravell)
 				{
-					auto dir = glm::normalize(*nextIter - *pointIt);
+					auto dir = glm::normalize(*pointIt - *previousIter);
 					float overStep = travelledDistance - distanceToTravell;
 					float distanceFromPoint = thisLineDistance - overStep;
 
-					auto finalPoint = *pointIt + dir * distanceFromPoint;
+					auto finalPoint = *previousIter + dir * distanceFromPoint;
 
 					travelledPoints.emplace_back(finalPoint);
 					distanceLeft = 0;
+
+					break;
 				}
 				else
 				{
-					travelledPoints.emplace_back(*nextIter);
+					travelledPoints.emplace_back(*pointIt);
 					distanceLeft -= thisLineDistance;
 				}
 			}
@@ -167,25 +169,27 @@ template <class TrailContainer, class TrailPointType> std::pair<TrailContainer, 
 		if (*pointIt != trail.front() && trail.front() != trail.back())
 		{
 			float travelledDistance = 0;
-			for (auto nextIter = pointIt + 1; nextIter != std::rend(trail); pointIt = nextIter++)
+			for (auto previousIter = pointIt++; pointIt != std::rend(trail); previousIter = pointIt++)
 			{
-				float thisLineDistance = glm::length(*nextIter - *pointIt);
+				float thisLineDistance = glm::length(*pointIt - *previousIter);
 				travelledDistance += thisLineDistance;
 
 				if (travelledDistance > distanceToTravell)
 				{
-					auto dir = glm::normalize(*nextIter - *pointIt);
+					auto dir = glm::normalize(*pointIt - *previousIter);
 					float overStep = travelledDistance - distanceToTravell;
 					float distanceFromPoint = thisLineDistance - overStep;
 
-					auto finalPoint = *pointIt + dir * distanceFromPoint;
+					auto finalPoint = *previousIter + dir * distanceFromPoint;
 
 					travelledPoints.emplace_back(finalPoint);
 					distanceLeft = 0;
+
+					break;
 				}
 				else
 				{
-					travelledPoints.emplace_back(*nextIter);
+					travelledPoints.emplace_back(*pointIt);
 					distanceLeft -= thisLineDistance;
 				}
 			}

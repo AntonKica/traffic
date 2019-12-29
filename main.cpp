@@ -6,7 +6,6 @@
 #include "GraphicsComponent.h"
 #include "VulkanDataManager.h"
 
-#include "Model.h"
 void runGraphics(VulkanBase& base)
 {
 	try

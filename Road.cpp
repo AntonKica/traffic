@@ -1040,7 +1040,7 @@ bool Road::sitsOnRoad(const Point& point) const
 	return m_shape.sitsOnShape(point);
 }
 
-Shape::AxisPoint Road::getPointOnRoad(const Point& point)
+Shape::AxisPoint Road::getAxisPoint(const Point& point)
 {
 	return m_shape.getShapeAxisPoint(point).value();
 }
@@ -1176,6 +1176,7 @@ Road::CutProduct Road::cut(SegmentedShape::ShapeCut cutPoints)
 BasicRoad::ConnectionPossibility Road::canConnect(Line connectionLine, Shape::AxisPoint connectionPoint) const
 {
 	ConnectionPossibility connectionPossibility{};
+	connectionPossibility.recomendedPoint = connectionPoint;
 	//reored 
 	if (approxSamePoints(connectionLine[0], connectionPoint))
 		std::swap(connectionLine[0], connectionLine[1]);

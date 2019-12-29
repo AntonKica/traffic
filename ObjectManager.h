@@ -45,19 +45,20 @@ class ObjectManagerUI :
 	public UIElement
 {
 public:
-	ObjectManagerUI(ObjectManager* objectManager);
+	enum class CreatorType
+	{
+		ROAD,
+		BUILDING,
+		MAX
+	};
+	ObjectManagerUI(ObjectManager* objectManager, CreatorType activeCreator);
 
 	virtual void draw() override;
 
-	enum class Creator
-	{
-		BUILDING,
-		ROAD,
-		MAX
-	};
-
+	CreatorType getCurrentCreator() const;
 private:
-	Creator m_currentCreator;
+	bool m_shouldCreate = true;
+	CreatorType m_currentCreator;
 	ObjectManager* m_pObjectManager;
 };
 
@@ -68,7 +69,7 @@ class ObjectManager
 	friend class SimulationArea;
 	friend class RoadCreator;
 	friend class BuildingCreator;
-
+	friend class ObjectManagerUI;
 public:
 	ObjectManager(SimulationArea* pSimulationArea);
 	~ObjectManager();
@@ -77,6 +78,7 @@ public:
 
 	void updateSelectedRoad();
 	std::optional<Road*> getSelectedRoad() const;
+	void setCreatorsModes(Creator::CreatorMode mode);
 //
 private:
 	SimulationArea* m_pSimulationArea;

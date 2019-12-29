@@ -453,8 +453,7 @@ void VulkanBase::mainLoop()
 	double deltaTime = 0.0;
 
 	//just for testing puproses
-	App::Scene.initComponents();
-
+	App::Scene.m_simArea.initArea();
 	while (!glfwWindowShouldClose(m_window))
 	{
 		App::time.tick();

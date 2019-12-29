@@ -1,6 +1,7 @@
 #pragma once
 #include "GraphicsComponent.h"
 #include "Road.h"
+#include "BasicCreator.h"
 
 #include <glm/glm.hpp>
 #include <vector>
@@ -8,8 +9,9 @@
 #include <set>
 #include <optional>
 
+/*
 using Point = glm::vec3;
-using Points = std::vector<glm::vec3>;
+using Points = std::vector<glm::vec3>;*/
 
 template<class vec1> class VComparator
 {
@@ -31,7 +33,7 @@ class CreatorVisualizer
 {
 public:
 	void update();
-	void setDraw(const std::vector<Point>& points, float width, bool valid);
+	void setDraw(const std::vector<Point>& drawAxis, const std::vector<Point>& drawPoints, float width, bool valid);
 
 private:
 	VD::PositionVertices generateLines();
@@ -40,6 +42,7 @@ private:
 
 	float width = 0;
 	bool valid = false;
+	std::vector<Point> axisToDraw;
 	std::vector<Point> pointToDraw;
 	std::optional<Point> mousePoint;
 
@@ -60,46 +63,67 @@ namespace RC
 
 	struct SittingPoint
 	{
-		struct SittingAxisPoint
-		{
-			Shape::AxisPoint axisPoint;
-			Road* road = nullptr;
-		};
-		using SAP = SittingAxisPoint;
-
-		std::variant<Point, SAP> point;
-
-		Point getPoint() const
-		{
-			if (auto point = std::get_if<Point>(&this->point))
-				return *point;
-			else
-				return std::get<RC::SittingPoint::SAP>(this->point).axisPoint;
-		}
+		Point point;
+		std::optional<Road*> road;
 	};
+	using SittingPoints = std::vector<SittingPoint>;
+
+	using PointRoadPair = std::pair<Point, Road*>;
+	struct ProcessedSittingPoints
+	{
+		bool validPoints = true;
+		std::optional<PointRoadPair> roadBeginAxisPoint;
+		Points axisPoints;
+		std::optional<PointRoadPair> roadEndAxisPoint;
+	};
+	using ProcSitPts = ProcessedSittingPoints;
 }
+
+class RoadCreatorUI
+	: public BasicUI
+{
+public:
+	RoadCreatorUI();
+	virtual void draw() override;
+
+	bool doCurves() const;
+	const RC::Prototypes* getSelectedPrototype() const;
+
+private:
+	bool m_doCurves = false;
+	const RC::Prototypes* m_selectedPrototype;
+	std::vector<RC::Prototypes> m_prototypes;
+};
 
 class ObjectManager;
 class RoadCreator
+	: public BasicCreator<RoadCreatorUI>
 {
 private:
-	void setupPrototypes();
+	void updatePoints();
+	void updateMousePoint();
+	void updateCurrentPoints();
+	void updateCreationPoints();
+	void setVisualizerDraw();
+	struct ProcessedSittingPoints
+	{
+		std::optional<Point> roadBeginAxisPoint;
+		Point constructPoints;
+		std::optional<Point> roadEndAxisPoint;
+	};
+	RC::ProcSitPts processSittingPoints(const std::vector<RC::SittingPoint> sittingPoints) const;
 	void setPoint();
-	void createRoadIfPossible();
-	void createRoad(const Points& creationPoints);
-	void handleConstruction(Road road, std::vector<RC::SittingPoint::SAP> connectPoints);
-
-	void deleteRoadIfPossible();
+	void handleCurrentPoints();
+	void tryToConstructRoad();
+	void tryToDestroyRoad();
+	void createRoadFromCurrent();
+	void handleConstruction(Road road, std::vector<RC::PointRoadPair> connectPoints);
 
 	/*
-	struct ConnectProducts
-	{
-		std::vector<Road> roads;
-		std::vector<RoadIntersection> intersections;
-		//std::vector<
 	};*/
 	// returns road you should use next
 	Road* connectRoads(Road* road, Road* connectingRoad);
+	// helper functions
 	uint32_t connectCount(const Road& road, const Road& connectingRoad) const;
 	std::vector<Shape::AxisPoint> connectPoints(const Road& road, const Road& connectingRoad) const;
 
@@ -107,41 +131,28 @@ private:
 	Road* cutKnot(Road& road);
 	void buildToIntersection(Road* road, Road* connectingRoad);
 
-	void updatePoints();
-	enum class CreateMode
-	{
-		CREATOR,
-		DELETOR
-	};
-	enum class BuildMode
-	{
-		STRAIGHT_LINE,
-		CURVED_LINE
-	};
 	ObjectManager* m_pRoadManager;
 
-	BuildMode buildMode{};
-	CreateMode createMode{};
 	CreatorVisualizer visualizer;
 
-	std::vector<RC::SittingPoint> setPoints;
-	std::vector<RC::SittingPoint> buildPoints;
-	std::optional<RC::SittingPoint> mousePoint;
+	std::optional<RC::SittingPoint> m_mousePoint;
+	std::vector<RC::SittingPoint> m_setPoints;
+	Points m_creationPoints;
 
-	std::map<int, RC::Prototypes> hardcodedRoadPrototypes;
-	int currentPrototypeID = 0;
-	bool validRoad = false;
+	RC::ProcSitPts m_processedCurrentPoints;
+	//bool m_handleCurrentPointsNextUpdate = false;
+protected:
+	virtual void setCreatorModeAction() override;
+	virtual void setActiveAction() override;
+
 public:
 	RoadCreator(ObjectManager* roadManager);
+
 
 	void update();
 	void clickEvent();
 	void rollBackEvent();
 
 	// temp function
-	std::vector<std::string> getRoadNames() const;
-	void setBuildMode(int mode);
-	void setCreateMode(int mode);
-	void setPrototype(int prototype);
 };
 

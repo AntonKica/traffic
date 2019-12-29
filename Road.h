@@ -122,7 +122,7 @@ public:
 	RoadParameters getParameters() const;
 	bool sitsOnEndPoints(const Point& point) const;
 	bool sitsOnRoad(const Point& point) const;
-	Shape::AxisPoint getPointOnRoad(const Point& point);
+	Shape::AxisPoint getAxisPoint(const Point& point);
 
 	//
 	void construct(Shape::Axis axisPoints, uint32_t laneCount, float width, std::string texture);

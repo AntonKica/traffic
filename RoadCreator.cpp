@@ -1,5 +1,4 @@
 #include "RoadCreator.h"
-#include "RoadManager.h"
 #include "RoadIntersection.h"
 
 #include "GlobalObjects.h"
@@ -134,139 +133,341 @@ std::vector<Point> generateCurveFromThreePoints(const std::array<Point, 3>& poin
 	return curvePoints;
 }
 
-void RoadCreator::setupPrototypes()
+RoadCreatorUI::RoadCreatorUI()
 {
-	hardcodedRoadPrototypes[0] = { "Basic 2-lane road", 2, 1.0f, "resources/materials/road.png" };
-	hardcodedRoadPrototypes[1] = { "Basic 4-lane road", 4, 2.0f, "resources/materials/road2.png" };
-	currentPrototypeID = 0;
+	m_prototypes = { 
+	{ "Basic 2-lane road", 2, 1.0f, "resources/materials/road.png" },
+	{ "Basic 4-lane road", 4, 2.0f, "resources/materials/road2.png" } ,
+	{ "Basic 2-lane road", 2, 1.0f, "resources/materials/road.png" },
+	{ "Basic 4-lane road", 4, 2.0f, "resources/materials/road2.png" },
+	{ "Basic 2-lane road", 2, 1.0f, "resources/materials/road.png" },
+	{ "Basic 4-lane road", 4, 2.0f, "resources/materials/road2.png" },
+	{ "Basic 2-lane road", 2, 1.0f, "resources/materials/road.png" },
+	};
+
+	m_selectedPrototype = &m_prototypes[0];
 }
+
+void RoadCreatorUI::draw()
+{
+	// ImVec2(150, 200))
+	ImGui::Columns(2, 0, false);
+	ImGui::SetColumnWidth(0, 120.f);
+	ImGui::Checkbox("Curved lines", &m_doCurves);
+	ImGui::NextColumn();
+
+	ImGui::BeginChild(" roads ");
+	//
+	constexpr const uint32_t maxColumnsPerLine = 4;
+	const uint32_t nOfRows = m_prototypes.size() / maxColumnsPerLine + 1;
+	
+	for (uint32_t row = 0; row < nOfRows; ++row)
+	{
+		ImGui::Columns(maxColumnsPerLine, 0, false);
+		const uint32_t totalIterations = m_prototypes.size();
+		const uint32_t nOfColumns = (row + 1) * maxColumnsPerLine <= totalIterations ?
+			maxColumnsPerLine : totalIterations - row * maxColumnsPerLine;
+		for (uint32_t column = 0; column < nOfColumns; ++column)
+		{
+			const uint32_t currentIndex = row * maxColumnsPerLine + column;
+			const ImVec2 buttonSize(ImGui::GetColumnWidth() * 0.9f, 40.0f);
+
+			const auto& currentPrototype = m_prototypes[currentIndex];
+
+			if (ImGui::Button(currentPrototype.name.c_str(), buttonSize))
+				m_selectedPrototype = &currentPrototype;
+
+			ImGui::NextColumn();
+		}
+	}
+
+	ImGui::EndChild();
+	ImGui::NextColumn();
+}
+
+bool RoadCreatorUI::doCurves() const
+{
+	return m_doCurves;
+}
+
+const RC::Prototypes* RoadCreatorUI::getSelectedPrototype() const
+{
+	return m_selectedPrototype;
+}
+
+RC::ProcSitPts RoadCreator::processSittingPoints(const std::vector<RC::SittingPoint> sittingPoints) const
+{
+	RC::ProcSitPts processed{};
+	if (sittingPoints.size() == 1)
+	{
+		processed.axisPoints = { sittingPoints[0].point };
+	}
+	else if(sittingPoints.size() > 1)
+	{
+		// extract not connected points
+		for (const auto& sp : sittingPoints)
+		{
+			//if (!sp.road)
+			processed.axisPoints.push_back(sp.point);
+		}
+
+		// process ends
+		const auto& front = sittingPoints.front();
+		const auto& back = sittingPoints.back();
+
+		if (front.road)
+		{
+			processed.roadBeginAxisPoint = std::make_pair(front.point, front.road.value());
+
+			Line connectingLine = { front.point, (sittingPoints.begin() + 1)->point };
+			auto conPossibiliy = front.road.value()->canConnect(connectingLine, Shape::AxisPoint(front.point));
+
+			processed.validPoints = conPossibiliy.canConnect;
+			processed.axisPoints.insert(processed.axisPoints.begin() + 1, conPossibiliy.recomendedPoint);
+		}
+		if (back.road)
+		{
+			processed.roadEndAxisPoint = std::make_pair(back.point, back.road.value());
+
+			Line connectingLine = { back.point, (sittingPoints.end() - 2)->point };
+			auto conPossibiliy = back.road.value()->canConnect(connectingLine, Shape::AxisPoint(back.point));
+
+			processed.validPoints = conPossibiliy.canConnect;
+			processed.axisPoints.insert(processed.axisPoints.end() - 1, conPossibiliy.recomendedPoint);
+		}
+	}
+
+	return processed;
+}
+
 void RoadCreator::setPoint()
 {
-	if (validRoad && mousePoint)
+	if (m_processedCurrentPoints.validPoints && m_mousePoint)
 	{
-		setPoints.push_back(mousePoint.value());
+		m_setPoints.push_back(m_mousePoint.value());
 
-		if (createMode == CreateMode::CREATOR)
-			createRoadIfPossible();
-		else
-			deleteRoadIfPossible();
+		handleCurrentPoints();
 	}
 }
 
+void RoadCreator::handleCurrentPoints()
+{
+	if (m_currentMode == Creator::CreatorMode::CREATE)
+		tryToConstructRoad();
+	else
+		tryToDestroyRoad();
+}	
+
+void RoadCreator::tryToConstructRoad()
+{
+	if (!m_processedCurrentPoints.validPoints)
+		return;
+	if (m_setPoints.size() <= 1)
+		return;
+	if (m_setPoints.size() <= 2 && m_ui.doCurves())
+		return;
+
+	createRoadFromCurrent();
+}
+
+void RoadCreator::tryToDestroyRoad()
+{
+	if (m_setPoints.empty())
+		return;
+
+	auto& curSetPoint = m_setPoints[0];
+	if (curSetPoint.road)
+	{
+		auto& curPoint = curSetPoint.point;
+		auto& curRoad = curSetPoint.road.value();
+
+		auto cut = curRoad->getCut(Shape::AxisPoint(curPoint));
+		auto product = curRoad->cut(cut);
+
+		if (product.road)
+		{
+			auto addedRoad = m_pRoadManager->m_roads.add(product.road.value());
+			if (product.connection)
+				addedRoad->addConnection(product.connection.value());
+		}
+		else if(!curRoad->m_shape.getAxis().size())
+			m_pRoadManager->m_roads.remove(curRoad);
+	}
+
+	m_setPoints.clear();
+}
+
+void RoadCreator::createRoadFromCurrent()
+{
+	std::vector<RC::PointRoadPair> connectingPoints;
+	if (m_processedCurrentPoints.roadBeginAxisPoint)
+		connectingPoints.push_back(m_processedCurrentPoints.roadBeginAxisPoint.value());
+	if (m_processedCurrentPoints.roadEndAxisPoint)
+		connectingPoints.push_back(m_processedCurrentPoints.roadEndAxisPoint.value());
+	if (connectingPoints.size() == 2 && connectingPoints[0].second == connectingPoints[1].second)
+		connectingPoints.pop_back();
+
+
+	// creater road
+	const auto currentPrototype = m_ui.getSelectedPrototype();
+	Road newRoad;
+	newRoad.construct(m_creationPoints, currentPrototype->laneCount, currentPrototype->width, currentPrototype->texture);
+
+	handleConstruction(newRoad, connectingPoints);
+
+	m_creationPoints.clear();
+	m_setPoints.clear();
+}
+
+void RoadCreator::handleConstruction(Road road, std::vector<RC::PointRoadPair> connectPoints)
+{
+	// add the road
+	auto currentRoad = &*m_pRoadManager->m_roads.add(road);
+	// max two points
+	for (auto& [point, road] : connectPoints)
+	{
+		if (auto useRoad = connectRoads(road, currentRoad))
+		{
+			if (currentRoad != useRoad)
+			{
+				m_pRoadManager->m_roads.remove(currentRoad);
+				currentRoad = useRoad;
+			}
+		}
+	}
+}
+/*
+*	Updates evry point creator has
+*/
+void RoadCreator::updatePoints()
+{
+	updateMousePoint();
+	updateCurrentPoints();
+	updateCreationPoints();
+
+	setVisualizerDraw();
+}
+
+void RoadCreator::updateMousePoint()
+{
+	// only if theres mouse
+	if (auto mousePosition = App::Scene.m_simArea.getMousePosition())
+	{
+		const auto& mousePoint = mousePosition.value();
+		RC::SittingPoint newSittingPoint;
+
+		//just for now this way of getting selected road
+		if (auto selectedRoad = m_pRoadManager->getSelectedRoad())
+		{
+			auto roadPoint = selectedRoad.value()->getAxisPoint(mousePoint);
+
+			newSittingPoint.point = roadPoint;
+			newSittingPoint.road = selectedRoad.value();
+		}
+		else
+		{
+			newSittingPoint.point = mousePoint;
+		}
+
+		// and asign
+		m_mousePoint = newSittingPoint;
+	}
+	else
+	{
+		m_mousePoint.reset();
+	}
+}
+
+void RoadCreator::updateCurrentPoints()
+{
+	if (m_currentMode == Creator::CreatorMode::CREATE)
+	{
+		RC::SittingPoints spts = m_setPoints;
+		if (m_mousePoint)
+			spts.push_back(m_mousePoint.value());
+
+		m_processedCurrentPoints = processSittingPoints(spts);
+	}
+	else
+	{
+		m_processedCurrentPoints = {};
+		if (m_mousePoint)
+		{
+			const auto& mp = m_mousePoint.value();
+			if (mp.road)
+			{
+				// get cut
+				auto cutPts = mp.road.value()->getCut(Shape::AxisPoint(mp.point)).axis;
+
+				// and transfer to pCPts
+				m_processedCurrentPoints.axisPoints.resize(cutPts.size());
+				auto cpIt = m_processedCurrentPoints.axisPoints.begin();
+				for (const auto& pt : cutPts)
+					*(cpIt++) = pt;
+			}
+		}
+	}
+}
+
+void RoadCreator::updateCreationPoints()
+{
+
+	if (m_ui.doCurves() && m_setPoints.size() == 2)
+	{
+		m_creationPoints.clear();
+
+		const auto& curPts = m_processedCurrentPoints.axisPoints;
+		std::array<Point, 3> curvePoints;
+		if (m_processedCurrentPoints.roadBeginAxisPoint)
+		{
+			m_creationPoints.push_back(curPts[0]);
+			curvePoints[0] = curPts[1];
+			curvePoints[1] = curPts[2];
+		}
+		else
+		{
+			curvePoints[0] = curPts[0];
+			curvePoints[1] = curPts[1];
+		}
+		if (m_processedCurrentPoints.roadEndAxisPoint)
+		{
+			m_creationPoints.push_back(curPts[curPts.size() - 1]);
+			curvePoints[2] = curPts[curPts.size() - 2];
+		}
+		else
+		{
+			curvePoints[2] = curPts[curPts.size() - 1];
+		}
+
+		auto curve = generateCurveFromThreePoints(curvePoints);
+		// insert with offset
+		if (m_processedCurrentPoints.roadBeginAxisPoint)
+			m_creationPoints.insert(m_creationPoints.begin() + 1, curve.begin(), curve.end());
+		else
+			m_creationPoints.insert(m_creationPoints.begin(), curve.begin(), curve.end());
+	}
+	else
+	{
+		m_creationPoints = m_processedCurrentPoints.axisPoints;
+	}
+
+	removeDuplicates(m_creationPoints);
+}
+
+void RoadCreator::setVisualizerDraw()
+{
+	visualizer.setDraw(m_creationPoints, m_processedCurrentPoints.axisPoints,
+		m_ui.getSelectedPrototype()->width, m_processedCurrentPoints.validPoints);
+}
+
+/*
 struct RoadCompare
 {
 	bool operator()(const Road& road1, const Road& road2) const
 	{
 		return std::memcmp(&road1, &road2, sizeof(Road)) == 0;
 	};
-};
-
-void RoadCreator::createRoadIfPossible()
-{
-	// do not construct from one poin
-	if (setPoints.size() <= 1 || !validRoad)
-		return;
-	else if ((buildMode == BuildMode::STRAIGHT_LINE && setPoints.size() < 2) ||
-		(buildMode == BuildMode::CURVED_LINE && setPoints.size() < 3))
-		return;
-
-	Points creationPoints;
-	for (const auto& sp : buildPoints)
-	{
-		creationPoints.push_back(sp.getPoint());
-	}
-
-	// from 3 pts create something curved
-	if (buildMode == BuildMode::CURVED_LINE)
-	{
-		// tune up
-		std::array<Point, 3> curvePoints;
-		auto cpData = curvePoints.data();
-		for (const auto& bp : buildPoints)
-		{
-			if (auto point = std::get_if<Point>(&bp.point))
-				*(cpData++) = *point;
-		}
-
-		creationPoints = generateCurveFromThreePoints(curvePoints);
-		if (auto point = std::get_if<Point>(&buildPoints.front().point)) creationPoints.insert(creationPoints.begin(), *point);
-		if (auto point = std::get_if<Point>(&buildPoints.back().point)) creationPoints.insert(creationPoints.end(), *point);
-	}
-
-	if (creationPoints.size())
-		createRoad(creationPoints);
-}
-
-void RoadCreator::createRoad(const Points& creationPoints)
-{
-	const auto& currentPrototype = hardcodedRoadPrototypes[currentPrototypeID];
-
-	std::vector<RC::SittingPoint::SAP> connectPoints;
-	//filter
-	if (auto sap = std::get_if<RC::SittingPoint::SAP>(&setPoints.front().point))
-	{
-		connectPoints.push_back(*sap);
-	}
-	if (auto sap = std::get_if<RC::SittingPoint::SAP>(&setPoints.back().point))
-	{
-		if (connectPoints.size() && sap->road != connectPoints[0].road)
-		{
-			connectPoints.push_back(*sap);
-		}
-	}
-	
-
-	Road newRoad;
-	newRoad.construct(creationPoints, currentPrototype.laneCount, currentPrototype.width, currentPrototype.texture);
-
-	handleConstruction(newRoad, connectPoints);
-	setPoints.clear();
-
-	setCreateMode(static_cast<int>(CreateMode::DELETOR));
-}
-
-void RoadCreator::handleConstruction(Road road, std::vector<RC::SittingPoint::SAP> connectPoints)
-{
-	// add the road
-	auto currentRoad = &*m_pRoadManager->m_roads.add(road);
-	// max two points
-	for (auto& connectPoint : connectPoints)
-	{
-		if (auto useRoad = connectRoads(connectPoint.road, currentRoad))
-		{
-			if (useRoad != currentRoad)
-			{
-				m_pRoadManager->m_roads.remove(useRoad);
-				currentRoad = useRoad;
-			}
-		}
-	}
-}
-
-void RoadCreator::deleteRoadIfPossible()
-{
-	if (setPoints.size())
-	{
-		if (auto sap = std::get_if<RC::SittingPoint::SAP>(&setPoints[0].point))
-		{
-			auto& road = sap->road;
-			auto cut = road->getCut(sap->axisPoint);
-			auto [optRoad, optConnection] = sap->road->cut(cut);
-			if (optRoad)
-			{
-				auto addedRoad = &*m_pRoadManager->m_roads.add(optRoad.value());
-				
-				if (optConnection)
-					addedRoad->addConnection(optConnection.value());
-			}
-
-			if(road->m_shape.getAxis().size() == 0)
-				m_pRoadManager->m_roads.remove(road);
-		}
-	}
-
-	setPoints.clear();
-}
+};*/
 
 Road* RoadCreator::connectRoads(Road* road, Road* connectingRoad)
 {
@@ -467,145 +668,31 @@ void RoadCreator::buildToIntersection(Road* road, Road* connectingRoad)
 	}
 }
 
-void RoadCreator::updatePoints()
-{	
-	auto mousePosition = App::Scene.m_simArea.getMousePosition();
-	if (mousePosition)
-	{
-		RC::SittingPoint mouseSittingPoint{};
-		auto selectedRoad = m_pRoadManager->getSelectedRoad();
-		if (selectedRoad)
-		{
-			RC::SittingPoint::SAP sap;
-			sap.axisPoint= selectedRoad.value()->getPointOnRoad(mousePosition.value());
-			sap.road = selectedRoad.value();
+void RoadCreator::setCreatorModeAction()
+{
+	// could be clar points function tho
+	m_setPoints.clear();
+	m_creationPoints.clear();
+}
 
-			mouseSittingPoint.point = sap;
-		}
-		else
-		{
-			mouseSittingPoint.point = mousePosition.value();
-		}
-		mousePoint.emplace(mouseSittingPoint);
-
-		buildPoints = setPoints;
-		buildPoints.push_back(mouseSittingPoint);
-
-		// add to visalize drawing
-		Points drawPoints;
-		if (createMode == CreateMode::CREATOR)
-		{
-			validRoad = true;
-			if (buildPoints.size() >= 2)
-			{
-				Line connectLine;
-				if (auto sap = std::get_if<RC::SittingPoint::SAP>(&buildPoints.front().point))
-				{
-					auto& nextPoint = *(buildPoints.begin() + 1);
-					connectLine[0] = sap->axisPoint;
-					if(auto index = nextPoint.point.index(); index == 0)
-						connectLine[1] = std::get<0>(nextPoint.point);
-					else
-						connectLine[1] = std::get<1>(nextPoint.point).axisPoint;
-
-					auto conectionPossibility = sap->road->canConnect(connectLine, sap->axisPoint);
-					if (conectionPossibility)
-					{
-						if (conectionPossibility.recomendedPoint)
-						{
-							RC::SittingPoint sp;
-							sp.point = conectionPossibility.recomendedPoint.value();
-							buildPoints.insert(buildPoints.begin() + 1, sp);
-						}
-					}
-					else
-					{
-						validRoad = false;
-					}
-				}
-				if (auto sap = std::get_if<RC::SittingPoint::SAP>(&buildPoints.back().point))
-				{
-					Line connectLine;
-					auto& nextPoint = *(buildPoints.end() - 2);
-
-					connectLine[0] = sap->axisPoint;
-					if (auto index = nextPoint.point.index(); index == 0)
-						connectLine[1] = std::get<0>(buildPoints[1].point);
-					else
-						connectLine[1] = std::get<1>(buildPoints[1].point).axisPoint;
-
-					auto conectionPossibility = sap->road->canConnect(connectLine, sap->axisPoint);
-					if (conectionPossibility)
-					{
-						if (conectionPossibility.recomendedPoint)
-						{
-							RC::SittingPoint sp;
-							sp.point = conectionPossibility.recomendedPoint.value();
-							buildPoints.insert(buildPoints.end() - 1, sp);
-						}
-					}
-					else
-					{
-						validRoad = false;
-					}
-				}
-			}
-
-			std::transform(std::begin(buildPoints), std::end(buildPoints), std::back_inserter(drawPoints),
-				[](const RC::SittingPoint& sp) {	return sp.getPoint();	});
-
-			// cause we know we have ,mousePos
-			if (buildMode == BuildMode::CURVED_LINE && setPoints.size() == 2)
-			{
-				// exclude axisPoint
-				std::array<Point, 3> curvePoints;
-				auto cpData = curvePoints.data();
-				for (const auto& bp : buildPoints)
-				{
-					if(auto point = std::get_if<Point>(&bp.point))
-						*(cpData++) = *point;
-				}
-
-				drawPoints = generateCurveFromThreePoints(curvePoints);
-				if (auto point = std::get_if<Point>(&buildPoints.front().point)) drawPoints.insert(drawPoints.begin(), *point);
-				if (auto point = std::get_if<Point>(&buildPoints.back().point)) drawPoints.insert(drawPoints.end(), *point);
-			}
-		}
-		else
-		{
-			if (buildPoints.size())
-			{
-				if (auto sap = std::get_if<RC::SittingPoint::SAP>(&buildPoints.front().point))
-				{
-					auto axisPoints = sap->road->getCut(sap->axisPoint).axis;
-					drawPoints = Points(std::begin(axisPoints), std::end(axisPoints));
-				}
-			}
-		}
-		visualizer.setDraw(drawPoints, hardcodedRoadPrototypes[currentPrototypeID].width, validRoad);
-	}
-	// erase back
-	else
-	{
-		Points pts(setPoints.size());
-		std::transform(std::begin(setPoints), std::end(setPoints), std::begin(pts), [](const RC::SittingPoint& sp) { return sp.getPoint(); });
-
-		visualizer.setDraw(pts, hardcodedRoadPrototypes[currentPrototypeID].width, validRoad);
-		mousePoint.reset();
-	}
+void RoadCreator::setActiveAction()
+{
+	m_setPoints.clear();
+	m_creationPoints.clear();
 }
 
 RoadCreator::RoadCreator(ObjectManager* roadManager)
 	: m_pRoadManager(roadManager)
 {
-	setupPrototypes();
 }
 
 void RoadCreator::update()
 {
-	//here pause
-	updatePoints();
-	visualizer.update();
+	if (m_active)
+	{
+		updatePoints();
+		visualizer.update();
+	}
 }
 
 void RoadCreator::clickEvent()
@@ -615,43 +702,8 @@ void RoadCreator::clickEvent()
 
 void RoadCreator::rollBackEvent()
 {
-	if (setPoints.size())
-		setPoints.pop_back();
-}
-
-
-std::vector<std::string> RoadCreator::getRoadNames() const
-{
-	auto extractFun = [](const std::map<int, RC::Prototypes>& prototypes)
-	{
-		std::vector<std::string> names;
-		for (const auto& [id, prototype] : prototypes)
-			names.push_back(prototype.name);
-
-		return names;
-	};
-
-	static std::vector<std::string> names = extractFun(hardcodedRoadPrototypes);
-	
-	return names;
-}
-
-void RoadCreator::setBuildMode(int mode)
-{
-	buildMode = static_cast<BuildMode>(mode);
-	setPoints.clear();
-}
-
-void RoadCreator::setCreateMode(int mode)
-{
-	createMode = static_cast<CreateMode>(mode);
-	setPoints.clear();
-}
-
-
-void RoadCreator::setPrototype(int prototype)
-{
-	currentPrototypeID = prototype;
+	if (m_setPoints.size())
+		m_setPoints.pop_back();
 }
 
 void CreatorVisualizer::update()
@@ -659,9 +711,10 @@ void CreatorVisualizer::update()
 	updateGraphics();
 }
 
-void CreatorVisualizer::setDraw(const std::vector<Point>& points, float width, bool valid)
+void CreatorVisualizer::setDraw(const std::vector<Point>& drawAxis, const std::vector<Point>& drawPoints, float width, bool valid)
 {
-	pointToDraw = points;
+	axisToDraw = drawAxis;
+	pointToDraw = drawPoints;
 	this->width = width;
 	this->valid = valid;
 }
@@ -733,7 +786,7 @@ std::pair<VD::PositionVertices, VD::ColorVertices> CreatorVisualizer::generatePo
 
 void CreatorVisualizer::updateGraphics()
 {
-	if (pointToDraw.size() > 1)
+	if (axisToDraw.size() > 1)
 	{
 		Info::DrawInfo dInfo;
 		dInfo.lineWidth = 2.0f;
@@ -741,7 +794,7 @@ void CreatorVisualizer::updateGraphics()
 		dInfo.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
 
 		Mesh simpleMesh;
-		VD::PositionVertices drawPoints = buildSimpleShapeOutline(pointToDraw, width);
+		VD::PositionVertices drawPoints = buildSimpleShapeOutline(axisToDraw, width);
 		simpleMesh.vertices.positions = drawPoints;
 
 		glm::vec4 color = valid ? glm::vec4(0.1, 0.2, 1.0, 1.0) : glm::vec4(1.0, 0.2, 0.1, 1.0);
@@ -794,4 +847,3 @@ void CreatorVisualizer::updateGraphics()
 		pointGraphics.setActive(false);
 	}
 }
-

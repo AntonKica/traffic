@@ -612,3 +612,16 @@ void GUI::newFrame(GLFWwindow* window, double deltaTime)
 	updateMousePosAndButtons(window);
 	updateMousePosAndButtons(window);
 }
+
+void GUI::ImGuiInfo::cleanup(VkDevice device, const VkAllocationCallbacks* allocator)
+{
+	vkDestroyPipeline(device, graphicsPipeline, allocator);
+	vkDestroyPipelineLayout(device, pipelineLayout, allocator);
+	vkDestroyDescriptorPool(device, descriptorPool, allocator);
+	vkDestroyDescriptorSetLayout(device, setLayout, allocator);
+	vkDestroySampler(device, fontSampler, allocator);
+
+	fontImage.cleanup(device, allocator);
+	vertexBuffer.cleanup(device, allocator);
+	indexBuffer.cleanup(device, allocator);
+}

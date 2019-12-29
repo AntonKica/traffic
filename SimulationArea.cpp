@@ -174,27 +174,6 @@ bool SimulationArea::placeObject()
 	return false;
 }
 
-bool SimulationArea::placeSelectedObject()
-{
-	/*auto newObject = m_creator.getCurrentObject();
-	if (newObject)
-	{
-		if (isInArea(newObject->getPosition()))
-		{
-			SimulationAreaObject* newObj = m_creator.getRawPointerFromType(m_creator.getCurrentType());
-			*newObj = *newObject;
-			newObj->updateGraphics();
-			newObj->m_graphicsComponent.setActive(true);
-
-			auto it = m_data.objects.insert(m_data.objects.begin(), newObj);
-			
-			return true;
-		}
-	}
-	*/
-	return false;
-}
-
 bool SimulationArea::isInArea(const glm::vec3& position) const
 {
 	const float halfWidth = (float(m_traits.AreaWidth) / 2.0f);
@@ -278,8 +257,6 @@ void SimulationArea::updateMousePosition()
 
 inline glm::vec3 SimulationArea::getNearestPoint(const glm::vec3& position) const
 {
-	//const float xDecimal = position.x - std::floor(position.x);
-	//const float zDecimal = position.z - std::floor(position.z);
 	const float pointDistance = getDirectPointDistance();
 
 	auto spacedNumber = [](const float number, const float spaceSize) -> float

@@ -1,6 +1,7 @@
 #include "UI.h"
 #include "VulkanBase.h"
 #include "GlobalObjects.h"
+#include <stb/stb_image.h>
 
 UI& UI::getInstance()
 {
@@ -32,6 +33,9 @@ void UI::initUI(VulkanBase* pVulkanBase)
 
 void UI::destroyUI()
 {
+	for (auto& [name, image] : m_loadedImages)
+		image.cleanup(*device, nullptr);
+
 	imgui.cleanup(*device, nullptr);
 	ImGui::DestroyContext();
 }
@@ -81,6 +85,51 @@ void UI::drawUI(VkCommandBuffer cmdBuffer)
 bool UI::mouseOverlap() const
 {
 	return ImGui::IsAnyWindowHovered();
+}
+
+vkh::structs::Image* UI::loadImage(std::string path)
+{
+	// already loaded
+	if (auto findIt = m_loadedImages.find(path); findIt != m_loadedImages.end())
+		return &findIt->second;
+
+	int width, height, channels;
+	auto data = stbi_load(path.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+	if (!data)
+		throw std::runtime_error("Unknown image " + path);
+
+	vkh::structs::Image newImage;
+	device->createImage(
+		width, height,
+		VK_FORMAT_R8G8B8A8_UNORM,
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+		VK_IMAGE_ASPECT_COLOR_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		newImage
+	);
+	// uploadBuffer
+	auto cmdBuf = device->createCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+	vkh::structs::Buffer& stagingBuffer = device->getStagingBuffer(width * height * channels * sizeof(unsigned char), data);
+
+	newImage.transitionLayout(*device, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmdBuf);
+
+	VkBufferImageCopy region{};
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.layerCount = 1;
+	region.imageExtent.width = width;
+	region.imageExtent.height = height;
+	region.imageExtent.depth = 1;
+
+	vkCmdCopyBufferToImage(cmdBuf, stagingBuffer, newImage,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+	newImage.transitionLayout(*device, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cmdBuf);
+	device->flushCommandBuffer(cmdBuf, device->queues.graphics);
+	device->freeStagingBuffer(stagingBuffer);
+	
+	m_loadedImages[path] = newImage;
+	return &m_loadedImages[path];
 }
 
 

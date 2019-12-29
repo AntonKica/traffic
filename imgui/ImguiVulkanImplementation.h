@@ -31,18 +31,7 @@ namespace GUI
 		vkh::structs::Buffer vertexBuffer;
 		vkh::structs::Buffer indexBuffer;
 
-		void cleanup(VkDevice device, const VkAllocationCallbacks* allocator)
-		{
-			vkDestroyPipeline(device, graphicsPipeline, allocator);
-			vkDestroyPipelineLayout(device, pipelineLayout, allocator);
-			vkDestroyDescriptorPool(device, descriptorPool, allocator);
-			vkDestroyDescriptorSetLayout(device, setLayout, allocator);
-			vkDestroySampler(device, fontSampler, allocator);
-
-			fontImage.cleanup(device, allocator);
-			vertexBuffer.cleanup(device, allocator);
-			indexBuffer.cleanup(device, allocator);
-		}
+		void cleanup(VkDevice device, const VkAllocationCallbacks* allocator);
 	};
 
 	bool createDeviceObjects(const vkh::structs::VulkanDevice& device, const VkRenderPass& renderPass, GUI::ImGuiInfo& imguiObject);

@@ -1,6 +1,6 @@
 #pragma once
 #include <GLFW/glfw3.h>
-
+#include <map>
 #include "imgui/ImguiVulkanImplementation.h"
 #include "vulkanHelper/VulkanStructs.h"
 
@@ -33,6 +33,7 @@ private:
 	GLFWwindow* window;
 
 	std::vector<UIElement*> m_UIElements;
+	std::map<std::string, vkh::structs::Image> m_loadedImages;
 
 	GUI::ImGuiInfo imgui;
 public:
@@ -43,9 +44,9 @@ public:
 
 	void drawUI(VkCommandBuffer cmdBuffer);
 
-
-	int getSelection() const;
 	bool mouseOverlap() const;
+
+	vkh::structs::Image* loadImage(std::string path);
 private:
 
 	UI();

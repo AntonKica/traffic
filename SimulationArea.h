@@ -85,7 +85,6 @@ public:
 
 	void update();
 	bool placeObject();
-	bool placeSelectedObject();
 	bool isInArea(const glm::vec3& position) const;
 
 	void setEnableMouse(bool value);
@@ -96,7 +95,6 @@ public:
 	std::optional<glm::vec3> getMousePosition() const;
 
 	//[Obsolete("Should be refactored")]
-	//SimulationAreaObjectCreator m_creator;
 
 	ObjectManager m_objectManager;
 private:

@@ -39,7 +39,7 @@ public:
 	struct ConnectionPossibility 
 	{
 		bool canConnect = false;
-		std::optional<Point> recomendedPoint;
+		Point recomendedPoint;
 
 		inline operator bool() const
 		{
