@@ -36,6 +36,7 @@ public:
 
 	std::optional<Segment> selectSegment(Point arbitraryPoint) const;
 	std::vector<Segment> getJointSegments(Shape::AxisPoint jointPoint) const;
+	std::vector<Segment> getSegments(Shape::AxisPoint axisPoint) const;
 	std::optional<Shape::AxisPoint> getShapeAxisPoint(Point arbitraryPoint) const;
 
 	static Mesh createMesh(const SegmentedShape& shape);
@@ -139,7 +140,7 @@ public:
 	CutProduct cut(SegmentedShape::ShapeCut cutPoints);
 
 	// overrided
-	ConnectionPossibility canConnect(Line connectionLine, Shape::AxisPoint connectionPoint) const override;
+	ConnectionPossibility getConnectionPossibility(Line connectionLine, Shape::AxisPoint connectionPoint) const override;
 
 	glm::vec3 getDirectionPointFromConnectionPoint(Point connectionPoint) override;
 

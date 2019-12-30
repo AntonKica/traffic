@@ -4,6 +4,8 @@
 
 #include <glm/gtx/string_cast.hpp>
 #include <glm/gtx/vector_angle.hpp>
+#include <glm/gtx/string_cast.hpp>
+
 #include <numeric>
 #include <random>
 #include <chrono>
@@ -104,17 +106,20 @@ bool polygonPointCollision(const Points& vertices, float px, float py)
 
 bool polygonPolygonCollision(const Points& polygonOne, const Points& polygonTwo)
 {
-	bool collided = false;
 	for (const auto& point : polygonOne)
 	{
 		if (polygonPointCollision(polygonTwo, point))
-		{
-			collided = true;
-			break;
-		}
+			return true;
 	}
 
-	return collided;
+	for (const auto& point : polygonTwo)
+	{
+		if (polygonPointCollision(polygonOne, point))
+			return true;
+	}
+
+
+	return false;
 }
 
 Points createShape(const Points& points, float width)
@@ -408,6 +413,32 @@ std::vector<SegmentedShape::Segment> SegmentedShape::getJointSegments(Shape::Axi
 			}
 		}
 	}
+	return segments;
+}
+
+std::vector<SegmentedShape::Segment> SegmentedShape::getSegments(Shape::AxisPoint axisPoint) const
+{
+	std::vector<SegmentedShape::Segment> segments;
+
+	if (sitsOnAnySegmentCorner(axisPoint))
+	{
+		segments = getJointSegments(axisPoint);
+	}
+	else
+	{
+		for (int index = 0; index + 1 < m_joints.size(); ++index)
+		{
+			if (pointSitsOnLine(m_joints[index].centre, m_joints[index + 1].centre, axisPoint))
+			{
+				Segment segment;
+				segment.start = &m_joints[index];
+				segment.end = &m_joints[index + 1];
+
+				segments = { segment };
+			}
+		}
+	}
+
 	return segments;
 }
 
@@ -1173,102 +1204,101 @@ Road::CutProduct Road::cut(SegmentedShape::ShapeCut cutPoints)
 	return product;
 }
 
-BasicRoad::ConnectionPossibility Road::canConnect(Line connectionLine, Shape::AxisPoint connectionPoint) const
+BasicRoad::ConnectionPossibility Road::getConnectionPossibility(Line connectionLine, Shape::AxisPoint connectionPoint) const
 {
 	ConnectionPossibility connectionPossibility{};
+	connectionPossibility.canConnect = true;
 	connectionPossibility.recomendedPoint = connectionPoint;
 	//reored 
 	if (approxSamePoints(connectionLine[0], connectionPoint))
 		std::swap(connectionLine[0], connectionLine[1]);
 
-	// sits on corner?
-	if (m_shape.sitsOnAnySegmentCorner(connectionPoint))
+	// sits on ceonneted end?
+	if (m_shape.sitsOnTailOrHead(connectionPoint))
 	{
-		auto segments = m_shape.getJointSegments(connectionPoint);
-
-		// end or begin
-		if (segments.size() == 1)
+		for (const auto& connection : m_connections)
 		{
-			auto [start, end] = segments[0];
-			// end == end of shape
-			if (approxSamePoints(connectionPoint, start->centre))
-				std::swap(start, end);
-
-			glm::vec3 axisDir = glm::normalize(end->centre - start->centre);
-			glm::vec3 endToLineEnd = glm::normalize(connectionLine[0] - end->centre);
-			float connectionAngle = glm::degrees(glm::acos(glm::dot(axisDir, endToLineEnd)));
-
-			if (connectionAngle <= 90.0f)
-			{
-				connectionPossibility.canConnect = true;
-			}
-			else
-			{
-
-			}
-		}
-		else
-		{
-			auto& segment1 = segments[0];
-			auto& segment2 = segments[1];
-
-			// supose we know segment 1s end is same as segment2s start
-			if (segment1.end != segment2.start)
-				std::swap(segment1, segment2);
-			// segment end / start = connection point
-			auto calcAngle = [](const glm::vec3& v1, const glm::vec3& v2)
-			{
-				auto dot = v1.x * v2.x + v1.z * v2.z;
-				auto det = v1.x * v2.z - v1.z * v2.x;
-				auto res = std::atan2(det, dot);
-
-				return res > 0 ? res : res + glm::two_pi<float>();
-			};
-
-			glm::vec3 conLineDir = glm::normalize(connectionLine[0] - connectionPoint);
-			glm::vec3 dirS1 = glm::normalize(segment1.start->centre - connectionPoint);
-			glm::vec3 dirS2 = glm::normalize(segment2.end->centre - connectionPoint);
-			float roadAngle = calcAngle(dirS1, dirS2);
-			float angleLineS1 = calcAngle(conLineDir, dirS1);
-			// direction matters
-			float angleLineS2 = calcAngle(dirS2, conLineDir);
-
-			if (angleLineS1 > roadAngle || angleLineS2 > roadAngle)
-			{
-				connectionPossibility.canConnect = true;
-			}
+			if (approxSamePoints(connection.point, connectionPoint))
+				connectionPossibility.canConnect = false;
 		}
 	}
-	else // sits between corners/ joints
-	{
-		auto [start, end] = m_shape.selectSegment(connectionPoint).value();
 
-		const glm::vec3 axisDir = glm::normalize(end->centre - start->centre);
-		const glm::vec3 conLineDir = glm::normalize(connectionLine[0] - connectionPoint);
+	// line[1] is on rectangle axis
+	auto getRectangleLineouchPoint =
+		[](Line rectangleAxis, float rectangleWidth, Line line)
+	{
+		const glm::vec3 axisDir = glm::normalize(rectangleAxis[1] - rectangleAxis[0]);
+		const glm::vec3 conLineDir = glm::normalize(line[0] - line[1]);
 
 		float connectionAngle = glm::acos(glm::dot(axisDir, conLineDir));
 		if (connectionAngle > glm::half_pi<float>())
 			connectionAngle = glm::pi<float>() - connectionAngle;
 
 		const float sinkAngle = glm::half_pi<float>() - connectionAngle;
-		const float distance = 0.5 * m_parameters.width * (1 + glm::sin(sinkAngle));
+		const float distance = 0.5 * rectangleWidth * (1 + glm::sin(sinkAngle));
 		const glm::vec3 up(0.0, 1.0, 0.0);
 		Point axisPerpDir;
 		// get correct point  from perpendicular
 		{
 			const auto axisPerpVec = glm::cross(axisDir, up);
 
-			Point side1 = connectionLine[1] + (axisPerpVec * m_parameters.width / 2.0f);
-			Point side2 = connectionLine[1] - (axisPerpVec * m_parameters.width / 2.0f);
+			Point side1 = line[1] + (axisPerpVec * rectangleWidth / 2.0f);
+			Point side2 = line[1] - (axisPerpVec * rectangleWidth / 2.0f);
 
-			if (pointsSitsOnSameHalfOfPlane(start->centre, end->centre, connectionLine[0], side1))
+			if (pointsSitsOnSameHalfOfPlane(rectangleAxis[0], rectangleAxis[1], line[0], side1))
 				axisPerpDir = glm::normalize(axisPerpVec);
 			else
 				axisPerpDir = -glm::normalize(axisPerpVec);
 		}
 
-		connectionPossibility.canConnect = true;
-		connectionPossibility.recomendedPoint = connectionPoint + axisPerpDir * distance;;
+		return line[1] + axisPerpDir * distance;
+	};
+
+	auto segments = m_shape.getSegments(connectionPoint);
+	// sits on corner?
+	if (segments.size() == 1)
+	{
+		auto& [start, end] = segments[0];
+		// ends on ends
+		if (end->centre != connectionPoint)
+			std::swap(start, end);
+
+		glm::vec3 axisDir = glm::normalize(end->centre - start->centre);
+		glm::vec3 endToLineEnd = glm::normalize(connectionLine[0] - connectionLine[1]);
+		float connectionAngle = glm::acos(glm::dot(axisDir, endToLineEnd));
+
+		// I really dont know how to write thi in one satement
+		if (!m_shape.sitsOnTailOrHead(connectionPoint))
+		{
+			connectionPossibility.recomendedPoint =
+				getRectangleLineouchPoint(Line{ start->centre, end->centre }, m_parameters.width, connectionLine);
+		}
+		else if (connectionAngle > glm::half_pi<float>())
+		{
+			connectionPossibility.recomendedPoint =
+				getRectangleLineouchPoint(Line{ start->centre, end->centre }, m_parameters.width, connectionLine);
+		}
+	}
+	else if (segments.size() == 2)// sits between corners/ joints
+	{
+		const auto& [start1, end1] = segments[0];
+		const auto& [start2, end2] = segments[1];
+
+		const glm::vec3 axisDir1 = glm::normalize(end1->centre - start1->centre);
+		// since end1 == start 2
+		const glm::vec3 axisDir2 = glm::normalize(start2->centre - end2->centre);
+		const glm::vec3 lineEndStart = glm::normalize(connectionLine[0] - connectionLine[1]);
+
+		const auto angleArea = glm::angle(axisDir1, axisDir2);
+		const auto angleLineAxis1 = glm::angle(axisDir1, lineEndStart);
+		const auto angleLineAxis2 = glm::angle(axisDir2, lineEndStart);
+
+		// for now, if between sharp angles,its not valid
+		connectionPossibility.canConnect = angleLineAxis1 <= angleArea && angleLineAxis2 <= angleArea;
+	}
+	else
+	{
+		throw std::runtime_error("Bad segment point: " + glm::to_string(Point(connectionPoint)) + " !");
 	}
 
 	return connectionPossibility;

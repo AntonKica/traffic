@@ -179,8 +179,9 @@ glm::vec3 RoadIntersection::getDirectionPointFromConnectionPoint(Point connectio
 	return m_centre;
 }
 
-BasicRoad::ConnectionPossibility RoadIntersection::canConnect(Line connectionLine, Shape::AxisPoint connectionPoint) const
+BasicRoad::ConnectionPossibility RoadIntersection::getConnectionPossibility(Line connectionLine, Shape::AxisPoint connectionPoint) const
 {
 	ConnectionPossibility cp{};
+	cp.recomendedPoint = connectionPoint;
 	return cp;
 }

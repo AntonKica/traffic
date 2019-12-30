@@ -204,12 +204,9 @@ RC::ProcSitPts RoadCreator::processSittingPoints(const std::vector<RC::SittingPo
 	}
 	else if(sittingPoints.size() > 1)
 	{
-		// extract not connected points
+		// extract points
 		for (const auto& sp : sittingPoints)
-		{
-			//if (!sp.road)
 			processed.axisPoints.push_back(sp.point);
-		}
 
 		// process ends
 		const auto& front = sittingPoints.front();
@@ -220,7 +217,7 @@ RC::ProcSitPts RoadCreator::processSittingPoints(const std::vector<RC::SittingPo
 			processed.roadBeginAxisPoint = std::make_pair(front.point, front.road.value());
 
 			Line connectingLine = { front.point, (sittingPoints.begin() + 1)->point };
-			auto conPossibiliy = front.road.value()->canConnect(connectingLine, Shape::AxisPoint(front.point));
+			auto conPossibiliy = front.road.value()->getConnectionPossibility(connectingLine, Shape::AxisPoint(front.point));
 
 			processed.validPoints = conPossibiliy.canConnect;
 			processed.axisPoints.insert(processed.axisPoints.begin() + 1, conPossibiliy.recomendedPoint);
@@ -230,7 +227,7 @@ RC::ProcSitPts RoadCreator::processSittingPoints(const std::vector<RC::SittingPo
 			processed.roadEndAxisPoint = std::make_pair(back.point, back.road.value());
 
 			Line connectingLine = { back.point, (sittingPoints.end() - 2)->point };
-			auto conPossibiliy = back.road.value()->canConnect(connectingLine, Shape::AxisPoint(back.point));
+			auto conPossibiliy = back.road.value()->getConnectionPossibility(connectingLine, Shape::AxisPoint(back.point));
 
 			processed.validPoints = conPossibiliy.canConnect;
 			processed.axisPoints.insert(processed.axisPoints.end() - 1, conPossibiliy.recomendedPoint);
@@ -242,11 +239,44 @@ RC::ProcSitPts RoadCreator::processSittingPoints(const std::vector<RC::SittingPo
 
 void RoadCreator::setPoint()
 {
-	if (m_processedCurrentPoints.validPoints && m_mousePoint)
+	if (m_processedCurrentPoints.validPoints && m_currentShapeValid && m_mousePoint)
 	{
 		m_setPoints.push_back(m_mousePoint.value());
 
 		handleCurrentPoints();
+	}
+}
+
+void RoadCreator::validateCurrentShape()
+{
+	m_currentShapeValid = true;
+
+	if (m_creationPoints.points.size() >= 2)
+	{
+		Points shapePoints = m_creationPoints.points;
+		if (m_creationPoints.frontOnRoad) shapePoints.erase(shapePoints.begin());
+		if (m_creationPoints.backOnRoad) shapePoints.pop_back();
+
+
+		auto shapeOutline = buildSimpleShapeOutline(shapePoints, m_ui.getSelectedPrototype()->width);
+		// fancy reverse
+		auto halfPointsReverse = [](Points& pts)
+		{
+			std::reverse(std::begin(pts) + std::size(pts) / 2, std::end(pts));
+		};
+		halfPointsReverse(shapeOutline);
+
+		for (const auto& road : m_pRoadManager->m_roads.data)
+		{
+			auto skeleton = road.m_shape.getSkeleton();
+			halfPointsReverse(skeleton);
+
+			if (polygonPolygonCollision(shapeOutline, skeleton))
+			{
+				m_currentShapeValid = false;
+				break;
+			}
+		}
 	}
 }
 
@@ -311,11 +341,10 @@ void RoadCreator::createRoadFromCurrent()
 	// creater road
 	const auto currentPrototype = m_ui.getSelectedPrototype();
 	Road newRoad;
-	newRoad.construct(m_creationPoints, currentPrototype->laneCount, currentPrototype->width, currentPrototype->texture);
+	newRoad.construct(m_creationPoints.points, currentPrototype->laneCount, currentPrototype->width, currentPrototype->texture);
 
 	handleConstruction(newRoad, connectingPoints);
 
-	m_creationPoints.clear();
 	m_setPoints.clear();
 }
 
@@ -344,6 +373,9 @@ void RoadCreator::updatePoints()
 	updateMousePoint();
 	updateCurrentPoints();
 	updateCreationPoints();
+
+	// befpre set
+	validateCurrentShape();
 
 	setVisualizerDraw();
 }
@@ -411,16 +443,17 @@ void RoadCreator::updateCurrentPoints()
 
 void RoadCreator::updateCreationPoints()
 {
+	Points creationPoints;
+	bool hasFrontRoad = false;
+	bool hasBackRoad = false;
 
 	if (m_ui.doCurves() && m_setPoints.size() == 2)
 	{
-		m_creationPoints.clear();
-
 		const auto& curPts = m_processedCurrentPoints.axisPoints;
 		std::array<Point, 3> curvePoints;
-		if (m_processedCurrentPoints.roadBeginAxisPoint)
+		if (hasFrontRoad = m_processedCurrentPoints.roadBeginAxisPoint.has_value())
 		{
-			m_creationPoints.push_back(curPts[0]);
+			creationPoints.push_back(curPts[0]);
 			curvePoints[0] = curPts[1];
 			curvePoints[1] = curPts[2];
 		}
@@ -429,9 +462,9 @@ void RoadCreator::updateCreationPoints()
 			curvePoints[0] = curPts[0];
 			curvePoints[1] = curPts[1];
 		}
-		if (m_processedCurrentPoints.roadEndAxisPoint)
+		if (hasBackRoad = m_processedCurrentPoints.roadEndAxisPoint.has_value())
 		{
-			m_creationPoints.push_back(curPts[curPts.size() - 1]);
+			creationPoints.push_back(curPts[curPts.size() - 1]);
 			curvePoints[2] = curPts[curPts.size() - 2];
 		}
 		else
@@ -442,22 +475,28 @@ void RoadCreator::updateCreationPoints()
 		auto curve = generateCurveFromThreePoints(curvePoints);
 		// insert with offset
 		if (m_processedCurrentPoints.roadBeginAxisPoint)
-			m_creationPoints.insert(m_creationPoints.begin() + 1, curve.begin(), curve.end());
+			creationPoints.insert(creationPoints.begin() + 1, curve.begin(), curve.end());
 		else
-			m_creationPoints.insert(m_creationPoints.begin(), curve.begin(), curve.end());
+			creationPoints.insert(creationPoints.begin(), curve.begin(), curve.end());
 	}
 	else
 	{
-		m_creationPoints = m_processedCurrentPoints.axisPoints;
+		hasFrontRoad = m_processedCurrentPoints.roadBeginAxisPoint.has_value();
+		hasBackRoad = m_processedCurrentPoints.roadEndAxisPoint.has_value();
+		creationPoints = m_processedCurrentPoints.axisPoints;
 	}
 
-	removeDuplicates(m_creationPoints);
+	m_creationPoints.points = creationPoints;
+	m_creationPoints.frontOnRoad = hasFrontRoad;
+	m_creationPoints.backOnRoad = hasBackRoad;
+
+	removeDuplicates(m_creationPoints.points);
 }
 
 void RoadCreator::setVisualizerDraw()
 {
-	visualizer.setDraw(m_creationPoints, m_processedCurrentPoints.axisPoints,
-		m_ui.getSelectedPrototype()->width, m_processedCurrentPoints.validPoints);
+	visualizer.setDraw(m_creationPoints.points, m_processedCurrentPoints.axisPoints,
+		m_ui.getSelectedPrototype()->width, m_processedCurrentPoints.validPoints && m_currentShapeValid);
 }
 
 /*
@@ -672,13 +711,11 @@ void RoadCreator::setCreatorModeAction()
 {
 	// could be clar points function tho
 	m_setPoints.clear();
-	m_creationPoints.clear();
 }
 
 void RoadCreator::setActiveAction()
 {
 	m_setPoints.clear();
-	m_creationPoints.clear();
 }
 
 RoadCreator::RoadCreator(ObjectManager* roadManager)
@@ -691,6 +728,7 @@ void RoadCreator::update()
 	if (m_active)
 	{
 		updatePoints();
+
 		visualizer.update();
 	}
 }

@@ -10,10 +10,9 @@ public:
 /*
 *	Just sugar
 */
-/* Lift for now
 template <class UIType,
 	class = class std::enable_if<std::is_base_of<BasicUI, UIType>::value>>
-class BasicCreator;*/
+class BasicCreator;
 
 namespace Creator
 {
@@ -25,7 +24,7 @@ namespace Creator
 }
 
 template <class UIType> 
-class BasicCreator /*<UIType>*/
+class BasicCreator <UIType>
 {
 public:
 	void setCreatorMode(Creator::CreatorMode mode);

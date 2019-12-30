@@ -46,7 +46,7 @@ public:
 			return canConnect;
 		}
 	};
-	virtual ConnectionPossibility canConnect(Line connectionLine, Shape::AxisPoint connectionPoint) const = 0;
+	virtual ConnectionPossibility getConnectionPossibility(Line connectionLine, Shape::AxisPoint connectionPoint) const = 0;
 
 protected:
 	struct Connection

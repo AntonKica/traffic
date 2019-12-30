@@ -113,6 +113,7 @@ private:
 	};
 	RC::ProcSitPts processSittingPoints(const std::vector<RC::SittingPoint> sittingPoints) const;
 	void setPoint();
+	void validateCurrentShape();
 	void handleCurrentPoints();
 	void tryToConstructRoad();
 	void tryToDestroyRoad();
@@ -137,9 +138,15 @@ private:
 
 	std::optional<RC::SittingPoint> m_mousePoint;
 	std::vector<RC::SittingPoint> m_setPoints;
-	Points m_creationPoints;
+	struct
+	{
+		bool frontOnRoad = false;
+		bool backOnRoad = false;
+		Points points;
+	} m_creationPoints;
 
 	RC::ProcSitPts m_processedCurrentPoints;
+	bool m_currentShapeValid = false;
 	//bool m_handleCurrentPointsNextUpdate = false;
 protected:
 	virtual void setCreatorModeAction() override;
