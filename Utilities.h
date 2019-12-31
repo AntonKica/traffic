@@ -28,9 +28,11 @@ namespace Utility
 }
 
 using Point = glm::vec3;
-using Line = std::array<Point, 2>;
 using Points = std::vector<Point>;
 using Trail = Points;
+
+using Line = std::array<Point, 2>;
+using Triangle = std::array<Point, 3>;
 
 static bool approxSamePoints(const Point& p1, const Point& p2)
 {
@@ -60,6 +62,28 @@ template<class PointType1, class PointType2, class PointType3> bool pointSitsOnL
 	auto lengthSE = glm::length(s - e);
 
 	return glm::epsilonEqual(lengthSP + lengthPE, lengthSE, maxDifference);
+}
+
+template <class PointsType, class PointType> bool polygonPointCollision(const PointsType& polygon, const PointType& point)
+{
+	bool collision = false;
+	for (auto vert = polygon.begin(); vert != polygon.end(); ++vert)
+	{
+		auto nextVert = (vert + 1) ==
+			polygon.end() ? polygon.begin() : vert + 1;
+
+		// z test
+		if (((vert->z > point.z) && nextVert->z < point.z)
+			|| (vert->z < point.z && (nextVert->z > point.z)))
+		{
+			if (point.x < (nextVert->x - vert->x) * (point.z - vert->z) / (nextVert->z - vert->z) + vert->x)
+			{
+				collision = !collision;
+			}
+		}
+	}
+
+	return collision;
 }
 
 

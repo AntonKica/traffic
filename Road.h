@@ -4,10 +4,6 @@
 #include "RoadIntersection.h"
 #include <vector>
 
-bool polygonPointCollision(const Points& polygon, const Point& point);
-//bool polygonPointCollision(const Points& vertices, float px, float py);
-bool polygonPolygonCollision(const Points& polygonOne, const Points& polygonTwo);
-
 class SegmentedShape
 {
 public:

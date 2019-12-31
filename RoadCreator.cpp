@@ -1,6 +1,7 @@
 #include "RoadCreator.h"
 #include "RoadIntersection.h"
 
+#include "Collisions.h"
 #include "GlobalObjects.h"
 #include "Model.h"
 #include "VulkanInfo.h"
@@ -250,28 +251,70 @@ void RoadCreator::setPoint()
 void RoadCreator::validateCurrentShape()
 {
 	m_currentShapeValid = true;
+	if (m_currentMode == Creator::CreatorMode::DESTROY)
+		return;
 
 	if (m_creationPoints.points.size() >= 2)
 	{
 		Points shapePoints = m_creationPoints.points;
-		if (m_creationPoints.frontOnRoad) shapePoints.erase(shapePoints.begin());
-		if (m_creationPoints.backOnRoad) shapePoints.pop_back();
-
-
 		auto shapeOutline = buildSimpleShapeOutline(shapePoints, m_ui.getSelectedPrototype()->width);
-		// fancy reverse
-		auto halfPointsReverse = [](Points& pts)
+
+		removeDuplicates(shapeOutline);
+		Points leftPts(std::begin(shapeOutline), std::begin(shapeOutline) + std::size(shapeOutline) / 2);
+		Points rightPts(std::begin(shapeOutline) + std::size(shapeOutline) / 2, std::end(shapeOutline));
+
+		// remove poin ts sitting on road ends
+		if (m_processedCurrentPoints.roadBeginAxisPoint)
 		{
-			std::reverse(std::begin(pts) + std::size(pts) / 2, std::end(pts));
+			const auto& road = *m_processedCurrentPoints.roadBeginAxisPoint.value().second;
+			if (road.sitsOnRoad(*leftPts.begin()) ||
+				road.sitsOnRoad(*rightPts.begin()))
+			{
+				leftPts.erase(leftPts.begin());
+				rightPts.erase(rightPts.begin());
+			}
+		}
+		if (m_processedCurrentPoints.roadEndAxisPoint)
+		{
+			const auto& road = *m_processedCurrentPoints.roadEndAxisPoint.value().second;
+
+			if (road.sitsOnRoad(*(leftPts.end() - 1)) ||
+				road.sitsOnRoad(*(rightPts.end() - 1)))
+			{
+				leftPts.erase(leftPts.end() - 1);
+				rightPts.erase(rightPts.end() - 1);
+			}
+		}
+
+		auto joinLeftAndRightPoints = [](const Points& leftPts, const Points& rightPts)
+		{
+			Points joinedPts(leftPts.size() + rightPts.size());
+			auto dataIt = joinedPts.begin();
+			// Were doing this this way becaouse they may be one more point on the
+			// left side and on the right side as well
+			auto leftIter = leftPts.begin();
+			auto rightIter = rightPts.begin();
+			while (true)
+			{
+				if (leftIter != leftPts.end())
+					*(dataIt++) = *(leftIter++);
+				if (rightIter != rightPts.end())
+					*(dataIt++) = *(rightIter++);
+
+				if (leftIter == leftPts.end() && rightIter == rightPts.end())
+					break;
+			}
+
+			return joinedPts;
 		};
-		halfPointsReverse(shapeOutline);
+		shapeOutline = joinLeftAndRightPoints(leftPts, rightPts);
+
 
 		for (const auto& road : m_pRoadManager->m_roads.data)
 		{
 			auto skeleton = road.m_shape.getSkeleton();
-			halfPointsReverse(skeleton);
 
-			if (polygonPolygonCollision(shapeOutline, skeleton))
+			if (Collisions::polygonPolygonCollision(shapeOutline, skeleton))
 			{
 				m_currentShapeValid = false;
 				break;

@@ -52,58 +52,6 @@ template <class PointsType> auto //std::tuple<typename PointsType::iterator, typ
 	return std::make_tuple(currentPoint, nextPoint, travelledDistance);
 }
 
-bool polygonPointCollision(const Points& polygon, const Point& point)
-{
-	bool collision = false;
-	for (auto vert = polygon.begin(); vert != polygon.end(); ++vert)
-	{
-		auto nextVert = (vert + 1) ==
-			polygon.end() ? polygon.begin() : vert + 1;
-
-		// z test
-		if (((vert->z > point.z) && nextVert->z < point.z)
-			|| (vert->z < point.z && (nextVert->z >point.z)))
-		{
-			if (point.x < (nextVert->x - vert->x) * (point.z - vert->z) / (nextVert->z - vert->z) + vert->x)
-			{
-				collision = !collision;
-			}
-		}
-	}
-
-	return collision;
-}
-
-bool polygonPointCollision(const Points& vertices, float px, float py)
-{
-	bool collision = false;
-
-	// go through each of the vertices, plus
-	// the next vertex in the list
-	int next = 0;
-	for (int current = 0; current < vertices.size(); current++) {
-
-		// get next vertex in list
-		// if we've hit the end, wrap around to 0
-		next = current + 1;
-		if (next == vertices.size()) next = 0;
-
-		// get the PVectors at our current position
-		// this makes our if statement a little cleaner
-		Point vc = vertices[current];    // c for "current"
-		Point vn = vertices[next];       // n for "next"
-
-		// compare position, flip 'collision' variable
-		// back and forth
-		if (((vc.z >= py && vn.z < py) || (vc.z < py && vn.z >= py)) &&
-			(px < (vn.x - vc.x) * (py - vc.z) / (vn.z - vc.z) + vc.x)) 
-		{
-			collision = !collision;
-		}
-	}
-	return collision;
-}
-
 bool polygonPolygonCollision(const Points& polygonOne, const Points& polygonTwo)
 {
 	for (const auto& point : polygonOne)
@@ -940,25 +888,47 @@ std::optional<SegmentedShape> SegmentedShape::cut(ShapeCut cutPoints)
 {
 	std::optional<SegmentedShape> optShape;
 	auto axis = getAxis();
-	// we assume that point are in the same direction
-	if (!isCirculary())
+	if (std::equal(std::begin(axis), std::end(axis), std::begin(cutPoints.axis), std::end(cutPoints.axis)))
 	{
-		// we dont need cut
-		auto cut = split(cutPoints.axis.front()).value();
-
-		// next point is on the other shape
-		auto newShape = cut.split(cutPoints.axis.back()).value();
-		if (hasHeadDirectionPoint())
-		{
-			newShape.setHeadDirectionPoint(getHeadDirectionPoint());
-			removeHeadDirectionPoint();
-		}
-
-		optShape = newShape;
+		*this = {};
 	}
 	else
 	{
-		// circle not implemented yet
+		// sits on edns so we want to preserve current but always cut from back
+		if (sitsOnTail(cutPoints.axis.front()))
+		{
+			auto cut = split(cutPoints.axis.back()).value();
+
+			construct(cut.getAxis(), m_width);
+		}
+		else if (sitsOnHead(cutPoints.axis.back()))
+		{
+			// just split, let cut out
+			split(cutPoints.axis.front());
+
+			// but dont construct
+		}
+		else
+		{
+			if (!isCirculary())
+			{
+				// we dont need cut
+				auto cut = split(cutPoints.axis.front()).value();
+				// next point is on the other shape
+				auto newShape = cut.split(cutPoints.axis.back()).value();
+				if (hasHeadDirectionPoint())
+				{
+					newShape.setHeadDirectionPoint(getHeadDirectionPoint());
+					removeHeadDirectionPoint();
+				}
+
+				optShape = newShape;
+			}
+			else
+			{
+				// circle not implemented yet
+			}
+		}
 	}
 
 	return optShape;
@@ -1199,7 +1169,9 @@ Road::CutProduct Road::cut(SegmentedShape::ShapeCut cutPoints)
 		product.road = road;
 	}
 
-	reconstruct();
+	// dont reconstruct from empty shape
+	if(m_shape.getAxis().size())
+		reconstruct();
 
 	return product;
 }
