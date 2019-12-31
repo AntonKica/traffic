@@ -52,23 +52,6 @@ template <class PointsType> auto //std::tuple<typename PointsType::iterator, typ
 	return std::make_tuple(currentPoint, nextPoint, travelledDistance);
 }
 
-bool polygonPolygonCollision(const Points& polygonOne, const Points& polygonTwo)
-{
-	for (const auto& point : polygonOne)
-	{
-		if (polygonPointCollision(polygonTwo, point))
-			return true;
-	}
-
-	for (const auto& point : polygonTwo)
-	{
-		if (polygonPointCollision(polygonOne, point))
-			return true;
-	}
-
-
-	return false;
-}
 
 Points createShape(const Points& points, float width)
 {
