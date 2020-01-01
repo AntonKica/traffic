@@ -139,7 +139,7 @@ void ObjectManager::updateSelectedRoad()
 	{
 		for (auto& road : m_roads.data)
 		{
-			if (road.sitsOnRoad(cursor.value()))
+			if (road.sitsPointOn(cursor.value()) && !m_selectedRoad)
 			{
 				m_selectedRoad = &road;
 				road.m_graphicsComponent.setTint(green);
@@ -149,10 +149,23 @@ void ObjectManager::updateSelectedRoad()
 				road.m_graphicsComponent.setTint(glm::vec4());
 			}
 		}
+
+		for (auto& intersection : m_intersections.data)
+		{
+			if (intersection.sitsPointOn(cursor.value()) && !m_selectedRoad)
+			{
+				m_selectedRoad = &intersection;
+				intersection.m_graphicsComponent.setTint(green);
+			}
+			else
+			{
+				intersection.m_graphicsComponent.setTint(glm::vec4());
+			}
+		}
 	}
 }
 
-std::optional<Road*> ObjectManager::getSelectedRoad() const
+std::optional<BasicRoad*> ObjectManager::getSelectedRoad() const
 {
 	return m_selectedRoad;
 }

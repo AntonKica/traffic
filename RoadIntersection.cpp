@@ -1,5 +1,6 @@
 #include "RoadIntersection.h"
 #include "Utilities.h"
+#include "Collisions.h"
 #include "Road.h"
 
 #include <numeric>
@@ -8,7 +9,7 @@
 #include <glm/gtx/string_cast.hpp>
 
 
-inline VD::Indices createPseudoTriangleFanIndices(const Points& points)
+VD::Indices createPseudoTriangleFanIndices(const Points& points)
 {
 	VD::Indices indices;
 
@@ -25,6 +26,25 @@ inline VD::Indices createPseudoTriangleFanIndices(const Points& points)
 	}
 
 	return indices;
+}
+
+Points createTriangleFanPointsFromPointsAndFanPoint(const Points& points, Point fanPoint)
+{
+	const uint32_t pointsCount = (points.size() + 1) * 3;
+	Points triangleFanPoints(pointsCount);
+	auto dataIter = triangleFanPoints.begin();
+
+	for (auto pIter = points.begin(), pIterNext = points.begin() + 1; pIter != points.end(); ++pIter, ++pIterNext)
+	{
+		if (pIterNext == points.end())
+			pIterNext = points.begin();
+
+		*(dataIter++) = fanPoint;
+		*(dataIter++) = *pIter;
+		*(dataIter++) = *pIterNext;
+	}
+
+	return triangleFanPoints;
 }
 
 bool lessPoint(Point a, Point b, Point center)
@@ -92,6 +112,7 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 	m_width = roads[0]->getParameters().width;
 	m_connectionPoints.clear();
 
+	// adjust connectd roads
 	{
 		float requiredDistance = m_width / 2.0f + 0.25;
 		for (auto& road : roads)
@@ -105,45 +126,50 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 		}
 	}
 
+	setUpShape();
+}
+
+void RoadIntersection::setUpShape()
+{
 	Points sidePoints;
 	Points commonPoints;
-	for (int i = 0; i < roads.size(); ++i)
+
+	// sort them for easier manipulation
+	auto circleSortedPoints = getCircleSortedPoints(m_connectionPoints, false);
+	for (int i = 0; i < circleSortedPoints.size(); ++i)
 	{
 		auto cps = getCircleSortedPoints(m_connectionPoints, false);
 		//cps.size() == 3
 		// find neigbbour axes
-		auto first = cps[(i + 1) % cps.size()];
-		auto second = cps[(i + 2) % cps.size()];
+		auto first = circleSortedPoints[(i + 1) % circleSortedPoints.size()];
+		auto second = circleSortedPoints[(i + 2) % circleSortedPoints.size()];
 
-		auto& currentPoint = cps[i];
+		auto& currentPoint = circleSortedPoints[i];
 		glm::vec3 dirCurrentToCentre = glm::normalize(m_centre - currentPoint);
 		glm::vec3 dirCentreToFirst = glm::normalize(first - m_centre);
 		glm::vec3 dirCentreToSecond = glm::normalize(second - m_centre);
 
 		{
-			auto connectP = findConnection(currentPoint).connected->getDirectionPointFromConnectionPoint(currentPoint);
-			glm::vec3 dirConnectToCurrent = glm::normalize(currentPoint - connectP);
+			// get point from connected road
+			auto connectionPoint = getConnection(currentPoint).connected->getDirectionPointFromConnectionPoint(currentPoint);
+			glm::vec3 dirConnectToCurrent = glm::normalize(currentPoint - connectionPoint);
 
-			const auto [left, right] = getSidePoints(dirConnectToCurrent, dirCurrentToCentre, connectP, currentPoint, m_centre, m_width);
+			const auto [left, right] = getSidePoints(dirConnectToCurrent, dirCurrentToCentre, connectionPoint, currentPoint, m_centre, m_width);
 
 			sidePoints.insert(sidePoints.end(), { left, right });
 		}
-		
-		{
-			//anti clockwise so left point we take
-			const auto [ _, right] = getSidePoints(dirCurrentToCentre, dirCentreToFirst, currentPoint, m_centre, first, m_width);
-			//	const auto [left,right] = getSidePoints(dirCurrentToCentre, dirCentreToSecond, currentPoint, centre, second, width);
-			commonPoints.insert(commonPoints.end(), { right });
 
-			// just for fun
+		{
+			const auto [_, right] = getSidePoints(dirCurrentToCentre, dirCentreToFirst, currentPoint, m_centre, first, m_width);
+			commonPoints.insert(commonPoints.end(), { right });
 		}
 	}
-	// + centre
-	size_t totalPoints = sidePoints.size() + commonPoints.size() + 1;
-	VD::PositionVertices shapePoints(totalPoints);
-	auto pointsIter = shapePoints.begin();
-	*pointsIter++ = m_centre;
-	for (int sideIndex = 1, commonIndex = 0; sideIndex < sidePoints.size(); sideIndex +=2, ++commonIndex)
+
+	// merge points 
+	const size_t totalPoints = sidePoints.size() + commonPoints.size();
+	m_outlinePoints.resize(totalPoints);
+	auto pointsIter = m_outlinePoints.begin();
+	for (int sideIndex = 1, commonIndex = 0; sideIndex < sidePoints.size(); sideIndex += 2, ++commonIndex)
 	{
 		// side, side, common
 		*(pointsIter) = sidePoints[sideIndex - 1];
@@ -155,15 +181,16 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 		// vertices added
 		std::advance(pointsIter, 3);
 	}
-	
-	VD::Indices indices = createPseudoTriangleFanIndices(shapePoints);
+
+	m_shapePoints = createTriangleFanPointsFromPointsAndFanPoint(m_outlinePoints, m_centre);
+
+	// then setupDrawing
 	Mesh mesh;
-	mesh.vertices.positions = shapePoints;
+	mesh.vertices.positions = m_shapePoints;
 
 	const glm::vec4 grey(0.44, 0.44, 0.44, 1.0);
-	VD::ColorVertices colors(shapePoints.size(), grey);
+	VD::ColorVertices colors(m_shapePoints.size(), grey);
 	mesh.vertices.colors = colors;
-	mesh.indices = indices;
 
 	Model model;
 	model.meshes.push_back(mesh);
@@ -185,3 +212,28 @@ BasicRoad::ConnectionPossibility RoadIntersection::getConnectionPossibility(Line
 	cp.recomendedPoint = connectionPoint;
 	return cp;
 }
+
+void RoadIntersection::destroy()
+{
+}
+
+bool RoadIntersection::hasBody() const
+{
+	return m_connectionPoints.size();
+}
+
+bool RoadIntersection::sitsPointOn(Point point) const
+{
+	return polygonPointCollision(m_outlinePoints, point);
+}
+
+BasicRoad::RoadType RoadIntersection::getRoadType() const
+{
+	return RoadType::INTERSECTION;
+}
+
+Shape::AxisPoint RoadIntersection::getAxisPoint(Point pointOnRoad) const
+{
+	return Shape::AxisPoint(m_centre);
+}
+

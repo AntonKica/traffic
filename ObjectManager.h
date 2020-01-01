@@ -7,10 +7,10 @@
 template <class Type> class Container
 {
 public:
-	using iter = typename std::list<Type>::iterator;
+	using iter = typename std::vector<Type>::iterator;
 	iter add(Type obj)
 	{
-		return data.insert(data.end(), obj);
+		return data.emplace(data.end(), obj);
 	}
 
 	iter add(const std::vector<Type>& objs)
@@ -30,14 +30,8 @@ public:
 		}
 	}
 
-	void remove(const std::vector<Type*>& objs)
-	{
-		for (auto& obj : objs)
-			remove(obj);
-	}
-
 //
-	std::list<Type> data;
+	std::vector<Type> data;
 };
 
 class ObjectManager;
@@ -77,7 +71,7 @@ public:
 	void update();
 
 	void updateSelectedRoad();
-	std::optional<Road*> getSelectedRoad() const;
+	std::optional<BasicRoad*> getSelectedRoad() const;
 	void setCreatorsModes(Creator::CreatorMode mode);
 //
 private:
@@ -87,8 +81,9 @@ private:
 
 	//
 	friend class UI;
-	std::optional<Road*> m_selectedRoad;
+	std::optional<BasicRoad*> m_selectedRoad;
 	Container<Road> m_roads;
+	Container<RoadIntersection> m_intersections;
 	RoadCreator m_roadCreator;
 	//
 	BuildingCreator m_buildingCreator;

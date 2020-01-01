@@ -48,6 +48,18 @@ public:
 	};
 	virtual ConnectionPossibility getConnectionPossibility(Line connectionLine, Shape::AxisPoint connectionPoint) const = 0;
 
+	enum class RoadType
+	{
+		ROAD,
+		INTERSECTION,
+		MAX_ROAD_TYPE
+	};
+	virtual void destroy() = 0;
+	virtual bool hasBody() const = 0;
+	virtual bool sitsPointOn(Point point) const = 0;
+	virtual RoadType getRoadType() const = 0;
+
+	virtual Shape::AxisPoint getAxisPoint(Point pointOnRoad) const = 0;
 protected:
 	struct Connection
 	{
@@ -69,13 +81,17 @@ protected:
 	};
 
 	//Connection& findConnection(BasicRoad* connectedRoad);
-	Connection& findConnection(Point connectedPoint);
+	Connection& getConnection(Connection connection);
+	Connection& getConnection(BasicRoad* road, Point point);
+	/*
+	* Carefully with this
+	*/
+	const Connection& getConnection(Point point) const;
 	void connect(BasicRoad* connectionRoad, Point connectionPoint);
 	void addConnection(Connection connection);
 	void copyConnections(BasicRoad* destinationRoad) const;
 	void transferConnections(BasicRoad* destinationRoad);
-	void dismissConnection(Connection& connection);
-	void disconnect(Point connectedPoint);
+	void dismissConnection(Connection connection);
 	void disconnectAll();
 
 	std::vector<Connection> m_connections;

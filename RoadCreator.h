@@ -12,7 +12,7 @@
 /*
 using Point = glm::vec3;
 using Points = std::vector<glm::vec3>;*/
-
+/*
 template<class vec1> class VComparator
 {
 public:
@@ -27,7 +27,7 @@ public:
 	{
 		return std::memcmp(ptr(v1), ptr(v2), sizeof(*ptr(v1))) == 1;
 	}
-};
+};*/
 
 class CreatorVisualizer
 {
@@ -64,11 +64,11 @@ namespace RC
 	struct SittingPoint
 	{
 		Point point;
-		std::optional<Road*> road;
+		std::optional<BasicRoad*> road;
 	};
 	using SittingPoints = std::vector<SittingPoint>;
 
-	using PointRoadPair = std::pair<Point, Road*>;
+	using PointRoadPair = std::pair<Point, BasicRoad*>;
 	struct ProcessedSittingPoints
 	{
 		bool validPoints = true;
@@ -123,14 +123,25 @@ private:
 	/*
 	};*/
 	// returns road you should use next
-	Road* connectRoads(Road* road, Road* connectingRoad);
+	struct ConnectProducts
+	{
+		std::vector<Road> newRoads;
+		std::vector<RoadIntersection> newIntersections;
+		bool keepConnectingRoad = true;
+	};
+	ConnectProducts connectRoads(Road& road, Road& connectingRoad);
 	// helper functions
 	uint32_t connectCount(const Road& road, const Road& connectingRoad) const;
 	std::vector<Shape::AxisPoint> connectPoints(const Road& road, const Road& connectingRoad) const;
 
-	void mergeRoads(Road* road, Road* mergingRoad);
-	Road* cutKnot(Road& road);
-	void buildToIntersection(Road* road, Road* connectingRoad);
+	void mergeRoads(Road& road, Road& mergingRoad);
+	Road cutKnot(Road& road);
+	struct IntersectionProducts
+	{
+		std::vector<Road> newRoads;
+		std::vector<RoadIntersection> newIntersections;
+	};
+	IntersectionProducts buildToIntersection(Road& road, Road& connectingRoad);
 
 	ObjectManager* m_pRoadManager;
 

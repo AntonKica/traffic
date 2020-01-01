@@ -326,7 +326,7 @@ std::vector<SegmentedShape::Segment> SegmentedShape::getJointSegments(Shape::Axi
 
 				segments.insert(segments.begin(), { s1, s2 });
 			}
-			if (index >= 1)
+			else if (index >= 1)
 			{
 				Segment s;
 				s.start = &m_joints[index - 1];
@@ -334,7 +334,7 @@ std::vector<SegmentedShape::Segment> SegmentedShape::getJointSegments(Shape::Axi
 
 				segments.emplace_back(s);
 			}
-			if (index + 1 < m_joints.size())
+			else if (index + 1 < m_joints.size())
 			{
 				Segment s;
 				s.start = &m_joints[index];
@@ -342,6 +342,8 @@ std::vector<SegmentedShape::Segment> SegmentedShape::getJointSegments(Shape::Axi
 
 				segments.emplace_back(s);
 			}
+
+			break;
 		}
 	}
 	return segments;
@@ -810,6 +812,19 @@ Shape::AxisPoint SegmentedShape::shorten(Shape::AxisPoint shapeEnd, float size)
 	return shortenPosition;
 }
 
+void SegmentedShape::extend(Shape::AxisPoint shapeEnd, Point point)
+{
+	auto axis = getAxis();
+	if (shapeEnd == axis.front())
+		axis.emplace(axis.begin(), point);
+	else if (shapeEnd == axis.back())
+		axis.emplace(axis.end(), point);
+	else
+		throw std::runtime_error("Unknown extent point!");
+
+	reconstruct();
+}
+
 SegmentedShape::ShapeCut SegmentedShape::getShapeCut(Shape::AxisPoint axisPoint, float radius) const
 {
 	auto axis = getAxis();
@@ -1019,16 +1034,6 @@ bool Road::sitsOnEndPoints(const Point& point) const
 	return m_shape.sitsOnTailOrHead(point);
 }
 
-bool Road::sitsOnRoad(const Point& point) const
-{
-	return m_shape.sitsOnShape(point);
-}
-
-Shape::AxisPoint Road::getAxisPoint(const Point& point)
-{
-	return m_shape.getShapeAxisPoint(point).value();
-}
-
 void Road::construct(Shape::Axis axisPoints, uint32_t laneCount, float width, std::string texture)
 {
 	Points points(std::begin(axisPoints), std::end(axisPoints));
@@ -1103,7 +1108,8 @@ Road::SplitProduct Road::split(Shape::AxisPoint splitPoint)
 		{
 			if (!sitsOnEndPoints(connection.point))
 			{
-				product.connection = connection;
+				road.addConnection(connection);
+				//product.connection = connection;
 				dismissConnection(connection);
 			}
 		}
@@ -1126,6 +1132,12 @@ Shape::AxisPoint Road::shorten(Shape::AxisPoint roadEnd, float size)
 	return shortPoint;
 }
 
+void Road::extend(Shape::AxisPoint roadEnd, Point point)
+{
+	m_shape.extend(roadEnd, point);
+	reconstruct();
+}
+
 SegmentedShape::ShapeCut Road::getCut(Shape::AxisPoint roadAxisPoint) const
 {
 	return m_shape.getShapeCut(roadAxisPoint, m_parameters.width);
@@ -1142,19 +1154,28 @@ Road::CutProduct Road::cut(SegmentedShape::ShapeCut cutPoints)
 		{
 			if (!sitsOnEndPoints(connection.point))
 			{
-				product.connection = connection;
+				road.addConnection(connection);
 				dismissConnection(connection);
 			}
 		}
 		// then construct
 		road.construct(optSplit.value().getAxis(), m_parameters.laneCount, m_parameters.width, m_parameters.texture);
+		reconstruct();
 
 		product.road = road;
-	}
 
-	// dont reconstruct from empty shape
-	if(m_shape.getAxis().size())
+	}
+	else if (m_shape.getAxis().size()) // purge connections
+	{
+		for (auto& connection : m_connections)
+		{
+			if (!sitsOnEndPoints(connection.point))
+				dismissConnection(connection);
+		}
+
 		reconstruct();
+
+	}
 
 	return product;
 }
@@ -1180,7 +1201,7 @@ BasicRoad::ConnectionPossibility Road::getConnectionPossibility(Line connectionL
 
 	// line[1] is on rectangle axis
 	auto getRectangleLineouchPoint =
-		[](Line rectangleAxis, float rectangleWidth, Line line)
+		[](Line rectangleAxis, float rectangleWidth, Line line, bool useIntersectionOffset)
 	{
 		const glm::vec3 axisDir = glm::normalize(rectangleAxis[1] - rectangleAxis[0]);
 		const glm::vec3 conLineDir = glm::normalize(line[0] - line[1]);
@@ -1205,8 +1226,10 @@ BasicRoad::ConnectionPossibility Road::getConnectionPossibility(Line connectionL
 			else
 				axisPerpDir = -glm::normalize(axisPerpVec);
 		}
+		// just for now
+		const float harcodedIntersectionOffset = useIntersectionOffset ? 0.25f : 0.0f;
 
-		return line[1] + axisPerpDir * distance;
+		return line[1] + axisPerpDir * (distance + harcodedIntersectionOffset);
 	};
 
 	auto segments = m_shape.getSegments(connectionPoint);
@@ -1226,12 +1249,12 @@ BasicRoad::ConnectionPossibility Road::getConnectionPossibility(Line connectionL
 		if (!m_shape.sitsOnTailOrHead(connectionPoint))
 		{
 			connectionPossibility.recomendedPoint =
-				getRectangleLineouchPoint(Line{ start->centre, end->centre }, m_parameters.width, connectionLine);
+				getRectangleLineouchPoint(Line{ start->centre, end->centre }, m_parameters.width, connectionLine, true);
 		}
 		else if (connectionAngle > glm::half_pi<float>())
 		{
 			connectionPossibility.recomendedPoint =
-				getRectangleLineouchPoint(Line{ start->centre, end->centre }, m_parameters.width, connectionLine);
+				getRectangleLineouchPoint(Line{ start->centre, end->centre }, m_parameters.width, connectionLine, false);
 		}
 	}
 	else if (segments.size() == 2)// sits between corners/ joints
@@ -1261,12 +1284,36 @@ BasicRoad::ConnectionPossibility Road::getConnectionPossibility(Line connectionL
 
 glm::vec3 Road::getDirectionPointFromConnectionPoint(Point connectionPoint)
 {
-	auto& connection = findConnection(connectionPoint);
+	auto& connection = getConnection(connectionPoint);
 
 	if (m_shape.sitsOnTail(connection.point))
 		return *(m_shape.getAxis().begin() + 1);
 	else
 		return *(m_shape.getAxis().end() - 2);
+}
+
+void Road::destroy()
+{
+}
+
+bool Road::hasBody() const
+{
+	return m_shape.getAxis().size();
+}
+
+bool Road::sitsPointOn(Point point) const
+{
+	return m_shape.sitsOnShape(point);
+}
+
+BasicRoad::RoadType Road::getRoadType() const
+{
+	return RoadType::ROAD;
+}
+
+Shape::AxisPoint Road::getAxisPoint(Point pointOnRoad) const
+{
+	return m_shape.getShapeAxisPoint(pointOnRoad).value();
 }
 
 void Road::createPaths()

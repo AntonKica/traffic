@@ -82,6 +82,7 @@ public:
 	void mergeWith(const SegmentedShape& otherShape);
 	std::optional<SegmentedShape> split(Shape::AxisPoint splitPoint);
 	Shape::AxisPoint shorten(Shape::AxisPoint shapeEnd, float size);
+	void extend(Shape::AxisPoint shapeEnd, Point point);
 
 	struct ShapeCut
 	{
@@ -118,8 +119,6 @@ public:
 	// Getters
 	RoadParameters getParameters() const;
 	bool sitsOnEndPoints(const Point& point) const;
-	bool sitsOnRoad(const Point& point) const;
-	Shape::AxisPoint getAxisPoint(const Point& point);
 
 	//
 	void construct(Shape::Axis axisPoints, uint32_t laneCount, float width, std::string texture);
@@ -131,6 +130,7 @@ public:
 	struct SplitProduct;
 	SplitProduct split(Shape::AxisPoint splitPoint);
 	Shape::AxisPoint shorten(Shape::AxisPoint roadEnd, float size);
+	void extend(Shape::AxisPoint roadEnd, Point point);
 	SegmentedShape::ShapeCut getCut(Shape::AxisPoint roadAxisPoint) const;
 	using CutProduct = SplitProduct;
 	CutProduct cut(SegmentedShape::ShapeCut cutPoints);
@@ -140,6 +140,11 @@ public:
 
 	glm::vec3 getDirectionPointFromConnectionPoint(Point connectionPoint) override;
 
+	virtual void destroy() override;
+	virtual bool hasBody() const override;
+	bool sitsPointOn(Point point) const override;
+	virtual RoadType getRoadType() const override;
+	virtual Shape::AxisPoint getAxisPoint(Point pointOnRoad) const override;
 private:
 	using Path = Points;
 	void createPaths();
@@ -155,7 +160,7 @@ struct Road::SplitProduct
 {
 	std::optional<Road> road;
 
-	std::optional<Connection> connection;
+	//std::optional<Connection> connection;
 };
 
 
