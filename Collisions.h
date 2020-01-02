@@ -141,6 +141,7 @@ namespace Collisions
 
 	static bool boolPolygonsCollide(const Points& polygonOnePoints, const Points& polygonTwoPoints)
 	{
+#ifdef  BENCHMARKING
 		auto findCentreAndRadiusOfPoints = [](const Points& points)
 		{
 			float maxX = std::numeric_limits<float>::min();
@@ -327,5 +328,80 @@ namespace Collisions
 		triagonalMinDuration = std::min(triagonalMinDuration, third.getMeasured());
 
 		return found;
+#else
+
+		auto findCentreAndRadiusOfPoints = [](const Points& points)
+		{
+			float maxX = std::numeric_limits<float>::min();
+			float minX = std::numeric_limits<float>::max();
+			float maxY = std::numeric_limits<float>::min();
+			float minY = std::numeric_limits<float>::max();
+			float maxZ = std::numeric_limits<float>::min();
+			float minZ = std::numeric_limits<float>::max();
+
+			Point average = {};
+			for (const auto& p : points)
+			{
+				average += p;
+				maxX = std::max(maxX, p.x);
+				minX = std::min(minX, p.x);
+				maxY = std::max(maxY, p.y);
+				minY = std::min(minY, p.y);
+				maxZ = std::max(maxZ, p.z);
+				minZ = std::min(minZ, p.z);
+			}
+			average /= float(points.size());
+			auto getGreater = [](float a, float b)
+			{return a > b ? a : b; };
+
+			float absX = getGreater(std::abs(minX - average.x), std::abs(maxX - average.x));
+			float absY = getGreater(std::abs(minY - average.y), std::abs(maxY - average.y));
+			float absZ = getGreater(std::abs(minZ - average.z), std::abs(maxZ - average.z));
+
+			Point radiusPoint(absX, absY, absZ);
+
+			return std::make_pair(average, glm::length(radiusPoint));
+		};
+
+		// can improve performance in several occasions idk tho,
+		// premature optimalisation it is
+
+		
+		{
+			const auto [c1, r1] = findCentreAndRadiusOfPoints(polygonOnePoints);
+			const auto [c2, r2] = findCentreAndRadiusOfPoints(polygonTwoPoints);
+
+			const float circleDistances = glm::length(c1 - c2);
+
+			auto circleIntersect = circleDistances <= std::abs(r1 + r2);
+
+			if (circleIntersect)
+			{
+				return false;
+			}
+		}
+
+		// +2 for triangle
+		for (uint32_t firstIndex = 0; firstIndex + 2 < polygonOnePoints.size(); ++firstIndex)
+		{
+			const Triangle polygonOneTriangle =
+			{ polygonOnePoints[firstIndex],  polygonOnePoints[firstIndex + 1] ,polygonOnePoints[firstIndex + 2] };
+
+			// 2+ as well
+			for (uint32_t secondIndex = 0; secondIndex + 2 < polygonTwoPoints.size(); ++secondIndex)
+			{
+				const Triangle polygonTwoTriangle =
+				{ polygonTwoPoints[secondIndex],  polygonTwoPoints[secondIndex + 1] ,polygonTwoPoints[secondIndex + 2] };
+
+				if (details::triangleTriangleCollision(polygonOneTriangle, polygonTwoTriangle))
+				{
+					return true;
+				}
+			}
+		}
+
+		return false;
+#endif
 	}
+
 }
