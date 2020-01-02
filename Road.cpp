@@ -634,15 +634,15 @@ void SegmentedShape::construct(const Shape::Axis& axisPoints, float width)
 void SegmentedShape::construct(const Points& constructionPoints, float width)
 {
 	OrientedConstructionPoints cp{};
-	if (hasTailDirectionPoint()) cp.tailDirectionPoint = getTailDirectionPoint();
 	cp.points = constructionPoints;
-	if (hasHeadDirectionPoint()) cp.headDirectionPoint = getHeadDirectionPoint();
 
 	construct(cp, width);
 }
 
 void SegmentedShape::construct(const OrientedConstructionPoints& constructionPoints, float width)
 {
+	clearDirectionPoints();
+
 	if (constructionPoints.tailDirectionPoint)
 		setTailDirectionPoint(constructionPoints.tailDirectionPoint.value());
 	if (constructionPoints.headDirectionPoint)
@@ -814,30 +814,30 @@ Shape::AxisPoint SegmentedShape::shorten(Shape::AxisPoint shapeEnd, float size)
 
 void SegmentedShape::extend(Shape::AxisPoint shapeEnd, Point point)
 {
-	auto axis = getAxis();
-	if (shapeEnd == axis.front())
-		axis.emplace(axis.begin(), point);
-	else if (shapeEnd == axis.back())
-		axis.emplace(axis.end(), point);
+	auto newAxis = getAxis();
+	if (shapeEnd == newAxis.front())
+		newAxis.emplace(newAxis.begin(), point);
+	else if (shapeEnd == newAxis.back())
+		newAxis.emplace(newAxis.end(), point);
 	else
 		throw std::runtime_error("Unknown extent point!");
 
-	reconstruct();
+	construct(newAxis, m_width);
 }
 
 SegmentedShape::ShapeCut SegmentedShape::getShapeCut(Shape::AxisPoint axisPoint, float radius) const
 {
 	auto axis = getAxis();
-	if (isCirculary())
-	{
-		setNewCirclePointsStart(axis, axisPoint);
-	}
-	
+		
 	// insert if unique
 	if (std::find(std::begin(axis), std::end(axis), axisPoint) == std::end(axis))
 	{
 		auto [firstPoint, secondPoint] = getEdgesOfAxisPoint(axisPoint);
 		insertElemementBetween(axis, firstPoint, secondPoint, axisPoint);
+	}
+	if (isCirculary())
+	{
+		setNewCirclePointsStart(axis, axisPoint);
 	}
 
 	float halfRadius = radius / 2.0f;
@@ -924,7 +924,25 @@ std::optional<SegmentedShape> SegmentedShape::cut(ShapeCut cutPoints)
 			}
 			else
 			{
-				// circle not implemented yet
+				auto [firstEdge, secondEdge] = getEdgesOfAxisPoint(cutPoints.axis.front());
+				auto insertIt = insertElemementBetween(axis, firstEdge, secondEdge, cutPoints.axis.front());
+				setNewCirclePointsStart(axis, *insertIt);
+
+				for (uint32_t indexOne = 0, indexTwo = 1; indexTwo < axis.size(); ++indexOne, ++indexTwo)
+				{
+					if (pointSitsOnLine(axis[indexOne], axis[indexTwo], cutPoints.axis.back()))
+					{
+						insertIt = insertElemementBetween(axis, axis[indexOne], axis[indexTwo], cutPoints.axis.back());
+						axis.erase(axis.begin(), insertIt);
+
+						break;
+					}
+				}
+				construct(axis, m_width);
+				/*else
+				{
+					throw std::runtime_error("Not yet implemented circular cut");
+				}*/
 			}
 		}
 	}

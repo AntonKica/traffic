@@ -1,6 +1,7 @@
 #pragma once
 #include "Utilities.h"
 #include <algorithm>
+#include <chrono>
 
 namespace Collisions
 {
@@ -33,55 +34,59 @@ namespace Collisions
 			return firstInterval.min - secondInterval.max;
 	}
 
-
-	static bool triangleTriangleCollision(const Triangle& triangleOne, const Triangle& triangleTwo)
+	namespace details
 	{
-		bool canDrawLineBetween = false;
-
-		// with first triangle
-		for (uint32_t index = 0, nextIndex = 1; index < triangleOne.size(); ++index, ++nextIndex)
+		template <class PolygonType> bool polygonPolygonCollision(const PolygonType& polygonOne, const PolygonType& polygonTwo)
 		{
-			if (canDrawLineBetween)
-				break;
+			bool canDrawLineBetween = false;
 
-			if (nextIndex == triangleOne.size())
-				nextIndex = 0;
-
-			const glm::vec3 edge = triangleOne[index] - triangleOne[nextIndex];
-
-			const glm::vec3 vectorUp(0.0, 1.0, 0.0);
-			const auto perpAxis = glm::normalize(glm::cross(edge, vectorUp));
-
-			const auto firstInterval = projectPolygonOnAxis(triangleOne, perpAxis);
-			const auto secondInterval = projectPolygonOnAxis(triangleTwo, perpAxis);
-
-			canDrawLineBetween = intervalDistance(firstInterval, secondInterval) > 0;
-		}
-		
-		// for second triangle
-		if (!canDrawLineBetween)
-		{
-			for (uint32_t index = 0, nextIndex = 1; index < triangleTwo.size(); ++index, ++nextIndex)
+			// with first triangle
+			for (uint32_t index = 0, nextIndex = 1; index < polygonOne.size(); ++index, ++nextIndex)
 			{
 				if (canDrawLineBetween)
 					break;
 
-				if (nextIndex == triangleTwo.size())
+				if (nextIndex == polygonOne.size())
 					nextIndex = 0;
 
-				const glm::vec3 edge = triangleTwo[index] - triangleTwo[nextIndex];
+				const glm::vec3 edge = polygonOne[index] - polygonOne[nextIndex];
 
 				const glm::vec3 vectorUp(0.0, 1.0, 0.0);
 				const auto perpAxis = glm::normalize(glm::cross(edge, vectorUp));
 
-				const auto firstInterval = projectPolygonOnAxis(triangleOne, perpAxis);
-				const auto secondInterval = projectPolygonOnAxis(triangleTwo, perpAxis);
+				const auto firstInterval = projectPolygonOnAxis(polygonOne, perpAxis);
+				const auto secondInterval = projectPolygonOnAxis(polygonTwo, perpAxis);
 
 				canDrawLineBetween = intervalDistance(firstInterval, secondInterval) > 0;
 			}
+
+			// for second triangle
+			if (!canDrawLineBetween)
+			{
+				for (uint32_t index = 0, nextIndex = 1; index < polygonTwo.size(); ++index, ++nextIndex)
+				{
+					if (canDrawLineBetween)
+						break;
+
+					if (nextIndex == polygonTwo.size())
+						nextIndex = 0;
+
+					const glm::vec3 edge = polygonTwo[index] - polygonTwo[nextIndex];
+
+					const glm::vec3 vectorUp(0.0, 1.0, 0.0);
+					const auto perpAxis = glm::normalize(glm::cross(edge, vectorUp));
+
+					const auto firstInterval = projectPolygonOnAxis(polygonOne, perpAxis);
+					const auto secondInterval = projectPolygonOnAxis(polygonTwo, perpAxis);
+
+					canDrawLineBetween = intervalDistance(firstInterval, secondInterval) > 0;
+				}
+			}
+
+			return !canDrawLineBetween;
 		}
-		
-		return !canDrawLineBetween;
+
+		constexpr auto triangleTriangleCollision = polygonPolygonCollision<Triangle>;
 	}
 
 	/*
@@ -92,7 +97,49 @@ namespace Collisions
 	*	P5	...
 	*
 	*/
-	static bool polygonPolygonCollision(const Points& polygonOnePoints, const Points& polygonTwoPoints)
+
+	class Timer
+	{
+	public:
+		Timer(bool start = false)
+		{
+			started = false;
+
+			if (start)
+				fire();
+		}
+
+		void fire()
+		{
+			started = true;
+			start = std::chrono::system_clock::now();
+		}
+		void stop()
+		{
+			if (started)
+			{
+				measured = std::chrono::system_clock::now() - start;
+				started = false;
+			}
+		}
+
+		using Duration = std::chrono::system_clock::duration;
+		static void printDuration(std::chrono::system_clock::duration d)
+		{
+			std::cout << "Duration: Miliseconds " << std::chrono::duration_cast<std::chrono::milliseconds>(d).count() << '\n';
+		}
+
+		Duration getMeasured() const
+		{
+			return measured;
+		}
+	private:
+		bool started;
+		Duration measured;
+		std::chrono::system_clock::time_point start;
+	};
+
+	static bool boolPolygonsCollide(const Points& polygonOnePoints, const Points& polygonTwoPoints)
 	{
 		auto findCentreAndRadiusOfPoints = [](const Points& points)
 		{
@@ -127,21 +174,114 @@ namespace Collisions
 			return std::make_pair(average,glm::length(radiusPoint));
 		};
 
+		static Timer::Duration possibleSavedTimeWithPolygonal = {};
+		static Timer::Duration possibleSavedTimeWithRadial = {};
+		static Timer::Duration possibleWastedTimeWithPolygonal = {};
+		static Timer::Duration possibleWastedTimeWithRadial = {};
+
+		static Timer::Duration triagonalDuration;
+		static Timer::Duration triagonalMaxDuration = std::chrono::milliseconds(std::numeric_limits<uint32_t>::min());
+		static Timer::Duration triagonalMinDuration = std::chrono::milliseconds(std::numeric_limits<uint32_t>::max());
+		static uint32_t colCount = 0;
+		++colCount;
+
 		// can improve performance in several occasions idk tho,
 		// premature optimalisation it is
+
+		Timer first, second;
 		constexpr const uint32_t minPCountToVerify = 14;
-		if (polygonOnePoints.size() + polygonTwoPoints.size() > minPCountToVerify)
+		bool circleIntersect = false;
+		bool polygonIntersect = false;
+		if (true)
 		{
+			static Timer::Duration radialDuration = {};
+			static Timer::Duration radialMaxDuration = std::chrono::milliseconds(std::numeric_limits<uint32_t>::min());
+			static Timer::Duration radialMinDuration = std::chrono::milliseconds(std::numeric_limits<uint32_t>::max());
+
+			static uint32_t radialWrongCount = 0;
+			static uint32_t radialRightCount = 0;
 			const auto [c1, r1] = findCentreAndRadiusOfPoints(polygonOnePoints);
 			const auto [c2, r2] = findCentreAndRadiusOfPoints(polygonTwoPoints);
 
 			const float circleDistances = glm::length(c1 - c2);
 
-			bool circlesIntersect = circleDistances <= std::abs(r1 + r2);
+			first.fire();
+			circleIntersect = circleDistances <= std::abs(r1 + r2);
+			first.stop();
 
-			if (!circlesIntersect)
-				return false;
+			radialDuration += first.getMeasured();
+			radialMaxDuration = std::max(radialMaxDuration, first.getMeasured());
+			radialMinDuration = std::min(radialMinDuration, first.getMeasured());
+			if (circleIntersect)
+			{
+				++radialRightCount;
+				//return false;
+			}
+			else
+			{
+				++radialWrongCount;
+			}
+	
+
+			static Timer::Duration polygonalDuration;
+			static Timer::Duration polygonalMaxDuration = std::chrono::milliseconds(std::numeric_limits<uint32_t>::min());
+			static Timer::Duration polygonalMinDuration = std::chrono::milliseconds(std::numeric_limits<uint32_t>::max());
+			static uint32_t polygonalWrongCount = 0;
+			static uint32_t polygonalRightCount = 0;
+
+			second.fire();
+			polygonIntersect = details::polygonPolygonCollision(polygonOnePoints, polygonTwoPoints);
+			second.stop();
+
+			polygonalDuration += second.getMeasured();
+			polygonalMaxDuration = std::max(polygonalMaxDuration, second.getMeasured());
+			polygonalMinDuration = std::min(polygonalMinDuration, second.getMeasured());
+			if (polygonIntersect)
+			{
+				++polygonalRightCount;
+				//return false;
+			}
+			else
+			{
+				++polygonalWrongCount;
+			}
+
+			if (radialRightCount + radialWrongCount > 100'0000 / 2)
+			{
+				std::cout << "Radial results:"
+					<< "\n\t Right count: " << radialRightCount
+					<< "\n\t Wrong count: " << radialWrongCount
+					<< "\n\t Min duration:" << std::chrono::duration_cast<std::chrono::microseconds>(radialMinDuration).count() << "ms"
+					<< "\n\t Max duration:" << std::chrono::duration_cast<std::chrono::microseconds>(radialMaxDuration).count() << "ms"
+					<< "\n\t Average duration:" << std::chrono::duration_cast<std::chrono::microseconds>(radialDuration).count() / float(radialRightCount + radialWrongCount) << "ms"
+					<< "\n\t Total duration:" << std::chrono::duration_cast<std::chrono::microseconds>(radialDuration).count() << "ms"
+					<< "\n\t Possible time saved: " << std::chrono::duration_cast<std::chrono::microseconds>(possibleSavedTimeWithRadial).count() << "ms"
+					<< "\n\t Possible time wasted: " << std::chrono::duration_cast<std::chrono::microseconds>(possibleWastedTimeWithRadial).count() << "ms"
+					<< "\n\n";
+				std::cout << "Polygonal results:"
+					<< "\n\t Right count: " << polygonalRightCount
+					<< "\n\t Wrong count: " << polygonalWrongCount
+					<< "\n\t Min duration:" << std::chrono::duration_cast<std::chrono::microseconds>(polygonalMinDuration).count() << "ms"
+					<< "\n\t Max duration:" << std::chrono::duration_cast<std::chrono::microseconds>(polygonalMaxDuration).count() << "ms"
+					<< "\n\t Average duration:" << std::chrono::duration_cast<std::chrono::microseconds>(polygonalDuration).count() / float(polygonalRightCount + polygonalWrongCount) << "ms"
+					<< "\n\t Total duration:" << std::chrono::duration_cast<std::chrono::microseconds>(polygonalDuration).count() << "ms"
+					<< "\n\t Possible time saved: " << std::chrono::duration_cast<std::chrono::microseconds>(possibleSavedTimeWithPolygonal).count() << "ms"
+					<< "\n\t Possible time wasted: " << std::chrono::duration_cast<std::chrono::microseconds>(possibleWastedTimeWithPolygonal).count() << "ms"
+					<< "\n\n";
+				std::cout << "Triagonal results:"
+					<< "\n\t Min duration:" << std::chrono::duration_cast<std::chrono::microseconds>(triagonalMinDuration).count() << "ms"
+					<< "\n\t Max duration:" << std::chrono::duration_cast<std::chrono::microseconds>(triagonalMaxDuration).count() << "ms"
+					<< "\n\t Average duration:" << std::chrono::duration_cast<std::chrono::microseconds>(triagonalDuration).count() / float(colCount) << "ms"
+					<< "\n\t Total duration:" << std::chrono::duration_cast<std::chrono::microseconds>(triagonalDuration).count() << "ms"
+					<< "\n\n";
+
+				exit(0);
+			}
 		}
+
+
+		Timer third(true);
+		bool found = false;
 		// +2 for triangle
 		for (uint32_t firstIndex = 0; firstIndex + 2 < polygonOnePoints.size(); ++firstIndex)
 		{
@@ -154,11 +294,38 @@ namespace Collisions
 				const Triangle polygonTwoTriangle =
 				{ polygonTwoPoints[secondIndex],  polygonTwoPoints[secondIndex + 1] ,polygonTwoPoints[secondIndex + 2] };
 
-				if (triangleTriangleCollision(polygonOneTriangle, polygonTwoTriangle))
-					return true;
+				if (details::triangleTriangleCollision(polygonOneTriangle, polygonTwoTriangle))
+				{
+					found = true;
+					break;
+				}
 			}
+
+			if (found)
+				break;
 		}
 
-		return false;
+		third.stop();
+		if (!found)
+		{
+			if (circleIntersect)
+				possibleSavedTimeWithRadial += third.getMeasured() - first.getMeasured();
+			if (polygonIntersect)
+				possibleSavedTimeWithPolygonal += third.getMeasured() - second.getMeasured();
+		}
+		if(found)
+		{
+			if (!circleIntersect)
+				possibleWastedTimeWithRadial += third.getMeasured() - first.getMeasured();
+			if (!polygonIntersect)
+				possibleWastedTimeWithPolygonal += third.getMeasured() - second.getMeasured();
+		}
+
+
+		triagonalDuration += third.getMeasured();
+		triagonalMaxDuration = std::max(triagonalMaxDuration, third.getMeasured());
+		triagonalMinDuration = std::min(triagonalMinDuration, third.getMeasured());
+
+		return found;
 	}
 }

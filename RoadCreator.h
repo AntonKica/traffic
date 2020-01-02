@@ -117,6 +117,7 @@ private:
 	void handleCurrentPoints();
 	void tryToConstructRoad();
 	void tryToDestroyRoad();
+	void tidyIntersections();
 	void createRoadFromCurrent();
 	void handleConstruction(Road road, std::vector<RC::PointRoadPair> connectPoints);
 

@@ -250,6 +250,7 @@ void RoadCreator::setPoint()
 
 void RoadCreator::validateCurrentShape()
 {
+	// doesntqoek rhe best
 	m_currentShapeValid = true;
 	if (m_currentMode == Creator::CreatorMode::DESTROY)
 		return;
@@ -314,7 +315,7 @@ void RoadCreator::validateCurrentShape()
 		{
 			auto skeleton = road.m_shape.getSkeleton();
 
-			if (Collisions::polygonPolygonCollision(shapeOutline, skeleton))
+			if (Collisions::boolPolygonsCollide(shapeOutline, skeleton))
 			{
 				m_currentShapeValid = false;
 				break;
@@ -361,6 +362,9 @@ void RoadCreator::tryToDestroyRoad()
 			auto cut = road->getCut(Shape::AxisPoint(curPoint));
 			auto product = road->cut(cut);
 
+			if (!road->hasBody())
+				m_pRoadManager->m_roads.remove(road);
+
 			if (product.road)
 			{
 				m_pRoadManager->m_roads.add(product.road.value());
@@ -368,19 +372,40 @@ void RoadCreator::tryToDestroyRoad()
 					addedRoad->addConnection(product.connection.value());*/
 			}
 
-			if (!road->hasBody())
-				m_pRoadManager->m_roads.remove(road);
+			tidyIntersections();
 		}
 		else
 		{
-			auto road = dynamic_cast<RoadIntersection*>(curRoad);
-
-			road->destroy();
+			auto intersection = dynamic_cast<RoadIntersection*>(curRoad);
+			m_pRoadManager->m_intersections.remove(intersection);
 		}
 
 	}
 
 	m_setPoints.clear();
+}
+
+void RoadCreator::tidyIntersections()
+{
+	auto& intersections = m_pRoadManager->m_intersections.data;
+	for (auto intiter = intersections.begin(); intiter != intersections.end();)
+	{
+		if (!intiter->validIntersection())
+		{
+			auto dissassembledRoads = intiter->disassemble();
+			if (dissassembledRoads.size() == 2)
+			{
+				dissassembledRoads[0]->mergeWith(*dissassembledRoads[1]);
+				m_pRoadManager->m_roads.remove(dissassembledRoads[1]);
+			}
+
+			intiter = m_pRoadManager->m_intersections.remove(&*intiter);
+		}
+		else
+		{
+			++intiter;
+		}
+	}
 }
 
 void RoadCreator::createRoadFromCurrent()
@@ -476,12 +501,12 @@ void RoadCreator::updateMousePoint()
 		if (auto selectedRoad = m_pRoadManager->getSelectedRoad())
 		{
 			const auto& road = selectedRoad.value();
+			newSittingPoint.road = selectedRoad.value();
 			if (road->getRoadType() == BasicRoad::RoadType::ROAD)
 			{
 				auto roadPoint = selectedRoad.value()->getAxisPoint(mousePoint);
 
 				newSittingPoint.point = roadPoint;
-				newSittingPoint.road = selectedRoad.value();
 			}
 		}
 		else

@@ -201,6 +201,41 @@ void RoadIntersection::setUpShape()
 	setupModel(mInfo, true);
 }
 
+bool RoadIntersection::validIntersection()
+{
+	return m_connections.size() >= 3;
+}
+
+std::vector<Road*> RoadIntersection::disassemble()
+{
+	//set cause there may be two same roads
+	std::set<Road*> connected;
+	if (m_connections.size())
+	{
+		auto curConnection = m_connections[0];
+		dismissConnection(curConnection);
+
+		auto road = dynamic_cast<Road*>(curConnection.connected);
+
+
+		road->extend(Shape::AxisPoint(curConnection.point), m_centre);
+		connected.insert(road);
+
+		if (m_connections.size())
+		{
+			curConnection = m_connections[0];
+			dismissConnection(curConnection);
+
+			road->extend(Shape::AxisPoint(m_centre), curConnection.point);
+
+			connected.insert(dynamic_cast<Road*>(curConnection.connected));
+
+		}
+	}
+
+	return std::vector(std::begin(connected), std::end(connected));
+}
+
 glm::vec3 RoadIntersection::getDirectionPointFromConnectionPoint(Point connectionPoint)
 {
 	return m_centre;

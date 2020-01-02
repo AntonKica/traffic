@@ -154,7 +154,7 @@ template <class TrailContainer, class TrailPointType> std::pair<TrailContainer, 
 			throw std::runtime_error("Given wrong trail point!");
 
 		// befor doing any further calculations, check if is not already at the end
-		if(*pointIt != trail.back() && trail.front() != trail.back())
+		if( !(*pointIt == trail.back() && trail.front() != trail.back()))
 		{
 			float travelledDistance = 0;
 			for (auto previousIter = pointIt++; pointIt != std::end(trail); previousIter = pointIt++)
@@ -190,7 +190,7 @@ template <class TrailContainer, class TrailPointType> std::pair<TrailContainer, 
 			throw std::runtime_error("Given wrong trail point!");
 
 		// befor doing any further calculations, check if is not already at the end
-		if (*pointIt != trail.front() && trail.front() != trail.back())
+		if (!(*pointIt == trail.front() && trail.front() != trail.back()))
 		{
 			float travelledDistance = 0;
 			for (auto previousIter = pointIt++; pointIt != std::rend(trail); previousIter = pointIt++)
@@ -370,13 +370,11 @@ template<class PointsType, class PointType> void setNewCirclePointsStart(PointsT
 
 template<class C, class T> auto insertElemementBetween(C& container, T first, T second, T element)
 {
-	for (auto begin = std::begin(container); begin != std::end(container) - 1; ++begin)
+	for (auto begin = std::begin(container); begin + 1 != std::end(container); ++begin)
 	{
-		if ((*begin == first && *(begin + 1) == second) ||
-			(*(begin + 1) == first && *begin == second))
-		{
+		// keep order of elements
+		if (*begin == first && *(begin + 1) == second)
 			return container.insert(begin + 1, element);
-		}
 	}
 
 	throw std::runtime_error("Supplied range, which doesnt exist in supplied container!");

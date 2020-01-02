@@ -54,6 +54,7 @@ public:
 
 	// Connections
 	// Tail
+private:
 	void setTailDirectionPoint(Point point);
 	void removeTailDirectionPoint();
 	Point getTailDirectionPoint() const;
@@ -65,7 +66,7 @@ public:
 	bool hasHeadDirectionPoint() const;
 
 	void clearDirectionPoints();
-
+public:
 
 
 	// Creation and configration

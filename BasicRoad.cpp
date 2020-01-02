@@ -48,6 +48,11 @@ BasicRoad& BasicRoad::operator=(BasicRoad&& move)
 	return *this;
 }
 
+uint32_t BasicRoad::getConnectedCount() const
+{
+	return m_connections.size();
+}
+
 /*BasicRoad::Connection& BasicRoad::findConnection(BasicRoad* connectedRoad)
 {
 	return *std::find(std::begin(m_connections), std::end(m_connections), connectedRoad);
@@ -123,6 +128,7 @@ void BasicRoad::disconnectAll()
 		dismissConnection(*m_connections.begin());
 	}
 }
+
 
 bool BasicRoad::hasBody() const
 {

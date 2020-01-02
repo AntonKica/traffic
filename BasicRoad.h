@@ -35,6 +35,8 @@ public:
 	BasicRoad& operator=(const BasicRoad& copy);
 	BasicRoad& operator=(BasicRoad&& move);
 
+	uint32_t getConnectedCount() const;
+
 	virtual glm::vec3 getDirectionPointFromConnectionPoint(Point connectionPoint) = 0;
 	struct ConnectionPossibility 
 	{
@@ -54,6 +56,8 @@ public:
 		INTERSECTION,
 		MAX_ROAD_TYPE
 	};
+
+
 	virtual void destroy() = 0;
 	virtual bool hasBody() const = 0;
 	virtual bool sitsPointOn(Point point) const = 0;

@@ -4,6 +4,7 @@
 #include "Utilities.h"
 #include <vector>
 #include <array>
+#include <set>
 
 
 class Road;
@@ -13,6 +14,8 @@ class RoadIntersection
 public:
 	void construct(std::array<Road*, 3> roads, Point intersectionPoint);
 	void setUpShape();
+	bool validIntersection();
+	std::vector<Road*> disassemble();
 
 	glm::vec3 getDirectionPointFromConnectionPoint(Point point) override;
 	ConnectionPossibility getConnectionPossibility(Line connectionLine, Shape::AxisPoint connectionPoint) const override;

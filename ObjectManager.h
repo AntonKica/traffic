@@ -18,14 +18,13 @@ public:
 		return data.insert(data.end(), objs.begin(), objs.end());
 	}
 
-	void remove(Type* obj)
+	iter remove(Type* obj)
 	{
 		for (auto dataIt = data.begin(); dataIt != data.end(); ++dataIt)
 		{
 			if (&*dataIt == obj)
 			{
-				data.erase(dataIt);
-				break;
+				return data.erase(dataIt);
 			}
 		}
 	}
