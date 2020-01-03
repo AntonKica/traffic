@@ -259,7 +259,7 @@ bool RoadIntersection::hasBody() const
 
 bool RoadIntersection::sitsPointOn(Point point) const
 {
-	return polygonPointCollision(m_outlinePoints, point);
+	return Collisions::polygonPointCollision(m_outlinePoints, point);
 }
 
 BasicRoad::RoadType RoadIntersection::getRoadType() const

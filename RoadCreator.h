@@ -34,7 +34,7 @@ class CreatorVisualizer
 public:
 	void update();
 	void setDraw(const std::vector<Point>& drawAxis, const std::vector<Point>& drawPoints, float width, bool valid);
-
+	void setActive(bool active);
 private:
 	VD::PositionVertices generateLines();
 	std::pair<VD::PositionVertices, VD::ColorVertices> generatePoints();
@@ -144,8 +144,6 @@ private:
 	};
 	IntersectionProducts buildToIntersection(Road& road, Road& connectingRoad);
 
-	ObjectManager* m_pRoadManager;
-
 	CreatorVisualizer visualizer;
 
 	std::optional<RC::SittingPoint> m_mousePoint;
@@ -165,7 +163,7 @@ protected:
 	virtual void setActiveAction() override;
 
 public:
-	RoadCreator(ObjectManager* roadManager);
+	RoadCreator(ObjectManager* objectManager);
 
 
 	void update();

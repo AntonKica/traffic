@@ -5,37 +5,59 @@
 
 namespace Collisions
 {
-	template <class T> struct MinMax
+	template <class PointsType, class PointType> bool polygonPointCollision(const PointsType& polygon, const PointType& point)
 	{
-		T min, max;
-	};
-
-	template <class PointsContainer> static MinMax<float> projectPolygonOnAxis(const PointsContainer& polygonPoints, const glm::vec3& axis)
-	{
-		float dotProduct = glm::dot(axis, polygonPoints[0]);
-		float min = dotProduct;
-		float max = dotProduct;
-		
-		for (const auto& point : polygonPoints)
+		bool collision = false;
+		for (auto vert = polygon.begin(); vert != polygon.end(); ++vert)
 		{
-			dotProduct = glm::dot(axis, point);
-			min = std::min(min, dotProduct);
-			max = std::max(max, dotProduct);
+			auto nextVert = (vert + 1) ==
+				polygon.end() ? polygon.begin() : vert + 1;
+
+			// z test
+			if (((vert->z > point.z) && nextVert->z < point.z)
+				|| (vert->z < point.z && (nextVert->z > point.z)))
+			{
+				if (point.x < (nextVert->x - vert->x) * (point.z - vert->z) / (nextVert->z - vert->z) + vert->x)
+				{
+					collision = !collision;
+				}
+			}
 		}
 
-		return MinMax<float>{ min, max };
-	}
-
-	static float intervalDistance(const MinMax<float>& firstInterval, const MinMax<float>& secondInterval)
-	{
-		if (firstInterval.min < secondInterval.min)
-			return secondInterval.min - firstInterval.max;
-		else
-			return firstInterval.min - secondInterval.max;
+		return collision;
 	}
 
 	namespace details
 	{
+		template <class T> struct MinMax
+		{
+			T min, max;
+		};
+
+		template <class PointsContainer> static MinMax<float> projectPolygonOnAxis(const PointsContainer& polygonPoints, const glm::vec3& axis)
+		{
+			float dotProduct = glm::dot(axis, polygonPoints[0]);
+			float min = dotProduct;
+			float max = dotProduct;
+
+			for (const auto& point : polygonPoints)
+			{
+				dotProduct = glm::dot(axis, point);
+				min = std::min(min, dotProduct);
+				max = std::max(max, dotProduct);
+			}
+
+			return MinMax<float>{ min, max };
+		}
+
+		static float intervalDistance(const MinMax<float>& firstInterval, const MinMax<float>& secondInterval)
+		{
+			if (firstInterval.min < secondInterval.min)
+				return secondInterval.min - firstInterval.max;
+			else
+				return firstInterval.min - secondInterval.max;
+		}
+
 		template <class PolygonType> bool polygonPolygonCollision(const PolygonType& polygonOne, const PolygonType& polygonTwo)
 		{
 			bool canDrawLineBetween = false;
@@ -375,10 +397,9 @@ namespace Collisions
 
 			auto circleIntersect = circleDistances <= std::abs(r1 + r2);
 
-			if (circleIntersect)
-			{
+			if (!circleIntersect)
 				return false;
-			}
+
 		}
 
 		// +2 for triangle

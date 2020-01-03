@@ -56,34 +56,16 @@ template<class PointType1, class PointType2, class PointType3> bool pointSitsOnL
 	if (p == s || p == e)
 		return true;
 
-	constexpr const float maxDifference = 0.000'001f;
-	auto lengthSP = glm::length(s - p);
-	auto lengthPE = glm::length(p - e);
-	auto lengthSE = glm::length(s - e);
+	glm::dvec3 ds(s);
+	glm::dvec3 de(e);
+	glm::dvec3 dp(p);
+
+	constexpr const double maxDifference = 0.000'001;
+	auto lengthSP = glm::length(ds - dp);
+	auto lengthPE = glm::length(dp - de);
+	auto lengthSE = glm::length(ds - de);
 
 	return glm::epsilonEqual(lengthSP + lengthPE, lengthSE, maxDifference);
-}
-
-template <class PointsType, class PointType> bool polygonPointCollision(const PointsType& polygon, const PointType& point)
-{
-	bool collision = false;
-	for (auto vert = polygon.begin(); vert != polygon.end(); ++vert)
-	{
-		auto nextVert = (vert + 1) ==
-			polygon.end() ? polygon.begin() : vert + 1;
-
-		// z test
-		if (((vert->z > point.z) && nextVert->z < point.z)
-			|| (vert->z < point.z && (nextVert->z > point.z)))
-		{
-			if (point.x < (nextVert->x - vert->x) * (point.z - vert->z) / (nextVert->z - vert->z) + vert->x)
-			{
-				collision = !collision;
-			}
-		}
-	}
-
-	return collision;
 }
 
 

@@ -14,6 +14,7 @@ template <class UIType,
 	class = class std::enable_if<std::is_base_of<BasicUI, UIType>::value>>
 class BasicCreator;
 
+class ObjectManager;
 namespace Creator
 {
 	enum class CreatorMode
@@ -27,6 +28,7 @@ template <class UIType>
 class BasicCreator <UIType>
 {
 public:
+	BasicCreator(ObjectManager* objManager);
 	void setCreatorMode(Creator::CreatorMode mode);
 	void setActive(bool active);
 
@@ -38,6 +40,8 @@ protected:
 	bool m_active = false;
 	UIType m_ui = {};
 	Creator::CreatorMode m_currentMode = {};
+
+	ObjectManager* m_pObjectManager;
 };
 
 /*
@@ -46,6 +50,12 @@ void BasicCreator<UIType>::setCreatorMode(CreatorMode mode) const
 {
 	m_currentMode = mode;
 }*/
+
+template<class UIType>
+inline BasicCreator<UIType>::BasicCreator(ObjectManager* objManager)
+	:m_pObjectManager(objManager)
+{
+}
 
 template<class UIType>
 void BasicCreator<UIType>::setCreatorMode(Creator::CreatorMode mode)

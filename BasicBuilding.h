@@ -8,6 +8,7 @@ class BasicBuilding :
 public:
 	BasicBuilding();
 
+	virtual void create() = 0;
 protected:
 	//std::string getModelPath() const override;
 //private:

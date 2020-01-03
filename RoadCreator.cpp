@@ -268,22 +268,40 @@ void RoadCreator::validateCurrentShape()
 		if (m_processedCurrentPoints.roadBeginAxisPoint)
 		{
 			const auto& road = *m_processedCurrentPoints.roadBeginAxisPoint.value().second;
-			if (road.sitsPointOn(*leftPts.begin()) ||
-				road.sitsPointOn(*rightPts.begin()))
-			{
+			/*if (!leftPts.empty() && road.sitsPointOn(*leftPts.begin()))
 				leftPts.erase(leftPts.begin());
-				rightPts.erase(rightPts.begin());
+			if (!rightPts.empty() && road.sitsPointOn(*rightPts.begin()))
+				rightPts.erase(rightPts.begin());*/
+
+			bool removePoints = (!leftPts.empty() && road.sitsPointOn(*leftPts.begin())) ||
+				!rightPts.empty() && road.sitsPointOn(*rightPts.begin());
+
+			if (removePoints)
+			{
+				if(leftPts.size())
+					leftPts.erase(leftPts.begin());
+				if (rightPts.size())
+					rightPts.erase(rightPts.begin());
 			}
 		}
 		if (m_processedCurrentPoints.roadEndAxisPoint)
 		{
 			const auto& road = *m_processedCurrentPoints.roadEndAxisPoint.value().second;
 
-			if (road.sitsPointOn(*(leftPts.end() - 1)) ||
-				road.sitsPointOn(*(rightPts.end() - 1)))
-			{
+			/*if (!leftPts.empty() && road.sitsPointOn(*(leftPts.end() - 1)))
 				leftPts.erase(leftPts.end() - 1);
-				rightPts.erase(rightPts.end() - 1);
+			if (!rightPts.empty() && road.sitsPointOn(*(rightPts.end() - 1)))
+				rightPts.erase(rightPts.end() - 1);*/
+
+			bool removePoints = (!leftPts.empty() && road.sitsPointOn(*(leftPts.end() - 1))) ||
+				!rightPts.empty() && road.sitsPointOn(*(rightPts.end() - 1));
+
+			if (removePoints)
+			{
+				if (leftPts.size())
+					leftPts.erase(leftPts.end() - 1);
+				if (rightPts.size())
+					rightPts.erase(rightPts.end() - 1);
 			}
 		}
 
@@ -311,7 +329,7 @@ void RoadCreator::validateCurrentShape()
 		shapeOutline = joinLeftAndRightPoints(leftPts, rightPts);
 
 
-		for (const auto& road : m_pRoadManager->m_roads.data)
+		for (const auto& road : m_pObjectManager->m_roads.data)
 		{
 			auto skeleton = road.m_shape.getSkeleton();
 
@@ -363,11 +381,11 @@ void RoadCreator::tryToDestroyRoad()
 			auto product = road->cut(cut);
 
 			if (!road->hasBody())
-				m_pRoadManager->m_roads.remove(road);
+				m_pObjectManager->m_roads.remove(road);
 
 			if (product.road)
 			{
-				m_pRoadManager->m_roads.add(product.road.value());
+				m_pObjectManager->m_roads.add(product.road.value());
 				/*if (product.connection)
 					addedRoad->addConnection(product.connection.value());*/
 			}
@@ -377,7 +395,7 @@ void RoadCreator::tryToDestroyRoad()
 		else
 		{
 			auto intersection = dynamic_cast<RoadIntersection*>(curRoad);
-			m_pRoadManager->m_intersections.remove(intersection);
+			m_pObjectManager->m_intersections.remove(intersection);
 		}
 
 	}
@@ -387,7 +405,7 @@ void RoadCreator::tryToDestroyRoad()
 
 void RoadCreator::tidyIntersections()
 {
-	auto& intersections = m_pRoadManager->m_intersections.data;
+	auto& intersections = m_pObjectManager->m_intersections.data;
 	for (auto intiter = intersections.begin(); intiter != intersections.end();)
 	{
 		if (!intiter->validIntersection())
@@ -396,10 +414,10 @@ void RoadCreator::tidyIntersections()
 			if (dissassembledRoads.size() == 2)
 			{
 				dissassembledRoads[0]->mergeWith(*dissassembledRoads[1]);
-				m_pRoadManager->m_roads.remove(dissassembledRoads[1]);
+				m_pObjectManager->m_roads.remove(dissassembledRoads[1]);
 			}
 
-			intiter = m_pRoadManager->m_intersections.remove(&*intiter);
+			intiter = m_pObjectManager->m_intersections.remove(&*intiter);
 		}
 		else
 		{
@@ -461,7 +479,7 @@ void RoadCreator::handleConstruction(Road newRoad, std::vector<RC::PointRoadPair
 			// iterated second time , if merged we have to destroy used road
 			else if (useRoad != &newRoad && !connectProducts.keepConnectingRoad)
 			{
-				m_pRoadManager->m_roads.remove(useRoad);
+				m_pObjectManager->m_roads.remove(useRoad);
 				useRoad = nullptr;
 			}
 		}
@@ -470,8 +488,8 @@ void RoadCreator::handleConstruction(Road newRoad, std::vector<RC::PointRoadPair
 	if (addNewRoad)
 		newRoads.emplace_back(newRoad);
 	// add to map or wherever
-	m_pRoadManager->m_roads.add(newRoads);
-	m_pRoadManager->m_intersections.add(newIntersections);
+	m_pObjectManager->m_roads.add(newRoads);
+	m_pObjectManager->m_intersections.add(newIntersections);
 
 }
 /*
@@ -498,7 +516,7 @@ void RoadCreator::updateMousePoint()
 		RC::SittingPoint newSittingPoint;
 
 		//just for now this way of getting selected road
-		if (auto selectedRoad = m_pRoadManager->getSelectedRoad())
+		if (auto selectedRoad = m_pObjectManager->getSelectedRoad())
 		{
 			const auto& road = selectedRoad.value();
 			newSittingPoint.road = selectedRoad.value();
@@ -848,15 +866,21 @@ void RoadCreator::setCreatorModeAction()
 {
 	// could be clar points function tho
 	m_setPoints.clear();
+	m_creationPoints = {};
+
+	visualizer.setActive(m_active);
 }
 
 void RoadCreator::setActiveAction()
 {
 	m_setPoints.clear();
+	m_creationPoints = {};
+
+	visualizer.setActive(m_active);
 }
 
-RoadCreator::RoadCreator(ObjectManager* roadManager)
-	: m_pRoadManager(roadManager)
+RoadCreator::RoadCreator(ObjectManager* objectManager)
+	: BasicCreator(objectManager)
 {
 }
 
@@ -872,6 +896,9 @@ void RoadCreator::update()
 
 void RoadCreator::clickEvent()
 {
+	if (!m_active)
+		return;
+
 	setPoint();
 }
 
@@ -892,6 +919,12 @@ void CreatorVisualizer::setDraw(const std::vector<Point>& drawAxis, const std::v
 	pointToDraw = drawPoints;
 	this->width = width;
 	this->valid = valid;
+}
+
+void CreatorVisualizer::setActive(bool active)
+{
+	pointGraphics.setActive(active);
+	lineGraphics.setActive(active);
 }
 
 VD::PositionVertices CreatorVisualizer::generateLines()

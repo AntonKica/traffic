@@ -253,64 +253,24 @@ std::vector<vkh::structs::Buffer>& VulkanBase::getUniformBuffers()
 	return m_buffers.uniform;
 }
 
-pGraphicsModule VulkanBase::getNewGraphicsModule()
-{
-	pGraphicsModule gModule =  m_graphicsModules.top();
-	m_graphicsModules.pop();
-
-	return gModule;
-}
-
-void VulkanBase::removeGraphicsModule(const pGraphicsModule& graphicsModule)
-{
-	/*auto gIt = std::find(std::begin(m_activeGraphicsModules), std::end(m_activeGraphicsModules), graphicsModule);
-	m_activeGraphicsModules.erase(gIt);*/
-
-	*graphicsModule = {};
-	m_graphicsModules.push(graphicsModule);
-}
-
 GraphicsComponent VulkanBase::createGrahicsComponent(const Info::GraphicsComponentCreateInfo& info)
 {
-	pGraphicsModule gModule = createGraphicsModule(info);
+	auto modelData = getModelDataFromInfo(info);
 
-	GraphicsComponent comp;
-	comp.setGraphicsModule(gModule);
+	GraphicsComponent newGraphicsComponent;
+	newGraphicsComponent.setModelData(modelData);
+	newGraphicsComponent.setInitialized(true);
 
-	return comp;
+	return newGraphicsComponent;
 }
 
-void VulkanBase::recreateGrahicsComponent(GraphicsComponent& gp, const Info::GraphicsComponentCreateInfo& info)
+void VulkanBase::recreateGrahicsComponent(GraphicsComponent& graphicsComponent, const Info::GraphicsComponentCreateInfo& info)
 {
-	removeGraphicsModule(&gp.getGraphicsModule());
-	pGraphicsModule gModule = createGraphicsModule(info);
-
-	gp.setGraphicsModule(gModule);
-
-	// for uniform buffer
-	if (gp.active)
-		m_changedActiveComponentsSize = true;
-}
-
-void VulkanBase::copyGrahicsComponent(const GraphicsComponent& srcGraphicsComponent, GraphicsComponent& dstGraphicsComponent)
-{
-	if (srcGraphicsComponent.graphicsModule)
-	{
-		pGraphicsModule gModule = copyGraphicsModule(srcGraphicsComponent.getGraphicsModule());
-		dstGraphicsComponent.setGraphicsModule(gModule);
-
-		// for uniform buffer
-		if (dstGraphicsComponent.active)
-			m_changedActiveComponentsSize = true;
-	}
-}
+	auto modelData = getModelDataFromInfo(info);
 
 
-void VulkanBase::destroyGraphicsComponent(const GraphicsComponent& comp)
-{
-	//m_dataManager.removeModelReference(comp.graphicsModule->pModelReference);
-
-	removeGraphicsModule(comp.graphicsModule);
+	graphicsComponent.setModelData(modelData);
+	graphicsComponent.setInitialized(true);
 }
 
 void VulkanBase::activateGraphicsComponent(GraphicsComponent* toActivate)
@@ -320,10 +280,10 @@ void VulkanBase::activateGraphicsComponent(GraphicsComponent* toActivate)
 	m_changedActiveComponentsSize = true;
 }
 
-void VulkanBase::deactivateGraphicsComponent(GraphicsComponent* toActivate)
+void VulkanBase::deactivateGraphicsComponent(GraphicsComponent* toDeactivate)
 {
 	// no error check
-	auto gComp = std::find(std::begin(m_activeGraphicsComponents), std::end(m_activeGraphicsComponents), toActivate);
+	auto gComp = std::find(std::begin(m_activeGraphicsComponents), std::end(m_activeGraphicsComponents), toDeactivate);
 	if (gComp != std::end(m_activeGraphicsComponents))
 	{
 		m_activeGraphicsComponents.erase(gComp);
@@ -332,36 +292,26 @@ void VulkanBase::deactivateGraphicsComponent(GraphicsComponent* toActivate)
 	}
 }
 
-
-pGraphicsModule VulkanBase::createGraphicsModule(const Info::GraphicsComponentCreateInfo& info)
+VD::ModelData VulkanBase::getModelDataFromInfo(const Info::GraphicsComponentCreateInfo& info)
 {
-	Model model;
+	VD::ModelData modelData;
 
 	auto& modelVariant = info.modelInfo->model;
-	if (auto pVal = std::get_if<std::string>(&modelVariant))
-		model.loadModel(*pVal);
-	else
-		model = *std::get<Model*>(modelVariant);
 
-	auto modelData = m_dataManager.loadModel(model);
+	if (auto pPath = std::get_if<std::string>(&modelVariant))
+		modelData = m_dataManager.loadModelFromPath(*pPath);
+	else if (auto pModel = std::get_if<Model*>(&modelVariant))
+		modelData = m_dataManager.loadModel(**pModel);
+	else
+		throw std::runtime_error("Creating graphics component without model or path!");
+
 
 	m_descriptorManager.processModelData(modelData);
 	m_pipelinesManager.processModelData(modelData, *info.drawInfo);
 
-
-	pGraphicsModule newModule = getNewGraphicsModule();
-	newModule->modelData = modelData;
-
-	return newModule;
+	return modelData;
 }
 
-pGraphicsModule VulkanBase::copyGraphicsModule(const GraphicsModule& copyModule)
-{
-	pGraphicsModule copiedModule = getNewGraphicsModule();
-	copiedModule->modelData = copyModule.modelData;
-
-	return copiedModule;
-}
 
 vkh::structs::VulkanDevice* VulkanBase::getDevice()
 {
@@ -426,19 +376,6 @@ void VulkanBase::initModules()
 	m_descriptorManager.init(this);
 	m_pipelinesManager.init(this);
 
-
-	initGraphicsMoudules();
-}
-
-void VulkanBase::initGraphicsMoudules()
-{
-	constexpr size_t maxGraphicsComponents = 100'000;
-	//GraphicsComponent* gm = new GraphicsComponent[maxGraphicsComponents];
-	//FIX THIS
-	for (int index = 0; index < maxGraphicsComponents; ++index)
-	{
-		m_graphicsModules.push(new GraphicsModule);
-	}
 }
 
 void VulkanBase::initUI()
@@ -977,7 +914,7 @@ void VulkanBase::updateUniformBufferOffsets()
 	size_t totalBytes = 0;
 	
 	for (auto& graphicsComponent : m_activeGraphicsComponents)
-		totalBytes = graphicsComponent->getGraphicsModule().modelData.meshDatas.size()* strideSize;
+		totalBytes = graphicsComponent->m_modelData.meshDatas.size()* strideSize;
 
 	// pseudo warning
 	if (m_buffers.uniform[0].size < totalBytes)
@@ -985,7 +922,7 @@ void VulkanBase::updateUniformBufferOffsets()
 	VkDeviceSize offset = 0;
 	for (auto& graphicsComponent : m_activeGraphicsComponents)
 	{
-		for (auto& meshData : graphicsComponent->getGraphicsModule().modelData.meshDatas)
+		for (auto& meshData : graphicsComponent->m_modelData.meshDatas)
 		{
 			meshData.dynamicBufferOffset = offset;
 			offset += strideSize;
@@ -1058,7 +995,7 @@ void VulkanBase::recreateCommandBuffer(uint32_t currentImage)
 
 	for (const auto& graphicsComponent : m_activeGraphicsComponents)
 	{
-		drawModelData(graphicsComponent->getGraphicsModule().modelData, cmdBuffer, currentImage);
+		drawModelData(graphicsComponent->m_modelData, cmdBuffer, currentImage);
 	}
 
 	// drawUI
@@ -1081,6 +1018,7 @@ void VulkanBase::drawModelData(const VD::ModelData& modelData, VkCommandBuffer& 
 	size_t vertecCount = 0;
 	size_t indexOffset = 0;
 	size_t indexCount = 0;
+
 	for (const auto& meshData : modelData.meshDatas)
 	{
 		if (&(*meshData.pipeline) != currentPipeline)
@@ -1092,6 +1030,10 @@ void VulkanBase::drawModelData(const VD::ModelData& modelData, VkCommandBuffer& 
 				VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(m_pushConstants), &m_pushConstants);
 		}
 
+		const size_t vertexSize = VD::vertexSizeFromFlags(meshData.drawData.vertices->buffer.type);
+
+		vertexOffset = meshData.drawData.vertices->byteOffset / vertexSize;
+		vertecCount = meshData.drawData.vertices->buffer.data.size() / vertexSize;
 		if (currentVertexBuffer != meshData.vertexBuffer)
 		{
 			currentVertexBuffer = meshData.vertexBuffer;
@@ -1099,24 +1041,20 @@ void VulkanBase::drawModelData(const VD::ModelData& modelData, VkCommandBuffer& 
 			VkBuffer vertexBuffers[] = { *currentVertexBuffer };
 			VkDeviceSize offsets[] = { 0 };
 			vkCmdBindVertexBuffers(cmdBuff, 0, 1, vertexBuffers, offsets);
-
-			const size_t vertexSize = VD::vertexSizeFromFlags(meshData.drawData.vertices->buffer.type);
-
-			vertexOffset = meshData.drawData.vertices->byteOffset / vertexSize;
-			vertecCount = meshData.drawData.vertices->buffer.data.size() / vertexSize;
 		}
 
-		if (currentIndexBuffer != meshData.indexBuffer && meshData.indexBuffer != nullptr)
+		if (meshData.indexBuffer != nullptr && currentIndexBuffer != meshData.indexBuffer)
 		{
-			currentIndexBuffer = meshData.indexBuffer;
-
-			VkDeviceSize offsets[] = { 0 };
-			vkCmdBindIndexBuffer(cmdBuff, *currentIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
-
 			const size_t indexSize = sizeof(uint32_t);
 
 			indexOffset = meshData.drawData.indices->byteOffset / indexSize;
 			indexCount = meshData.drawData.indices->buffer.size();
+
+
+			currentIndexBuffer = meshData.indexBuffer;
+
+			VkDeviceSize offsets[] = { 0 };
+			vkCmdBindIndexBuffer(cmdBuff, *currentIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
 		}
 
 		VkDescriptorSet descriptorSets[] = { meshData.descriptorSet->sets[currentImage] };
@@ -1128,6 +1066,7 @@ void VulkanBase::drawModelData(const VD::ModelData& modelData, VkCommandBuffer& 
 			vkCmdDrawIndexed(cmdBuff, indexCount, 1, indexOffset, vertexOffset, 0);
 		else
 			vkCmdDraw(cmdBuff, vertecCount, 1, vertexOffset, 0);
+
 	}
 }
 
@@ -1252,22 +1191,20 @@ void VulkanBase::updateUniformBuffer(uint32_t currentImage)
 	int count = 0;
 	for (const auto& graphicsComponent : m_activeGraphicsComponents)
 	{
-		const auto graphicsModule = graphicsComponent->graphicsModule;
-
-		for (const auto& meshData : graphicsModule->modelData.meshDatas)
+		for (const auto& meshData : graphicsComponent->m_modelData.meshDatas)
 		{
 			UniformBufferObject ubo;
 			auto model = glm::mat4(1.0);
-			const auto& [position, rotation, size] = graphicsModule->transformations;
+			const auto& [position, rotation, size] = graphicsComponent->m_transformations;
 
 			model = glm::translate(model, position);
-			model = glm::rotate(model, glm::radians(rotation.x), (glm::vec3)Transformations::VectorUp);
-			model = glm::rotate(model, glm::radians(rotation.y), (glm::vec3)Transformations::VectorRight);
-			model = glm::rotate(model, glm::radians(rotation.z), (glm::vec3)Transformations::VectorForward);
+			model = glm::rotate(model, rotation.x, (glm::vec3)Transformations::VectorUp);
+			model = glm::rotate(model, rotation.y, (glm::vec3)Transformations::VectorRight);
+			model = glm::rotate(model, rotation.z, (glm::vec3)Transformations::VectorForward);
 			model = glm::scale(model, size);
 			ubo.model = model;
-			ubo.tint = graphicsModule->shaderInfo.tint;
-			ubo.transparency = graphicsModule->shaderInfo.transparency;
+			ubo.tint = graphicsComponent->m_shaderInfo.tint;
+			ubo.transparency = graphicsComponent->m_shaderInfo.transparency;
 
 			memcpy(data + meshData.dynamicBufferOffset, &ubo, dynamicAligment);
 		}
@@ -1279,7 +1216,6 @@ void VulkanBase::updateUniformBuffer(uint32_t currentImage)
 void VulkanBase::cleanup()
 {
 	UI::getInstance().destroyUI();
-	destroyGraphicsComponents();
 	cleanupSwapchain();
 	cleanupBuffers();
 
@@ -1330,17 +1266,4 @@ void VulkanBase::processInput()
 	
 	bool enableMouse = !UI::getInstance().mouseOverlap();
 	App::Scene.m_simArea.setEnableMouse(enableMouse);
-}
-
-void VulkanBase::destroyGraphicsComponents()
-{
-	// not proper cleanup
-	pGraphicsModule gModule;
-	while (m_graphicsModules.size())
-	{
-		gModule = m_graphicsModules.top();
-		m_graphicsModules.pop();
-
-		delete gModule;
-	}
 }

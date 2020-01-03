@@ -113,7 +113,7 @@ namespace VulkanSettings
 
 class VulkanBase
 {
-	friend class RoadCreator;
+private:
 	// visuals
 	GLFWwindow* m_window;
 	// members
@@ -156,8 +156,6 @@ class VulkanBase
 	bool m_changedActiveComponentsSize = false;
 	std::vector<GraphicsComponent*> m_activeGraphicsComponents;
 
-	//std::vector<pGraphicsModule> m_activeGraphicsModules;
-	std::stack<pGraphicsModule>  m_graphicsModules;
 
 	// helperFunctions
 	friend void framebufferResizeCallback(GLFWwindow* window, int width, int height);
@@ -178,24 +176,18 @@ public:
 	std::vector<vkh::structs::Buffer>& getUniformBuffers();
 
 	GraphicsComponent createGrahicsComponent(const Info::GraphicsComponentCreateInfo& info);
-	void recreateGrahicsComponent(GraphicsComponent& gp, const Info::GraphicsComponentCreateInfo& info);
-	void copyGrahicsComponent(const GraphicsComponent& srcGraphicsComponent, GraphicsComponent& dstGraphicsComponent);
-	void destroyGraphicsComponent(const GraphicsComponent& comp);
+	void recreateGrahicsComponent(GraphicsComponent& graphicsComponent, const Info::GraphicsComponentCreateInfo& info);
 
 	void activateGraphicsComponent(GraphicsComponent* toActivate);
-	void deactivateGraphicsComponent(GraphicsComponent* toActivate);
-private:
-	pGraphicsModule createGraphicsModule(const Info::GraphicsComponentCreateInfo& info);
-	pGraphicsModule copyGraphicsModule(const GraphicsModule& copyModule);
-	pGraphicsModule getNewGraphicsModule();
-	void removeGraphicsModule(const pGraphicsModule& copyModule);
+	void deactivateGraphicsComponent(GraphicsComponent* toDeactivate);
 
+private:
+	VD::ModelData getModelDataFromInfo(const Info::GraphicsComponentCreateInfo& info);
 private:
 	// menu
 	void initWindow();
 	void initVulkan();
 	void initModules();
-	void initGraphicsMoudules();
 	void initUI();
 	void mainLoop();
 	// Foundation
@@ -257,7 +249,6 @@ private:
 	void cleanupSwapchain();
 	void cleanupBuffers();
 	void processInput();
-	void destroyGraphicsComponents();
 };
 
 #endif // !VULKAN_BASE_H

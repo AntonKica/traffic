@@ -103,7 +103,9 @@ ObjectManagerUI::CreatorType ObjectManagerUI::getCurrentCreator() const
 
 
 ObjectManager::ObjectManager(SimulationArea* pSimulationArea)
-	:m_pSimulationArea(pSimulationArea), m_roadCreator(this), m_ui(this, ObjectManagerUI::CreatorType::ROAD)
+	:m_pSimulationArea(pSimulationArea), 
+	m_roadCreator(this), m_buildingCreator(this), 
+	m_ui(this, ObjectManagerUI::CreatorType::ROAD)
 {
 	m_roadCreator.setActive(true);
 }
@@ -174,4 +176,16 @@ void ObjectManager::setCreatorsModes(Creator::CreatorMode mode)
 {
 	m_roadCreator.setCreatorMode(mode);
 	m_buildingCreator.setCreatorMode(mode);
+}
+
+void ObjectManager::clickEvent()
+{
+	if (m_ui.getCurrentCreator() == ObjectManagerUI::CreatorType::ROAD)
+	{
+		m_roadCreator.clickEvent();
+	}
+	else
+	{
+		m_buildingCreator.clickEvent();
+	}
 }

@@ -17,39 +17,17 @@ namespace Info
 	};
 };
 
-// consider deleting
-class GraphicsModule
-{
-public:
-	VD::ModelData modelData = {};
-
-	struct
-	{
-		glm::vec3 position = {};
-		glm::vec3 rotation = {};
-		glm::vec3 size = { 1.0, 1.0, 1.0 };
-	} transformations;
-
-	struct
-	{
-		glm::vec4 tint = {};
-		float transparency = 0;
-	} shaderInfo;
-};
-using pGraphicsModule = GraphicsModule*;
-
 class GraphicsComponent
 {
 	// stupid
 	friend class VulkanBase;
 private:
 	// stupid to have pointer
-	pGraphicsModule graphicsModule = nullptr;
-	bool active = false;
+	bool m_initalized = false;
+	bool m_active = false;
 	//Info::GraphicsComponentCreateInfo createInfo;
 
 	void freeGraphics();
-	void setGraphicsModule(const pGraphicsModule& gModule);
 	void updateActiveState();
 public:
 	GraphicsComponent();
@@ -62,19 +40,45 @@ public:
 	void createGraphicsComponent(const Info::GraphicsComponentCreateInfo& info);
 	void recreateGraphicsComponent(const Info::GraphicsComponentCreateInfo& info);
 
-	const GraphicsModule& getGraphicsModule() const;
-	GraphicsModule& getGraphicsModule();
-
+	void setModelData(VD::ModelData modelData);
+	void setInitialized(bool value);
 	void setActive(bool value);
 	void setPosition(const glm::vec3& pos);
 	void setRotation(const glm::vec3& rotation);
+	void setRotationX(float rotationX);
+	void setRotationY(float rotationY);
+	void setRotationZ(float rotationZ);
+
 	void setSize(const glm::vec3& size);
 	void setTint(const glm::vec4& tint);
-	void setTransparency(const float transparency);
+	void setTransparency(float transparency);
+
 	glm::vec3 getPosition() const;
 	glm::vec3 getRotation() const;
+	float getRotationX() const;
+	float getRotationY() const;
+	float getRotationZ() const;
 	glm::vec3 getSize() const;
 	//stupid
 	bool initialized() const;
+
+private:
+	VD::ModelData m_modelData = {};
+
+	/*
+	* Rotation is by default in radians
+	*/
+	struct
+	{
+		glm::vec3 position = {};
+		glm::vec3 rotation = {};
+		glm::vec3 size = { 1.0, 1.0, 1.0 };
+	} m_transformations;
+
+	struct
+	{
+		glm::vec4 tint = {};
+		float transparency = 0;
+	} m_shaderInfo;
 };
 //using pGraphicsComponent;

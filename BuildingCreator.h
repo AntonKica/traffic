@@ -8,9 +8,12 @@ public:
 	virtual void draw() override;
 };
 
+
 class BuildingCreator
 	: public BasicCreator<BuildingCreatorUI>
 {
 public:
+	BuildingCreator(ObjectManager* objManager);
+	void clickEvent();
 };
 

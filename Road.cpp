@@ -1,5 +1,6 @@
 #include "Road.h"
 #include "Utilities.h"
+#include "Collisions.h"
 #include "Mesh.h"
 
 #include <glm/gtx/string_cast.hpp>
@@ -294,7 +295,7 @@ std::optional<SegmentedShape::Segment> SegmentedShape::selectSegment(Point arbit
 			m_joints[index].left, m_joints[index + 1].left,
 			m_joints[index + 1].right, m_joints[index].right };
 
-		if (polygonPointCollision(vertices, arbitraryPoint))
+		if (Collisions::polygonPointCollision(vertices, arbitraryPoint))
 		{
 			Segment segment;
 			segment.start = &m_joints[index];

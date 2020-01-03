@@ -72,6 +72,8 @@ public:
 	void updateSelectedRoad();
 	std::optional<BasicRoad*> getSelectedRoad() const;
 	void setCreatorsModes(Creator::CreatorMode mode);
+
+	void clickEvent();
 //
 private:
 	SimulationArea* m_pSimulationArea;
