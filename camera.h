@@ -207,7 +207,6 @@ public:
 
 	void updatePosition(double deltaTime)
 	{
-		return;
 		double xNorm = 2.0 * m_mousePos.x / m_width - 1.0;
 		double yNorm = 2.0 * m_mousePos.y / m_height - 1.0;
 

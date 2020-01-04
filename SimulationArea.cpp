@@ -154,6 +154,7 @@ void SimulationArea::initArea()
 	const auto [xCount, zCount] = getPointsCount();
 
 	m_visuals.createVisuals(xCount, zCount, getDirectPointDistance());
+	m_objectManager.initialize();
 }
 
 void SimulationArea::loadData()

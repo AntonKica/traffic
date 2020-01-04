@@ -114,6 +114,11 @@ ObjectManager::~ObjectManager()
 {
 }
 
+void ObjectManager::initialize()
+{
+	m_buildingCreator.prepareResources();
+}
+
 void ObjectManager::update()
 {
 	if (m_ui.getCurrentCreator() == ObjectManagerUI::CreatorType::ROAD)
@@ -129,6 +134,7 @@ void ObjectManager::update()
 	updateSelectedRoad();
 
 	m_roadCreator.update();
+	m_buildingCreator.update();
 }
 
 void ObjectManager::updateSelectedRoad()
@@ -144,11 +150,11 @@ void ObjectManager::updateSelectedRoad()
 			if (road.sitsPointOn(cursor.value()) && !m_selectedRoad)
 			{
 				m_selectedRoad = &road;
-				road.m_graphicsComponent.setTint(green);
+				road.graphicsComponent.setTint(green);
 			}
 			else
 			{
-				road.m_graphicsComponent.setTint(glm::vec4());
+				road.graphicsComponent.setTint(glm::vec4());
 			}
 		}
 
@@ -157,11 +163,11 @@ void ObjectManager::updateSelectedRoad()
 			if (intersection.sitsPointOn(cursor.value()) && !m_selectedRoad)
 			{
 				m_selectedRoad = &intersection;
-				intersection.m_graphicsComponent.setTint(green);
+				intersection.graphicsComponent.setTint(green);
 			}
 			else
 			{
-				intersection.m_graphicsComponent.setTint(glm::vec4());
+				intersection.graphicsComponent.setTint(glm::vec4());
 			}
 		}
 	}

@@ -295,7 +295,7 @@ std::optional<SegmentedShape::Segment> SegmentedShape::selectSegment(Point arbit
 			m_joints[index].left, m_joints[index + 1].left,
 			m_joints[index + 1].right, m_joints[index].right };
 
-		if (Collisions::polygonPointCollision(vertices, arbitraryPoint))
+		if (polygonPointCollision(vertices, arbitraryPoint))
 		{
 			Segment segment;
 			segment.start = &m_joints[index];
@@ -1072,8 +1072,6 @@ void Road::construct(Points creationPoints, uint32_t laneCount, float width, std
 
 void Road::construct(Points creationPoints, const RoadParameters& parameters)
 {
-	m_position = {};
-
 	m_parameters = parameters;
 
 	SegmentedShape::OrientedConstructionPoints cps;
@@ -1099,6 +1097,10 @@ void Road::construct(Points creationPoints, const RoadParameters& parameters)
 
 	setupModel(modelInfo, true);
 	createPaths();
+
+	auto pts = m_shape.getSkeleton();
+	Points colPts(pts.begin(), pts.end());
+	collider2D = Collider2D(colPts);
 }
 
 void Road::reconstruct()

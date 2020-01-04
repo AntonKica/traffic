@@ -1,6 +1,7 @@
 #pragma once
+#include "BasicGeometry.h"
+
 #include <utility>
-#include <vector>
 #include <optional>
 #include <stdexcept>
 
@@ -27,13 +28,6 @@ namespace Utility
 	}
 }
 
-using Point = glm::vec3;
-using Points = std::vector<Point>;
-using Trail = Points;
-
-using Line = std::array<Point, 2>;
-using Triangle = std::array<Point, 3>;
-
 static bool approxSamePoints(const Point& p1, const Point& p2)
 {
 	constexpr const float maxDiff = 0.01f;
@@ -49,6 +43,128 @@ static float linePointAngle(Point s1, Point e1, Point p)
 static bool pointsSitsOnSameHalfOfPlane(Point s1, Point e1, Point p1, Point p2)
 {
 	return (linePointAngle(s1, e1, p1) >= 0) == (linePointAngle(s1, e1, p2) >= 0);
+}
+
+static bool polygonPointCollision(const Points& polygonPoints, Point point)
+{
+	bool collision = false;
+	for (auto vert = polygonPoints.begin(); vert != polygonPoints.end(); ++vert)
+	{
+		auto nextVert = (vert + 1) ==
+			polygonPoints.end() ? polygonPoints.begin() : vert + 1;
+
+		// z test
+		if (((vert->z > point.z) && nextVert->z < point.z)
+			|| (vert->z < point.z && (nextVert->z > point.z)))
+		{
+			if (point.x < (nextVert->x - vert->x) * (point.z - vert->z) / (nextVert->z - vert->z) + vert->x)
+			{
+				collision = !collision;
+			}
+		}
+	}
+
+	return collision;
+}
+
+template <class Type> 
+struct MinMax
+{
+	Type min, max;
+};
+
+template <class PolygonType> MinMax<float> genericProjectPolygonOnAxis(const PolygonType& polygonPoints, const glm::vec3& axis)
+{
+	float dotProduct = glm::dot(axis, polygonPoints[0]);
+	float min = dotProduct;
+	float max = dotProduct;
+
+	for (const auto& point : polygonPoints)
+	{
+		dotProduct = glm::dot(axis, point);
+		min = std::min(min, dotProduct);
+		max = std::max(max, dotProduct);
+	}
+
+	return MinMax<float>{ min, max };
+}
+
+static float intervalDistance(const MinMax<float>& firstInterval, const MinMax<float>& secondInterval)
+{
+	if (firstInterval.min < secondInterval.min)
+		return secondInterval.min - firstInterval.max;
+	else
+		return firstInterval.min - secondInterval.max;
+}
+
+template <class PolygonType> bool genericPolygonPolygonCollision(const PolygonType& polygonOne, const PolygonType& polygonTwo)
+{
+	bool canDrawLineBetween = false;
+
+	// with first triangle
+	for (uint32_t index = 0, nextIndex = 1; index < polygonOne.size(); ++index, ++nextIndex)
+	{
+		if (canDrawLineBetween)
+			break;
+
+		if (nextIndex == polygonOne.size())
+			nextIndex = 0;
+
+		const glm::vec3 edge = polygonOne[index] - polygonOne[nextIndex];
+
+		const glm::vec3 vectorUp(0.0, 1.0, 0.0);
+		const auto perpAxis = glm::normalize(glm::cross(edge, vectorUp));
+
+		const auto firstInterval = genericProjectPolygonOnAxis(polygonOne, perpAxis);
+		const auto secondInterval = genericProjectPolygonOnAxis(polygonTwo, perpAxis);
+
+		canDrawLineBetween = intervalDistance(firstInterval, secondInterval) > 0;
+	}
+
+	// for second triangle
+	if (!canDrawLineBetween)
+	{
+		for (uint32_t index = 0, nextIndex = 1; index < polygonTwo.size(); ++index, ++nextIndex)
+		{
+			if (canDrawLineBetween)
+				break;
+
+			if (nextIndex == polygonTwo.size())
+				nextIndex = 0;
+
+			const glm::vec3 edge = polygonTwo[index] - polygonTwo[nextIndex];
+
+			const glm::vec3 vectorUp(0.0, 1.0, 0.0);
+			const auto perpAxis = glm::normalize(glm::cross(edge, vectorUp));
+
+			const auto firstInterval = genericProjectPolygonOnAxis(polygonOne, perpAxis);
+			const auto secondInterval = genericProjectPolygonOnAxis(polygonTwo, perpAxis);
+
+			canDrawLineBetween = intervalDistance(firstInterval, secondInterval) > 0;
+		}
+	}
+
+	return !canDrawLineBetween;
+}
+
+
+static bool polygonsCollide(const Points& polygonOne, const Points& polygonTwo)
+{
+	if (polygonOne.size() <= 2 || polygonOne.size() <= 2)
+		return false;
+
+	for (uint32_t indexOne = 0; indexOne + 2 < polygonOne.size();++indexOne)
+	{
+		Triangle triangleOne = { polygonOne[indexOne], polygonOne[indexOne + 1], polygonOne[indexOne + 2] };
+		for (uint32_t indexTwo = 0; indexTwo + 2 < polygonTwo.size(); ++indexTwo)
+		{
+			Triangle triangleTwo = { polygonTwo[indexTwo], polygonTwo[indexTwo + 1], polygonTwo[indexTwo + 2] };
+			if (genericPolygonPolygonCollision(triangleOne, triangleTwo))
+				return true;
+		}
+	}
+
+	return false;
 }
 
 template<class PointType1, class PointType2, class PointType3> bool pointSitsOnLine(PointType1 s, PointType2 e, PointType3 p)
@@ -74,6 +190,7 @@ template<class PointType1, class PointType2, class PointType3> bool pointSitsOnL
 *	1 = in the middle
 *	2 = Closer to trail's end
 */
+using Trail = Points;
 enum class TrailPosiition
 {
 	CLOER_TO_START, 

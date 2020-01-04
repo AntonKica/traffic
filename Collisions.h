@@ -1,9 +1,10 @@
 #pragma once
 #include "Utilities.h"
 #include <algorithm>
+#include <iostream>
 #include <chrono>
 
-namespace Collisions
+namespace CollisionResolver
 {
 	template <class PointsType, class PointType> bool polygonPointCollision(const PointsType& polygon, const PointType& point)
 	{
@@ -107,10 +108,9 @@ namespace Collisions
 
 			return !canDrawLineBetween;
 		}
-
-		constexpr auto triangleTriangleCollision = polygonPolygonCollision<Triangle>;
 	}
-
+	constexpr auto triangleTriangleCollision = details::polygonPolygonCollision<Triangle>;
+	constexpr auto rectangleRectangleCollisiion = details::polygonPolygonCollision<Rectangle>;
 	/*
 	*	Points must be odrered in this order in order to work:
 	*   
@@ -161,7 +161,7 @@ namespace Collisions
 		std::chrono::system_clock::time_point start;
 	};
 
-	static bool boolPolygonsCollide(const Points& polygonOnePoints, const Points& polygonTwoPoints)
+	static bool polygonsCollide(const Points& polygonOnePoints, const Points& polygonTwoPoints)
 	{
 #ifdef  BENCHMARKING
 		auto findCentreAndRadiusOfPoints = [](const Points& points)
@@ -414,7 +414,7 @@ namespace Collisions
 				const Triangle polygonTwoTriangle =
 				{ polygonTwoPoints[secondIndex],  polygonTwoPoints[secondIndex + 1] ,polygonTwoPoints[secondIndex + 2] };
 
-				if (details::triangleTriangleCollision(polygonOneTriangle, polygonTwoTriangle))
+				if (triangleTriangleCollision(polygonOneTriangle, polygonTwoTriangle))
 				{
 					return true;
 				}
@@ -424,5 +424,5 @@ namespace Collisions
 		return false;
 #endif
 	}
-
 }
+namespace CR = CollisionResolver;

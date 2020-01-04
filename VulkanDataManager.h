@@ -88,8 +88,6 @@ private:
 	RecordedBuffer modelIndexBuffer;
 	void addToModelIndexBuffer(VD::SharedOffsetedIndices& sharedOffsetIndices);
 
-
-
 	VulkanBase* vkBase;
 	vkh::structs::VulkanDevice *device;
 };

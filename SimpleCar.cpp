@@ -22,8 +22,8 @@ void SimpleCar::update(float deltaTime)
 		glm::vec3 newPosition = pathToTake[currentLine] + (direction * currentlyTravelled);
 
 		float xRotation = glm::degrees(glm::acos(glm::dot(direction, glm::vec3(0.0, 0.0, 1.0))));
-		m_graphicsComponent.setPosition(newPosition);
-		m_graphicsComponent.setRotation(glm::vec3(xRotation, 0.0, 0.0));
+		graphicsComponent.setPosition(newPosition);
+		graphicsComponent.setRotation(glm::vec3(xRotation, 0.0, 0.0));
 	}
 }
 
@@ -35,5 +35,5 @@ void SimpleCar::create(const Points& pathPoints)
 	mInfo.model = "resources/models/Car/Car.obj";
 
 	setupModel(mInfo, true);
-	m_graphicsComponent.setSize(glm::vec3(0.1));
+	graphicsComponent.setSize(glm::vec3(0.1));
 }

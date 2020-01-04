@@ -326,14 +326,14 @@ void RoadCreator::validateCurrentShape()
 
 			return joinedPts;
 		};
-		shapeOutline = joinLeftAndRightPoints(leftPts, rightPts);
+		Collider2D col (joinLeftAndRightPoints(leftPts, rightPts));
 
 
 		for (const auto& road : m_pObjectManager->m_roads.data)
 		{
-			auto skeleton = road.m_shape.getSkeleton();
+			//auto skeleton = road.m_shape.getSkeleton();
 
-			if (Collisions::boolPolygonsCollide(shapeOutline, skeleton))
+			if (col.collides(road.collider2D))
 			{
 				m_currentShapeValid = false;
 				break;

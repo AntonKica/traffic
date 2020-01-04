@@ -17,6 +17,10 @@ void VulkanDataManager::cleanup(const VkAllocationCallbacks* allocator)
 
 	for (auto& texture : textures)
 		texture->image.cleanup(*device, allocator);
+
+	for (auto& [vertexFlag, rb] : modelVertexBuffers)
+		rb.buffer.cleanup(*device, allocator);
+	modelIndexBuffer.buffer.cleanup(*device, allocator);
 }
 
 VD::ModelData VulkanDataManager::loadModel(const Model& model)

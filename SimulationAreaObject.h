@@ -2,6 +2,7 @@
 #include <string>
 #include <glm/glm.hpp>
 #include "GraphicsComponent.h"
+#include "Collider2D.h"
 
 class SimulationAreaObject
 {
@@ -15,10 +16,12 @@ public:
 	void setPosition(const glm::vec3& newPosition);
 	void setRotation(const glm::vec3& newRotation);
 
-	GraphicsComponent m_graphicsComponent;
-protected:
-	void updateGraphics();
 	void setupModel(const Info::ModelInfo& modelInfo, bool activateOnCreation);
+
+	GraphicsComponent graphicsComponent;
+	Collider2D collider2D;
+private:
+	void updateGraphics();
 
 	glm::vec3 m_position;
 	glm::vec3 m_rotation;

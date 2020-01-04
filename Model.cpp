@@ -13,7 +13,7 @@ void Model::loadModel(std::string file)
 {
 	Assimp::Importer importer;
 
-	const aiScene* scene = importer.ReadFile(file, aiProcess_Triangulate);
+	const aiScene* scene = importer.ReadFile(file, aiProcess_Triangulate | aiProcess_FlipUVs);
 
 	if (!scene)
 	{

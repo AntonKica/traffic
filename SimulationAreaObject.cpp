@@ -25,22 +25,15 @@ glm::vec3 SimulationAreaObject::getRotation() const
 void SimulationAreaObject::setPosition(const glm::vec3& newPosition)
 {
 	m_position = newPosition;
-	updateGraphics();
+	graphicsComponent.setPosition(newPosition);
+	collider2D.setPosition(newPosition);
 }
 
 void SimulationAreaObject::setRotation(const glm::vec3& newRotation)
 {
 	m_rotation = newRotation;
-	updateGraphics();
-}
-
-void SimulationAreaObject::updateGraphics()
-{
-	if (m_graphicsComponent.initialized())
-	{
-		m_graphicsComponent.setPosition(m_position);
-		m_graphicsComponent.setRotation(m_rotation);
-	}
+	graphicsComponent.setRotation(newRotation);
+	collider2D.setRotation(newRotation);
 }
 
 void SimulationAreaObject::setupModel(const Info::ModelInfo& modelInfo, bool activateOnCreation)
@@ -54,7 +47,13 @@ void SimulationAreaObject::setupModel(const Info::ModelInfo& modelInfo, bool act
 	createInfo.drawInfo = &dInfo;
 	createInfo.modelInfo = &modelInfo;
 
-	m_graphicsComponent = App::Scene.vulkanBase.createGrahicsComponent(createInfo);
-	m_graphicsComponent.setActive(activateOnCreation);
+	graphicsComponent = App::Scene.vulkanBase.createGrahicsComponent(createInfo);
+	graphicsComponent.setActive(activateOnCreation);
 	updateGraphics();
+}
+
+void SimulationAreaObject::updateGraphics()
+{
+	graphicsComponent.setPosition(m_position);
+	graphicsComponent.setRotation(m_rotation);
 }

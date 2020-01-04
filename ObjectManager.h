@@ -67,6 +67,7 @@ public:
 	ObjectManager(SimulationArea* pSimulationArea);
 	~ObjectManager();
 
+	void initialize();
 	void update();
 
 	void updateSelectedRoad();

@@ -107,7 +107,6 @@ Points getCircleSortedPoints(Points points, bool clockwise)
 
 void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionPoint)
 {
-	m_position = {};
 	m_centre = intersectionPoint;
 	m_width = roads[0]->getParameters().width;
 	m_connectionPoints.clear();
@@ -199,6 +198,8 @@ void RoadIntersection::setUpShape()
 	mInfo.model = &model;
 
 	setupModel(mInfo, true);
+
+	collider2D = Collider2D(m_shapePoints);
 }
 
 bool RoadIntersection::validIntersection()
@@ -259,7 +260,7 @@ bool RoadIntersection::hasBody() const
 
 bool RoadIntersection::sitsPointOn(Point point) const
 {
-	return Collisions::polygonPointCollision(m_outlinePoints, point);
+	return polygonPointCollision(m_outlinePoints, point);
 }
 
 BasicRoad::RoadType RoadIntersection::getRoadType() const
