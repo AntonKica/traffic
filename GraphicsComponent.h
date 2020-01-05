@@ -16,20 +16,24 @@ namespace Info
 		const Info::ModelInfo* modelInfo;
 	};
 };
+class GraphicsComponent;
+using pGraphicsComponent = GraphicsComponent*;
 
 class GraphicsComponent
 {
 	// stupid
 	friend class VulkanBase;
+	friend class SimulationAreaObject;
 private:
 	// stupid to have pointer
 	bool m_initalized = false;
 	bool m_active = false;
 	//Info::GraphicsComponentCreateInfo createInfo;
-
-	void freeGraphics();
-	void updateActiveState();
 public:
+	static pGraphicsComponent const createGraphicsComponent();
+	static pGraphicsComponent const copyGraphicsComponent(const pGraphicsComponent& copyGraphicsComponent);
+	static void destroyGraphicsComponent(pGraphicsComponent& graphicsComponent);
+private:
 	GraphicsComponent();
 	~GraphicsComponent();
 	GraphicsComponent(const GraphicsComponent& other);
@@ -37,12 +41,16 @@ public:
 	GraphicsComponent& operator=(const GraphicsComponent& other);
 	GraphicsComponent& operator=(GraphicsComponent&& other) noexcept;
 
-	void createGraphicsComponent(const Info::GraphicsComponentCreateInfo& info);
-	void recreateGraphicsComponent(const Info::GraphicsComponentCreateInfo& info);
+public:
+	void updateGraphicsComponent(const Info::GraphicsComponentCreateInfo& info);
+
+	void setActive(bool value);
+//private:
+	//void createGraphicsComponent(const Info::GraphicsComponentCreateInfo& info);
+	//void recreateGraphicsComponent(const Info::GraphicsComponentCreateInfo& info);
 
 	void setModelData(VD::ModelData modelData);
 	void setInitialized(bool value);
-	void setActive(bool value);
 	void setPosition(const glm::vec3& pos);
 	void setRotation(const glm::vec3& rotation);
 	void setRotationX(float rotationX);
@@ -81,4 +89,3 @@ private:
 		float transparency = 0;
 	} m_shaderInfo;
 };
-//using pGraphicsComponent;

@@ -15,12 +15,10 @@
 #include <functional>
 
 #include "GlobalObjects.h"
+#include "GlobalSynchronization.h"
 #include "GraphicsObjects.h"
 #include "Models.h"
-#include "ModelLoader.h"
-#include "UI.h"
 #include "Utilities.h"
-using namespace Utility;
 
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
@@ -124,25 +122,25 @@ static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 	count++;
 	VulkanBase* myApp = reinterpret_cast<VulkanBase*>(glfwGetWindowUserPointer(window));
 	myApp->m_swapchain.framebufferResized = true;
-	App::Scene.m_camera.resizeView(width, height);
+	App::camera.resizeView(width, height);
 }
 
 static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
 	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
 	{
-		App::Scene.m_camera.setRotateMode(true);
+		App::camera.setRotateMode(true);
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	}
 	else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
 	{
-		App::Scene.m_camera.setRotateMode(false);
+		App::camera.setRotateMode(false);
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 	}
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
 	{
-		App::Scene.m_simArea.clickEvent();
+		App::simulationArea.clickEvent();
 	}
 }
 
@@ -226,6 +224,9 @@ void VulkanBase::initWindow()
 	glfwSetCursorPosCallback(m_window, cursorPosCallback);
 	glfwSetKeyCallback(m_window, keyboardInputCallback);
 }
+VulkanBase::VulkanBase()
+{
+}
 void VulkanBase::run()
 {
 	initWindow();
@@ -253,43 +254,45 @@ std::vector<vkh::structs::Buffer>& VulkanBase::getUniformBuffers()
 	return m_buffers.uniform;
 }
 
-GraphicsComponent VulkanBase::createGrahicsComponent(const Info::GraphicsComponentCreateInfo& info)
+GraphicsComponent* const VulkanBase::createGrahicsComponent()
 {
-	auto modelData = getModelDataFromInfo(info);
-
-	GraphicsComponent newGraphicsComponent;
-	newGraphicsComponent.setModelData(modelData);
-	newGraphicsComponent.setInitialized(true);
+	auto newGraphicsComponent = getGraphicsComponent();
+	newGraphicsComponent->setInitialized(false);
 
 	return newGraphicsComponent;
 }
 
-void VulkanBase::recreateGrahicsComponent(GraphicsComponent& graphicsComponent, const Info::GraphicsComponentCreateInfo& info)
+void VulkanBase::updateGrahicsComponent(pGraphicsComponent& const graphicsComponent, const Info::GraphicsComponentCreateInfo& info)
 {
 	auto modelData = getModelDataFromInfo(info);
 
-
-	graphicsComponent.setModelData(modelData);
-	graphicsComponent.setInitialized(true);
+	graphicsComponent->setModelData(modelData);
+	graphicsComponent->setInitialized(true);
 }
 
-void VulkanBase::activateGraphicsComponent(GraphicsComponent* toActivate)
+GraphicsComponent* const VulkanBase::copyGraphicsComponent(const pGraphicsComponent& const copyGraphicsComponent)
 {
-	m_activeGraphicsComponents.push_back(toActivate);
-	
-	m_changedActiveComponentsSize = true;
+	auto newGraphicsComponent = getGraphicsComponent();
+	*newGraphicsComponent = *copyGraphicsComponent;
+
+	return newGraphicsComponent;
 }
 
-void VulkanBase::deactivateGraphicsComponent(GraphicsComponent* toDeactivate)
+void VulkanBase::deactivateGraphicsComponent(pGraphicsComponent& toDeactivate)
 {
+	*toDeactivate = {};
+
 	// no error check
 	auto gComp = std::find(std::begin(m_activeGraphicsComponents), std::end(m_activeGraphicsComponents), toDeactivate);
 	if (gComp != std::end(m_activeGraphicsComponents))
 	{
 		m_activeGraphicsComponents.erase(gComp);
+		m_graphicsComponents.push(toDeactivate);
 
 		m_changedActiveComponentsSize = true;
 	}
+
+	toDeactivate = nullptr;
 }
 
 VD::ModelData VulkanBase::getModelDataFromInfo(const Info::GraphicsComponentCreateInfo& info)
@@ -310,6 +313,17 @@ VD::ModelData VulkanBase::getModelDataFromInfo(const Info::GraphicsComponentCrea
 	m_pipelinesManager.processModelData(modelData, *info.drawInfo);
 
 	return modelData;
+}
+
+GraphicsComponent* const VulkanBase::getGraphicsComponent()
+{
+	auto ptr = m_graphicsComponents.top();
+	m_graphicsComponents.pop();
+
+	m_activeGraphicsComponents.push_back(ptr);
+	m_changedActiveComponentsSize = true;
+
+	return ptr;
 }
 
 
@@ -376,6 +390,16 @@ void VulkanBase::initModules()
 	m_descriptorManager.init(this);
 	m_pipelinesManager.init(this);
 
+	initGraphicsComponents();
+}
+
+void VulkanBase::initGraphicsComponents()
+{
+	m_graphicsComponentCount = 50'000;
+	m_graphicsComponentData = new GraphicsComponent[m_graphicsComponentCount];
+
+	for (uint32_t index = 0; index < m_graphicsComponentCount; ++index)
+		m_graphicsComponents.push(m_graphicsComponentData + index);
 }
 
 void VulkanBase::initUI()
@@ -386,25 +410,25 @@ void VulkanBase::initUI()
 
 void VulkanBase::mainLoop()
 {
-	std::chrono::time_point lastFrame = std::chrono::high_resolution_clock::now();
-	double deltaTime = 0.0;
-
+	GlobalSynchronizaion::moduleInitialized = true;
+	GlobalSynchronizaion::moduleInitialization.notify_one();
 	//just for testing puproses
-	App::Scene.m_simArea.initArea();
-	while (!glfwWindowShouldClose(m_window))
+	while (GlobalSynchronizaion::shouldStopEngine == false)
 	{
-		App::time.tick();
-		deltaTime = App::time.deltaTime();
-
-		glfwSetWindowTitle(m_window, (std::string("Sample title ") + std::to_string(int(1.0 / deltaTime))).c_str());
-		App::Scene.m_camera.update(deltaTime, getCursorPos(m_window));
-		App::Scene.m_simArea.update();
+		{
+			std::unique_lock<std::mutex> lock(m_drawMutex);
+			GlobalSynchronizaion::engineUpdate.wait(lock, [] { return GlobalSynchronizaion::updateEngine; });
+		}
+		glfwSetWindowTitle(m_window, (std::string("Sample title ") + std::to_string(int(1.0 / App::time.deltaTime()))).c_str());
 
 		prepareFrame();
 		drawFrame();
 		processInput();
 		glfwSwapBuffers(m_window);
 		glfwPollEvents();
+
+		GlobalSynchronizaion::updatedGraphics = true;
+		GlobalSynchronizaion::engineUpdate.notify_one();
 	}
 
 	vkDeviceWaitIdle(m_device);
@@ -990,12 +1014,13 @@ void VulkanBase::recreateCommandBuffer(uint32_t currentImage)
 	uint32_t descriptorOffsets[] = { 0 };
 
 	// update constants
-	m_pushConstants.projection = App::Scene.m_camera.getProjection();
-	m_pushConstants.view = App::Scene.m_camera.getView();
+	m_pushConstants.projection = App::camera.getProjection();
+	m_pushConstants.view = App::camera.getView();
 
 	for (const auto& graphicsComponent : m_activeGraphicsComponents)
 	{
-		drawModelData(graphicsComponent->m_modelData, cmdBuffer, currentImage);
+		if(graphicsComponent->m_active)
+			drawModelData(graphicsComponent->m_modelData, cmdBuffer, currentImage);
 	}
 
 	// drawUI
@@ -1191,22 +1216,25 @@ void VulkanBase::updateUniformBuffer(uint32_t currentImage)
 	int count = 0;
 	for (const auto& graphicsComponent : m_activeGraphicsComponents)
 	{
-		for (const auto& meshData : graphicsComponent->m_modelData.meshDatas)
+		if (graphicsComponent->m_active)
 		{
-			UniformBufferObject ubo;
-			auto model = glm::mat4(1.0);
-			const auto& [position, rotation, size] = graphicsComponent->m_transformations;
+			for (const auto& meshData : graphicsComponent->m_modelData.meshDatas)
+			{
+				UniformBufferObject ubo;
+				auto model = glm::mat4(1.0);
+				const auto& [position, rotation, size] = graphicsComponent->m_transformations;
 
-			model = glm::translate(model, position);
-			model = glm::rotate(model, rotation.x, (glm::vec3)Transformations::VectorUp);
-			model = glm::rotate(model, rotation.y, (glm::vec3)Transformations::VectorRight);
-			model = glm::rotate(model, rotation.z, (glm::vec3)Transformations::VectorForward);
-			model = glm::scale(model, size);
-			ubo.model = model;
-			ubo.tint = graphicsComponent->m_shaderInfo.tint;
-			ubo.transparency = graphicsComponent->m_shaderInfo.transparency;
+				model = glm::translate(model, position);
+				model = glm::rotate(model, rotation.x, (glm::vec3)Transformations::VectorUp);
+				model = glm::rotate(model, rotation.y, (glm::vec3)Transformations::VectorRight);
+				model = glm::rotate(model, rotation.z, (glm::vec3)Transformations::VectorForward);
+				model = glm::scale(model, size);
+				ubo.model = model;
+				ubo.tint = graphicsComponent->m_shaderInfo.tint;
+				ubo.transparency = graphicsComponent->m_shaderInfo.transparency;
 
-			memcpy(data + meshData.dynamicBufferOffset, &ubo, dynamicAligment);
+				memcpy(data + meshData.dynamicBufferOffset, &ubo, dynamicAligment);
+			}
 		}
 	}
 	m_buffers.uniform[currentImage].unmap();
@@ -1217,6 +1245,7 @@ void VulkanBase::cleanup()
 {
 	UI::getInstance().destroyUI();
 	cleanupSwapchain();
+	cleanupGraphicsComponents();
 	cleanupBuffers();
 
 	vkDestroySampler(m_device, m_sampler, nullptr);
@@ -1260,10 +1289,22 @@ void VulkanBase::cleanupBuffers()
 		image.cleanup(m_device, nullptr);
 }
 
+void VulkanBase::cleanupGraphicsComponents()
+{
+	m_graphicsComponents = {};
+	m_activeGraphicsComponents = {};
+	delete[] m_graphicsComponentData;
+}
+
 void VulkanBase::processInput()
 {
 	//App::Scene.m_simArea.m_creator.setCreateObject(selection);
 	
 	bool enableMouse = !UI::getInstance().mouseOverlap();
-	App::Scene.m_simArea.setEnableMouse(enableMouse);
+	App::simulationArea.setEnableMouse(enableMouse);
+}
+
+bool VulkanBase::finished() const
+{
+	return m_finished;
 }

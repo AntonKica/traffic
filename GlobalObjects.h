@@ -1,16 +1,17 @@
-#ifndef STATIC_OBJECTS
-#define STATIC_OBJECTS
-
-#include "scene.h"
+#pragma once
 #include "Time.h"
+#include "camera.h"
+#include "VulkanBase.h"
+#include "Physics.h"
+#include "SimulationArea.h"
 
 //namespace
 namespace App
 {
-	extern ::Scene Scene;
+	extern Camera camera;
 	extern Time time;
+	extern VulkanBase vulkanBase;
+	extern Physics physics;
+	extern SimulationArea simulationArea;
 }
-
-
-#endif // !STATIC_OBJECTS
 

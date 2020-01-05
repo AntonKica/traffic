@@ -2,15 +2,21 @@
 #include <string>
 #include <glm/glm.hpp>
 #include "GraphicsComponent.h"
-#include "Collider2D.h"
+#include "PhysicsComponent.h"
 
 class SimulationAreaObject
 {
 	friend class SimulationArea;
 public:
 	SimulationAreaObject();
+	SimulationAreaObject(const SimulationAreaObject& copy);
+	SimulationAreaObject(SimulationAreaObject&& move);
+	SimulationAreaObject& operator=(const SimulationAreaObject& copy);
+	SimulationAreaObject& operator=(SimulationAreaObject&& move);
 	virtual ~SimulationAreaObject();
 
+	GraphicsComponent& getGraphicsComponent();
+	PhysicsComponent& getPhysicsComponent();
 	glm::vec3 getPosition() const;
 	glm::vec3 getRotation() const;
 	void setPosition(const glm::vec3& newPosition);
@@ -18,10 +24,10 @@ public:
 
 	void setupModel(const Info::ModelInfo& modelInfo, bool activateOnCreation);
 
-	GraphicsComponent graphicsComponent;
-	Collider2D collider2D;
+	virtual void update();
 private:
-	void updateGraphics();
+	GraphicsComponent* m_graphicsComponent = nullptr;
+	PhysicsComponent* m_physicsComponent = nullptr;
 
 	glm::vec3 m_position;
 	glm::vec3 m_rotation;

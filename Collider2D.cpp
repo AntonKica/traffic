@@ -182,37 +182,36 @@ bool Collider::circlesOverlay(const Circle& firstCircle, const Circle& secondCir
 }
 
 
-
 Collider2D::Collider2D()
-	:Collider2D(Points())
+	:m_position(glm::vec3()), m_rotation(glm::vec3())
 {
 }
 
-Collider2D::Collider2D(Points boundaries)
-	: Collider2D(boundaries, glm::vec3())
+void Collider2D::set(const Points& newBoundaries, const glm::vec3& newPosition, const glm::vec3& newRotation)
 {
-}
+	m_boundaries = newBoundaries;
+	m_position = newPosition;
+	m_rotation = newRotation;
 
-Collider2D::Collider2D(Points boundaries, glm::vec3 position)
-	: Collider2D(boundaries, position, glm::vec3())
-{
-}
-
-Collider2D::Collider2D(Points boundaries, glm::vec3 position, glm::vec3 rotation)
-	: m_boundaries(boundaries), m_position(position), m_rotation(rotation)
-{
 	setupCircle();
 	setupTriangles();
 }
 
-glm::vec3 Collider2D::getPosition() const
+void Collider2D::set(const glm::vec3& newPosition, const glm::vec3& newRotation)
 {
-	return m_position;
+	m_position = newPosition;
+	m_rotation = newRotation;
+
+	updateCollisionCircle();
+	updateCollisionTriangles();
 }
 
-glm::vec3 Collider2D::getRotation() const
+void Collider2D::setBoundaries(const Points& newBoundaries)
 {
-	return m_rotation;
+	m_boundaries = newBoundaries;
+
+	setupCircle();
+	setupTriangles();
 }
 
 void Collider2D::setPosition(const glm::vec3& newPosition)
@@ -236,6 +235,22 @@ void Collider2D::setRotation(const glm::vec3& newRotation)
 		updateCollisionTriangles();
 	}
 }
+
+const Points& Collider2D::getBoundaries() const
+{
+	return m_boundaries;
+}
+
+glm::vec3 Collider2D::getPosition() const
+{
+	return m_position;
+}
+
+glm::vec3 Collider2D::getRotation() const
+{
+	return m_rotation;
+}
+
 
 bool Collider2D::collides(const Collider2D& other) const
 {

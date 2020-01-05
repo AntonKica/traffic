@@ -50,7 +50,7 @@ namespace CameraSettings
 	const double defaultSpeed = 5.0f;
 }
 
-class camera
+class Camera
 {
 private:
 	glm::dvec3 m_position;
@@ -72,7 +72,7 @@ private:
 	glm::dvec3 m_mouseRay;
 public:
 
-	camera()
+	Camera()
 	{
 		using namespace CameraSettings;
 

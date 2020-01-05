@@ -65,11 +65,12 @@ class SimulationAreaVisualizer
 {
 public:
 	SimulationAreaVisualizer();
+
 	void createVisuals(size_t xCount, size_t zCount, double distanceBetweenPoints);
 	void update();
 private:
 	glm::vec3 position;
-	GraphicsComponent graphics;
+	GraphicsComponent* graphics;
 };
 
 class SimulationArea final

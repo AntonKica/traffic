@@ -13,13 +13,26 @@
 
 
 
+GraphicsComponent* const GraphicsComponent::createGraphicsComponent()
+{
+	return App::vulkanBase.createGrahicsComponent();
+}
+
+GraphicsComponent* const GraphicsComponent::copyGraphicsComponent(const pGraphicsComponent& copyGraphicsComponent)
+{
+	return App::vulkanBase.copyGraphicsComponent(copyGraphicsComponent);
+}
+void GraphicsComponent::destroyGraphicsComponent(pGraphicsComponent& graphicsComponent)
+{
+	App::vulkanBase.deactivateGraphicsComponent(graphicsComponent);
+}
+
 GraphicsComponent::GraphicsComponent()
 {
 }
 
 GraphicsComponent::~GraphicsComponent()
 {
-	freeGraphics();
 }
 
 static int otherCnt = 0;
@@ -33,9 +46,6 @@ GraphicsComponent::GraphicsComponent(const GraphicsComponent& other)
 	m_modelData			= other.m_modelData;
 	m_transformations	= other.m_transformations;
 	m_shaderInfo		= other.m_shaderInfo;
-	//App::Scene.vulkanBase.copyGrahicsComponent(other, *this);
-
-	updateActiveState();
 }
 
 GraphicsComponent::GraphicsComponent(GraphicsComponent&& other) noexcept
@@ -48,9 +58,6 @@ GraphicsComponent::GraphicsComponent(GraphicsComponent&& other) noexcept
 	m_modelData			= std::move(other.m_modelData);
 	m_transformations	= std::move(other.m_transformations);
 	m_shaderInfo		= std::move(other.m_shaderInfo);
-
-	other.freeGraphics();
-	updateActiveState();
 }
 GraphicsComponent& GraphicsComponent::operator=(const GraphicsComponent& other)
 {
@@ -62,9 +69,6 @@ GraphicsComponent& GraphicsComponent::operator=(const GraphicsComponent& other)
 	m_modelData			= other.m_modelData;
 	m_transformations	= other.m_transformations;
 	m_shaderInfo		= other.m_shaderInfo;
-		//App::Scene.vulkanBase.copyGrahicsComponent(other, *this);
-
-	updateActiveState();
 
 	return *this;
 }
@@ -80,26 +84,13 @@ GraphicsComponent& GraphicsComponent::operator=(GraphicsComponent&& other) noexc
 	m_transformations	= std::move(other.m_transformations);
 	m_shaderInfo		= std::move(other.m_shaderInfo);
 
-	other.freeGraphics();
-	updateActiveState();
-
 	return *this;
 }
 
-void GraphicsComponent::createGraphicsComponent(const Info::GraphicsComponentCreateInfo& info)
+void GraphicsComponent::updateGraphicsComponent(const Info::GraphicsComponentCreateInfo& info)
 {
-	if (initialized())
-		App::Scene.vulkanBase.recreateGrahicsComponent(*this, info);
-	else
-		*this = App::Scene.vulkanBase.createGrahicsComponent(info);
-}
-
-void GraphicsComponent::recreateGraphicsComponent(const Info::GraphicsComponentCreateInfo& info)
-{
-	if (initialized())
-		App::Scene.vulkanBase.recreateGrahicsComponent(*this, info);
-	else
-		createGraphicsComponent(info);
+	GraphicsComponent* cmp = this;
+	App::vulkanBase.updateGrahicsComponent(cmp, info);
 }
 
 void GraphicsComponent::setModelData(VD::ModelData modelData)
@@ -114,11 +105,7 @@ void GraphicsComponent::setInitialized(bool value)
 
 void GraphicsComponent::setActive(bool value)
 {
-	if (m_active != value)
-	{
-		m_active = value;
-		updateActiveState();
-	}
+	m_active = value;
 }
 void GraphicsComponent::setPosition(const glm::vec3& pos)
 {
@@ -188,20 +175,6 @@ float GraphicsComponent::getRotationZ() const
 glm::vec3 GraphicsComponent::getSize() const
 {
 	return m_transformations.size;
-}
-
-void GraphicsComponent::freeGraphics()
-{
-	App::Scene.vulkanBase.deactivateGraphicsComponent(this);
-}
-
-void GraphicsComponent::updateActiveState()
-{
-
-	if (m_active)
-		App::Scene.vulkanBase.activateGraphicsComponent(this);
-	else
-		App::Scene.vulkanBase.deactivateGraphicsComponent(this);
 }
 
 bool GraphicsComponent::initialized() const

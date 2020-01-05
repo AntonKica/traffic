@@ -150,11 +150,11 @@ void ObjectManager::updateSelectedRoad()
 			if (road.sitsPointOn(cursor.value()) && !m_selectedRoad)
 			{
 				m_selectedRoad = &road;
-				road.graphicsComponent.setTint(green);
+				road.getGraphicsComponent().setTint(green);
 			}
 			else
 			{
-				road.graphicsComponent.setTint(glm::vec4());
+				road.getGraphicsComponent().setTint(glm::vec4());
 			}
 		}
 
@@ -163,11 +163,11 @@ void ObjectManager::updateSelectedRoad()
 			if (intersection.sitsPointOn(cursor.value()) && !m_selectedRoad)
 			{
 				m_selectedRoad = &intersection;
-				intersection.graphicsComponent.setTint(green);
+				intersection.getGraphicsComponent().setTint(green);
 			}
 			else
 			{
-				intersection.graphicsComponent.setTint(glm::vec4());
+				intersection.getGraphicsComponent().setTint(glm::vec4());
 			}
 		}
 	}

@@ -105,7 +105,6 @@ private:
 
 class Road :
 	public BasicRoad
-	//public SegmentedShape
 {
 public:
 	friend class RoadCreator;

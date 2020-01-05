@@ -32,6 +32,9 @@ public:
 class CreatorVisualizer
 {
 public:
+	CreatorVisualizer();
+	~CreatorVisualizer();
+
 	void update();
 	void setDraw(const std::vector<Point>& drawAxis, const std::vector<Point>& drawPoints, float width, bool valid);
 	void setActive(bool active);
@@ -46,8 +49,8 @@ private:
 	std::vector<Point> pointToDraw;
 	std::optional<Point> mousePoint;
 
-	GraphicsComponent pointGraphics;
-	GraphicsComponent lineGraphics;
+	GraphicsComponent* pointGraphics;
+	GraphicsComponent* lineGraphics;
 };
 
 
@@ -99,6 +102,17 @@ class ObjectManager;
 class RoadCreator
 	: public BasicCreator<RoadCreatorUI>
 {
+public:
+	RoadCreator(ObjectManager* objectManager);
+
+	void update();
+	void clickEvent();
+	void rollBackEvent();
+
+protected:
+	virtual void setCreatorModeAction() override;
+	virtual void setActiveAction() override;
+
 private:
 	void updatePoints();
 	void updateMousePoint();
@@ -114,6 +128,7 @@ private:
 	RC::ProcSitPts processSittingPoints(const std::vector<RC::SittingPoint> sittingPoints) const;
 	void setPoint();
 	void validateCurrentShape();
+	void constructRoadPrototype();
 	void handleCurrentPoints();
 	void tryToConstructRoad();
 	void tryToDestroyRoad();
@@ -157,19 +172,7 @@ private:
 
 	RC::ProcSitPts m_processedCurrentPoints;
 	bool m_currentShapeValid = false;
+	Road m_roadPrototype;
 	//bool m_handleCurrentPointsNextUpdate = false;
-protected:
-	virtual void setCreatorModeAction() override;
-	virtual void setActiveAction() override;
-
-public:
-	RoadCreator(ObjectManager* objectManager);
-
-
-	void update();
-	void clickEvent();
-	void rollBackEvent();
-
-	// temp function
 };
 

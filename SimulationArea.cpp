@@ -55,6 +55,8 @@ SimulationAreaVisualizer::SimulationAreaVisualizer()
 
 void SimulationAreaVisualizer::createVisuals(size_t xCount, size_t zCount, double distanceBetweenPoints)
 {
+	graphics = GraphicsComponent::createGraphicsComponent();
+
 	const int maxXCount = 150;
 	const int maxZCount = 155;
 	const size_t xPointsCount = std::clamp<size_t>(xCount, 0, maxXCount);
@@ -115,24 +117,24 @@ void SimulationAreaVisualizer::createVisuals(size_t xCount, size_t zCount, doubl
 	info.drawInfo = &drawInfo;
 	info.modelInfo = &modelInfo;
 
-	graphics = App::Scene.vulkanBase.createGrahicsComponent(info);
-	graphics.setActive(true);
+	graphics->updateGraphicsComponent(info);
+	graphics->setActive(true);
 }
 
 void SimulationAreaVisualizer::update()
 {	
-	if (!graphics.initialized())
+	if (!graphics)
 		return;
 
-	glm::vec3 camPos = App::Scene.m_camera.getPosition();
+	glm::vec3 camPos = App::camera.getPosition();
 	camPos.y = 0;
 
 	if (glm::length(camPos - position) > 10)
 	{
 		// no stutter
-		position = glm::ivec3(App::Scene.m_simArea.getNearestPoint(camPos));
+		position = glm::ivec3(App::simulationArea.getNearestPoint(camPos));
 
-		graphics.setPosition(App::Scene.m_simArea.getNearestPoint(position));
+		graphics->setPosition(App::simulationArea.getNearestPoint(position));
 	}
 }
 
@@ -237,8 +239,8 @@ void SimulationArea::updateMousePosition()
 	}
 	else
 	{
-		const glm::vec3 worldMouseRay = App::Scene.m_camera.getMouseRay();
-		const glm::vec3 viewPosition = App::Scene.m_camera.getPosition();
+		const glm::vec3 worldMouseRay = App::camera.getMouseRay();
+		const glm::vec3 viewPosition = App::camera.getPosition();
 
 		const glm::vec3 thisNormal = glm::vec3(0.0, 1.0, 0.0);
 

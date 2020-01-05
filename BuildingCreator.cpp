@@ -66,13 +66,13 @@ BC::Resource::Resource(std::string modelPath, std::string name, BasicBuilding::B
 	case BasicBuilding::BuildingType::HOUSE:
 		House house;
 		house.create(glm::vec3(), modelPath);
-		house.graphicsComponent.setActive(false);
+		house.getGraphicsComponent().setActive(false);
 
 		this->prototype = std::shared_ptr<BasicBuilding>(new House(house));
 		break;
 	}
 	Rect rect = deduceRectFromModel(Model(modelPath));
-	this->prototype->collider2D = Collider2D({ rect.p1, rect.p2, rect.p3, rect.p4 });
+	this->prototype->getPhysicsComponent().collider().setBoundaries({ rect.p1, rect.p2, rect.p3, rect.p4 });
 }
 
 BuildingCreator::BuildingCreator(ObjectManager* objManager)
@@ -104,12 +104,12 @@ void BuildingCreator::update()
 		auto optPosition = m_pObjectManager->m_pSimulationArea->getMousePosition();
 		if (optPosition)
 		{
-			m_currentResource->prototype->graphicsComponent.setActive(true);
+			m_currentResource->prototype->getGraphicsComponent().setActive(true);
 			m_currentResource->prototype->setPosition(optPosition.value());
 		}
 		else
 		{
-			m_currentResource->prototype->graphicsComponent.setActive(false);
+			m_currentResource->prototype->getGraphicsComponent().setActive(false);
 		}
 	}
 }
@@ -128,13 +128,13 @@ void BuildingCreator::clickEvent()
 
 void BuildingCreator::setCreatorModeAction()
 {
-	m_currentResource->prototype->graphicsComponent.setActive(
+	m_currentResource->prototype->getGraphicsComponent().setActive(
 		m_currentMode == Creator::CreatorMode::CREATE);
 
 }
 
 void BuildingCreator::setActiveAction()
 {
-	m_currentResource->prototype->graphicsComponent.setActive(m_active);
+	m_currentResource->prototype->getGraphicsComponent().setActive(m_active);
 }
 

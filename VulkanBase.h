@@ -4,12 +4,14 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <glm/glm.hpp>
 #include <vector>
 #include <array>
 #include <stack>
 #include <optional>
 #include <map>
-#include <glm/glm.hpp>
+#include <mutex>
+#include <condition_variable>
 
 #include "vulkanHelper/VulkanStructs.h"
 #include "UI.h"
@@ -153,10 +155,6 @@ private:
 		std::vector<vkh::structs::Buffer> uniform;
 	} m_buffers;
 
-	bool m_changedActiveComponentsSize = false;
-	std::vector<GraphicsComponent*> m_activeGraphicsComponents;
-
-
 	// helperFunctions
 	friend void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 	std::vector<const char*> getRequiredExtensions() const;
@@ -175,19 +173,29 @@ public:
 	uint16_t getSwapchainImageCount() const;
 	std::vector<vkh::structs::Buffer>& getUniformBuffers();
 
-	GraphicsComponent createGrahicsComponent(const Info::GraphicsComponentCreateInfo& info);
-	void recreateGrahicsComponent(GraphicsComponent& graphicsComponent, const Info::GraphicsComponentCreateInfo& info);
 
-	void activateGraphicsComponent(GraphicsComponent* toActivate);
-	void deactivateGraphicsComponent(GraphicsComponent* toDeactivate);
+	bool updatePhysics;
+	GraphicsComponent* m_graphicsComponentData;
+	uint32_t m_graphicsComponentCount;
+	std::stack<GraphicsComponent*>  m_graphicsComponents;
+
+	bool m_changedActiveComponentsSize = false;
+	std::vector<GraphicsComponent*> m_activeGraphicsComponents;
+
+	GraphicsComponent* const createGrahicsComponent();
+	void updateGrahicsComponent(pGraphicsComponent& const grapgicsComponent, const Info::GraphicsComponentCreateInfo& info);
+	GraphicsComponent* const copyGraphicsComponent(const pGraphicsComponent& const copyGraphicsComponent);
+	void deactivateGraphicsComponent(pGraphicsComponent& toDeactivate);
 
 private:
 	VD::ModelData getModelDataFromInfo(const Info::GraphicsComponentCreateInfo& info);
+	GraphicsComponent* const getGraphicsComponent();
 private:
 	// menu
 	void initWindow();
 	void initVulkan();
 	void initModules();
+	void initGraphicsComponents();
 	void initUI();
 	void mainLoop();
 	// Foundation
@@ -230,7 +238,6 @@ private:
 	//
 
 	void updateUniformBufferOffsets();
-//	void updateTextures();
 
 	void createTextureSampler();
 	//drawing
@@ -248,7 +255,15 @@ private:
 	void cleanup();
 	void cleanupSwapchain();
 	void cleanupBuffers();
+	void cleanupGraphicsComponents();
 	void processInput();
+
+	// synchronization
+public:
+	bool finished() const;
+private:
+	bool m_finished = false;
+	std::mutex m_drawMutex;
 };
 
 #endif // !VULKAN_BASE_H

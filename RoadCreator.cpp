@@ -196,6 +196,53 @@ const RC::Prototypes* RoadCreatorUI::getSelectedPrototype() const
 	return m_selectedPrototype;
 }
 
+RoadCreator::RoadCreator(ObjectManager* objectManager)
+	: BasicCreator(objectManager), visualizer()
+{
+
+}
+
+void RoadCreator::update()
+{
+	if (m_active)
+	{
+		updatePoints();
+
+		visualizer.update();
+	}
+}
+
+void RoadCreator::clickEvent()
+{
+	if (!m_active)
+		return;
+
+	setPoint();
+}
+
+void RoadCreator::rollBackEvent()
+{
+	if (m_setPoints.size())
+		m_setPoints.pop_back();
+}
+
+void RoadCreator::setCreatorModeAction()
+{
+	// could be clar points function tho
+	m_setPoints.clear();
+	m_creationPoints = {};
+
+	visualizer.setActive(m_active);
+}
+
+void RoadCreator::setActiveAction()
+{
+	m_setPoints.clear();
+	m_creationPoints = {};
+
+	visualizer.setActive(m_active);
+}
+
 RC::ProcSitPts RoadCreator::processSittingPoints(const std::vector<RC::SittingPoint> sittingPoints) const
 {
 	RC::ProcSitPts processed{};
@@ -240,7 +287,7 @@ RC::ProcSitPts RoadCreator::processSittingPoints(const std::vector<RC::SittingPo
 
 void RoadCreator::setPoint()
 {
-	if (m_processedCurrentPoints.validPoints && m_currentShapeValid && m_mousePoint)
+	if (m_processedCurrentPoints.validPoints && m_roadPrototype.getPhysicsComponent().inCollision() && m_mousePoint)
 	{
 		m_setPoints.push_back(m_mousePoint.value());
 
@@ -259,7 +306,9 @@ void RoadCreator::validateCurrentShape()
 	{
 		Points shapePoints = m_creationPoints.points;
 		auto shapeOutline = buildSimpleShapeOutline(shapePoints, m_ui.getSelectedPrototype()->width);
+		constructRoadPrototype();
 
+		/*
 		removeDuplicates(shapeOutline);
 		Points leftPts(std::begin(shapeOutline), std::begin(shapeOutline) + std::size(shapeOutline) / 2);
 		Points rightPts(std::begin(shapeOutline) + std::size(shapeOutline) / 2, std::end(shapeOutline));
@@ -267,12 +316,7 @@ void RoadCreator::validateCurrentShape()
 		// remove poin ts sitting on road ends
 		if (m_processedCurrentPoints.roadBeginAxisPoint)
 		{
-			const auto& road = *m_processedCurrentPoints.roadBeginAxisPoint.value().second;
-			/*if (!leftPts.empty() && road.sitsPointOn(*leftPts.begin()))
-				leftPts.erase(leftPts.begin());
-			if (!rightPts.empty() && road.sitsPointOn(*rightPts.begin()))
-				rightPts.erase(rightPts.begin());*/
-
+			
 			bool removePoints = (!leftPts.empty() && road.sitsPointOn(*leftPts.begin())) ||
 				!rightPts.empty() && road.sitsPointOn(*rightPts.begin());
 
@@ -287,11 +331,6 @@ void RoadCreator::validateCurrentShape()
 		if (m_processedCurrentPoints.roadEndAxisPoint)
 		{
 			const auto& road = *m_processedCurrentPoints.roadEndAxisPoint.value().second;
-
-			/*if (!leftPts.empty() && road.sitsPointOn(*(leftPts.end() - 1)))
-				leftPts.erase(leftPts.end() - 1);
-			if (!rightPts.empty() && road.sitsPointOn(*(rightPts.end() - 1)))
-				rightPts.erase(rightPts.end() - 1);*/
 
 			bool removePoints = (!leftPts.empty() && road.sitsPointOn(*(leftPts.end() - 1))) ||
 				!rightPts.empty() && road.sitsPointOn(*(rightPts.end() - 1));
@@ -326,7 +365,7 @@ void RoadCreator::validateCurrentShape()
 
 			return joinedPts;
 		};
-		Collider2D col (joinLeftAndRightPoints(leftPts, rightPts));
+		Points col (joinLeftAndRightPoints(leftPts, rightPts));
 
 
 		for (const auto& road : m_pObjectManager->m_roads.data)
@@ -338,8 +377,15 @@ void RoadCreator::validateCurrentShape()
 				m_currentShapeValid = false;
 				break;
 			}
-		}
+		}*/
 	}
+}
+
+void RoadCreator::constructRoadPrototype()
+{
+	const auto& currentPrototype = *m_ui.getSelectedPrototype();
+
+	m_roadPrototype.construct(m_creationPoints.points, currentPrototype.laneCount, currentPrototype.width, currentPrototype.texture);
 }
 
 void RoadCreator::handleCurrentPoints()
@@ -440,10 +486,7 @@ void RoadCreator::createRoadFromCurrent()
 	// creater road
 	const auto& currentPrototype = *m_ui.getSelectedPrototype();
 
-	Road newRoad;
-	newRoad.construct(m_creationPoints.points, currentPrototype.laneCount, currentPrototype.width, currentPrototype.texture);
-
-	handleConstruction(newRoad, connectingPoints);
+	handleConstruction(m_roadPrototype, connectingPoints);
 
 	m_setPoints.clear();
 }
@@ -510,7 +553,7 @@ void RoadCreator::updatePoints()
 void RoadCreator::updateMousePoint()
 {
 	// only if theres mouse
-	if (auto mousePosition = App::Scene.m_simArea.getMousePosition())
+	if (auto mousePosition = App::simulationArea.getMousePosition())
 	{
 		const auto& mousePoint = mousePosition.value();
 		RC::SittingPoint newSittingPoint;
@@ -862,50 +905,13 @@ RoadCreator::IntersectionProducts RoadCreator::buildToIntersection(Road& road, R
 	return products;
 }
 
-void RoadCreator::setCreatorModeAction()
-{
-	// could be clar points function tho
-	m_setPoints.clear();
-	m_creationPoints = {};
 
-	visualizer.setActive(m_active);
-}
-
-void RoadCreator::setActiveAction()
-{
-	m_setPoints.clear();
-	m_creationPoints = {};
-
-	visualizer.setActive(m_active);
-}
-
-RoadCreator::RoadCreator(ObjectManager* objectManager)
-	: BasicCreator(objectManager)
+CreatorVisualizer::CreatorVisualizer()
 {
 }
 
-void RoadCreator::update()
+CreatorVisualizer::~CreatorVisualizer()
 {
-	if (m_active)
-	{
-		updatePoints();
-
-		visualizer.update();
-	}
-}
-
-void RoadCreator::clickEvent()
-{
-	if (!m_active)
-		return;
-
-	setPoint();
-}
-
-void RoadCreator::rollBackEvent()
-{
-	if (m_setPoints.size())
-		m_setPoints.pop_back();
 }
 
 void CreatorVisualizer::update()
@@ -923,8 +929,8 @@ void CreatorVisualizer::setDraw(const std::vector<Point>& drawAxis, const std::v
 
 void CreatorVisualizer::setActive(bool active)
 {
-	pointGraphics.setActive(active);
-	lineGraphics.setActive(active);
+	pointGraphics->setActive(active);
+	lineGraphics->setActive(active);
 }
 
 VD::PositionVertices CreatorVisualizer::generateLines()
@@ -994,6 +1000,12 @@ std::pair<VD::PositionVertices, VD::ColorVertices> CreatorVisualizer::generatePo
 
 void CreatorVisualizer::updateGraphics()
 {
+	if (!pointGraphics && !lineGraphics)
+	{
+		pointGraphics = GraphicsComponent::createGraphicsComponent();
+		lineGraphics = GraphicsComponent::createGraphicsComponent();
+	}
+
 	if (axisToDraw.size() > 1)
 	{
 		Info::DrawInfo dInfo;
@@ -1018,12 +1030,12 @@ void CreatorVisualizer::updateGraphics()
 		gInfo.drawInfo = &dInfo;
 		gInfo.modelInfo = &mInfo;
 
-		lineGraphics.recreateGraphicsComponent(gInfo);
-		lineGraphics.setActive(true);
+		lineGraphics->updateGraphicsComponent(gInfo);
+		lineGraphics->setActive(true);
 	}
 	else
 	{
-		lineGraphics.setActive(false);
+		lineGraphics->setActive(false);
 	}
 
 	const auto [vertices, colors] = generatePoints();
@@ -1047,11 +1059,11 @@ void CreatorVisualizer::updateGraphics()
 		gInfo.drawInfo = &dInfo;
 		gInfo.modelInfo = &mInfo;
 
-		pointGraphics.recreateGraphicsComponent(gInfo);
-		pointGraphics.setActive(true);
+		pointGraphics->updateGraphicsComponent(gInfo);
+		pointGraphics->setActive(true);
 	}
 	else
 	{
-		pointGraphics.setActive(false);
+		pointGraphics->setActive(false);
 	}
 }

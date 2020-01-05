@@ -3,7 +3,9 @@
 //namespace
 namespace App
 {
-	extern ::Scene Scene = ::Scene();
-	extern Time time = {};
-
+	Camera			camera			= Camera();
+	Time			time			= Time();
+	VulkanBase		vulkanBase		= VulkanBase();
+	Physics			physics			= Physics();
+	SimulationArea	simulationArea	= SimulationArea();
 }

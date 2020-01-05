@@ -1099,8 +1099,7 @@ void Road::construct(Points creationPoints, const RoadParameters& parameters)
 	createPaths();
 
 	auto pts = m_shape.getSkeleton();
-	Points colPts(pts.begin(), pts.end());
-	collider2D = Collider2D(colPts);
+	getPhysicsComponent().collider().setBoundaries(Points(pts.begin(), pts.end()));
 }
 
 void Road::reconstruct()

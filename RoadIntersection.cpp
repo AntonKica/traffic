@@ -199,7 +199,7 @@ void RoadIntersection::setUpShape()
 
 	setupModel(mInfo, true);
 
-	collider2D = Collider2D(m_shapePoints);
+	getPhysicsComponent().collider().setBoundaries(m_shapePoints);
 }
 
 bool RoadIntersection::validIntersection()
