@@ -53,7 +53,7 @@ void vkh::structs::Buffer::unmap()
 	}
 }
 
-void vkh::structs::Buffer::cleanup(VkDevice device, const VkAllocationCallbacks* allocator)
+void vkh::structs::Buffer::cleanUp(VkDevice device, const VkAllocationCallbacks* allocator)
 {
 	if (buffer && memory)
 	{
@@ -82,7 +82,7 @@ void vkh::structs::Image::setupDescriptor(VkSampler sampler)
 	info.sampler = sampler;
 }
 
-void vkh::structs::Image::cleanup(VkDevice device, const VkAllocationCallbacks* allocator)
+void vkh::structs::Image::cleanUp(VkDevice device, const VkAllocationCallbacks* allocator)
 {
 	if (view)
 	{
@@ -162,7 +162,7 @@ void vkh::structs::Image::transitionLayout(const vkh::structs::VulkanDevice& vkD
 	layout = newLayout;
 }
 
-void vkh::structs::Swapchain::cleanup(VkDevice device, const VkAllocationCallbacks* pAllocator)
+void vkh::structs::Swapchain::cleanUp(VkDevice device, const VkAllocationCallbacks* pAllocator)
 {
 	for (size_t i = 0; i < images.size(); ++i)
 	{
@@ -216,7 +216,7 @@ void vkh::structs::VulkanDevice::initVulkanDevice(VkPhysicalDevice physicalDevic
 void vkh::structs::VulkanDevice::destroyVulkanDevice()
 {
 	if (stagingBuffer.initialized())
-		stagingBuffer.cleanup(logicalDevice, nullptr);
+		stagingBuffer.cleanUp(logicalDevice, nullptr);
 	if (commandPool)
 		vkDestroyCommandPool(logicalDevice, commandPool, nullptr);
 	if (logicalDevice)
@@ -402,12 +402,12 @@ uint32_t vkh::structs::VulkanDevice::getMemoryType(uint32_t typeBits, VkMemoryPr
 	}
 }
 
- //Creates new buffer, if is initialized, cleanups the buffer
+ //Creates new buffer, if is initialized, cleanUps the buffer
 VkResult vkh::structs::VulkanDevice::createBuffer(VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkDeviceSize size, vkh::structs::Buffer& buffer, const void* data) const
 {
 	if (buffer.initialized())
 	{
-		buffer.cleanup(logicalDevice, nullptr);
+		buffer.cleanUp(logicalDevice, nullptr);
 	}
 	buffer.device = logicalDevice;
 	buffer.size = size;
@@ -477,7 +477,7 @@ void vkh::structs::VulkanDevice::freeStagingBuffer(vkh::structs::Buffer& staging
 	stagingBufferInUse = false;
 	stagingBuffer.unmap();
 
-	//stagingBuffer.cleanup(logicalDevice, nullptr);
+	//stagingBuffer.cleanUp(logicalDevice, nullptr);
 }
 
 // copy via src buffer size

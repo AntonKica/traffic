@@ -374,7 +374,7 @@ bool GUI::createFontsTexture(
 
 	io.Fonts->TexID = (ImTextureID)(intptr_t)imguiObject.fontImage.image;
 
-	uploadBuffer.cleanup(device, nullptr);
+	uploadBuffer.cleanUp(device, nullptr);
 
 	// update descriptor
 	imguiObject.fontImage.setupDescriptor(imguiObject.fontSampler);
@@ -621,7 +621,7 @@ void GUI::ImGuiInfo::cleanup(VkDevice device, const VkAllocationCallbacks* alloc
 	vkDestroyDescriptorSetLayout(device, setLayout, allocator);
 	vkDestroySampler(device, fontSampler, allocator);
 
-	fontImage.cleanup(device, allocator);
-	vertexBuffer.cleanup(device, allocator);
-	indexBuffer.cleanup(device, allocator);
+	fontImage.cleanUp(device, allocator);
+	vertexBuffer.cleanUp(device, allocator);
+	indexBuffer.cleanUp(device, allocator);
 }

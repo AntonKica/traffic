@@ -2,10 +2,11 @@
 #include "PipelinesManager.h"
 #include <numeric>
 #include <glm/gtx/string_cast.hpp>
+#include "GlobalObjects.h"
 
-void SimpleCar::update(float deltaTime)
+void SimpleCar::update()
 {
-	currentlyTravelled += speed * deltaTime;
+	currentlyTravelled += speed * App::time.deltaTime();
 
 	{
 		float thisLineLength = glm::length(pathToTake[currentLine] - pathToTake[currentLine + 1]);

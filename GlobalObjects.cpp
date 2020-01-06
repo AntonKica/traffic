@@ -7,5 +7,6 @@ namespace App
 	Time			time			= Time();
 	VulkanBase		vulkanBase		= VulkanBase();
 	Physics			physics			= Physics();
-	SimulationArea	simulationArea	= SimulationArea();
+	Input			input			= Input();
+	Simulation		simulation		= Simulation();
 }

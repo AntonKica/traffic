@@ -12,173 +12,147 @@
 #include <utility>
 
 
-
-GraphicsComponent* const GraphicsComponent::createGraphicsComponent()
-{
-	return App::vulkanBase.createGrahicsComponent();
-}
-
-GraphicsComponent* const GraphicsComponent::copyGraphicsComponent(const pGraphicsComponent& copyGraphicsComponent)
-{
-	return App::vulkanBase.copyGraphicsComponent(copyGraphicsComponent);
-}
-void GraphicsComponent::destroyGraphicsComponent(pGraphicsComponent& graphicsComponent)
-{
-	App::vulkanBase.deactivateGraphicsComponent(graphicsComponent);
-}
-
 GraphicsComponent::GraphicsComponent()
 {
+	m_core = App::vulkanBase.createGrahicsComponentCore();
 }
 
 GraphicsComponent::~GraphicsComponent()
 {
+	if (m_core)
+		App::vulkanBase.deactivateGraphicsComponentCore(m_core);
 }
 
-static int otherCnt = 0;
-GraphicsComponent::GraphicsComponent(const GraphicsComponent& other)
+GraphicsComponent::GraphicsComponent(const GraphicsComponent& copy)
 {
-	if (this == &other)
+	if (this == &copy)
 		return;
 
-	m_initalized		= other.m_initalized;
-	m_active			= other.m_active;
-	m_modelData			= other.m_modelData;
-	m_transformations	= other.m_transformations;
-	m_shaderInfo		= other.m_shaderInfo;
+	if(copy.m_core)
+		m_core = App::vulkanBase.copyCreateGraphicsComponentCore(copy.m_core);
 }
 
-GraphicsComponent::GraphicsComponent(GraphicsComponent&& other) noexcept
+GraphicsComponent::GraphicsComponent(GraphicsComponent&& move) noexcept
 {
-	if (this == &other)
+	if (this == &move)
 		return;
 
-	m_initalized		= std::move(other.m_initalized);
-	m_active			= std::move(other.m_active);
-	m_modelData			= std::move(other.m_modelData);
-	m_transformations	= std::move(other.m_transformations);
-	m_shaderInfo		= std::move(other.m_shaderInfo);
+	m_core = move.m_core;	move.m_core = nullptr;
 }
-GraphicsComponent& GraphicsComponent::operator=(const GraphicsComponent& other)
+GraphicsComponent& GraphicsComponent::operator=(const GraphicsComponent& copy)
 {
-	if (this == &other)
+	if (this == &copy)
 		return *this;
 
-	m_initalized		= other.m_initalized;
-	m_active			= other.m_active;
-	m_modelData			= other.m_modelData;
-	m_transformations	= other.m_transformations;
-	m_shaderInfo		= other.m_shaderInfo;
+	if (m_core)
+	{
+		if (copy.m_core)
+			App::vulkanBase.copyGraphicsComponentCore(copy.m_core, m_core);
+		else
+			App::vulkanBase.deactivateGraphicsComponentCore(m_core);
+	}
+	else if (copy.m_core) 
+	{
+		if (copy.m_core)
+			App::vulkanBase.copyCreateGraphicsComponentCore(copy.m_core);
+	}
 
 	return *this;
 }
 
-GraphicsComponent& GraphicsComponent::operator=(GraphicsComponent&& other) noexcept
+GraphicsComponent& GraphicsComponent::operator=(GraphicsComponent&& move) noexcept
 {
-	if (this == &other)
+	if (this == &move)
 		return *this;
 
-	m_initalized		= std::move(other.m_initalized);
-	m_active			= std::move(other.m_active);
-	m_modelData			= std::move(other.m_modelData);
-	m_transformations	= std::move(other.m_transformations);
-	m_shaderInfo		= std::move(other.m_shaderInfo);
+	if(m_core)
+		App::vulkanBase.deactivateGraphicsComponentCore(m_core);
+	m_core = move.m_core;	move.m_core = nullptr;
 
 	return *this;
 }
 
 void GraphicsComponent::updateGraphicsComponent(const Info::GraphicsComponentCreateInfo& info)
 {
-	GraphicsComponent* cmp = this;
-	App::vulkanBase.updateGrahicsComponent(cmp, info);
+	App::vulkanBase.updateGrahicsComponentCore(m_core, info);
 }
 
-void GraphicsComponent::setModelData(VD::ModelData modelData)
-{
-	m_modelData = modelData;
-}
-
-void GraphicsComponent::setInitialized(bool value)
-{
-	m_initalized = value;
-}
 
 void GraphicsComponent::setActive(bool value)
 {
-	m_active = value;
+	m_core->active = value;
 }
 void GraphicsComponent::setPosition(const glm::vec3& pos)
 {
-	m_transformations.position = pos;
+	m_core->transformations.position = pos;
 }
 
 void GraphicsComponent::setRotation(const glm::vec3& rotation)
 {
-	m_transformations.rotation = rotation;
+	m_core->transformations.rotation = rotation;
 }
 
 void GraphicsComponent::setRotationX(float rotationX)
 {
-	m_transformations.rotation.x = rotationX;
+	m_core->transformations.rotation.x = rotationX;
 }
 
 void GraphicsComponent::setRotationY(float rotationY)
 {
-	m_transformations.rotation.y = rotationY;
+	m_core->transformations.rotation.y = rotationY;
 }
 
 void GraphicsComponent::setRotationZ(float rotationZ)
 {
-	m_transformations.rotation.z = rotationZ;
+	m_core->transformations.rotation.z = rotationZ;
 }
 
 void GraphicsComponent::setSize(const glm::vec3& size)
 {
-	m_transformations.size = size;
+	m_core->transformations.size = size;
 }
 
 void GraphicsComponent::setTint(const glm::vec4& tint)
 {
-	m_shaderInfo.tint = tint;
+	m_core->shaderInfo.tint = tint;
 }
 
 void GraphicsComponent::setTransparency(float transparency)
 {
-	m_shaderInfo.transparency = transparency;
+	m_core->shaderInfo.transparency = transparency;
+}
+
+bool GraphicsComponent::isActive() const
+{
+	return m_core->active;
 }
 
 glm::vec3 GraphicsComponent::getPosition() const
 {
-	return m_transformations.position;
+	return m_core->transformations.position;
 }
 
 glm::vec3 GraphicsComponent::getRotation() const
 {
-	return m_transformations.rotation;
+	return m_core->transformations.rotation;
 }
 
 float GraphicsComponent::getRotationX() const
 {
-	return m_transformations.rotation.x;
+	return m_core->transformations.rotation.x;
 }
 
 float GraphicsComponent::getRotationY() const
 {
-	return m_transformations.rotation.y;
+	return m_core->transformations.rotation.y;
 }
 
 float GraphicsComponent::getRotationZ() const
 {
-	return m_transformations.rotation.z;
+	return m_core->transformations.rotation.z;
 }
 
 glm::vec3 GraphicsComponent::getSize() const
 {
-	return m_transformations.size;
+	return m_core->transformations.size;
 }
-
-bool GraphicsComponent::initialized() const
-{
-	return m_initalized;
-}
-

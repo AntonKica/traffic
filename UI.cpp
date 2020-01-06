@@ -34,7 +34,7 @@ void UI::initUI(VulkanBase* pVulkanBase)
 void UI::destroyUI()
 {
 	for (auto& [name, image] : m_loadedImages)
-		image.cleanup(*device, nullptr);
+		image.cleanUp(*device, nullptr);
 
 	imgui.cleanup(*device, nullptr);
 	ImGui::DestroyContext();

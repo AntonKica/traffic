@@ -14,7 +14,9 @@ namespace Collider
 
 class Collider2D
 {
+	friend class Physics;
 	friend class PhysicsComponent;
+	friend class PhysicsComponentCore;
 public:
 	void set(const Points& boundaries, const glm::vec3& newPosition, const glm::vec3& newRotation);
 	void set(const glm::vec3& newPosition, const glm::vec3& newRotation);
@@ -28,7 +30,7 @@ public:
 
 	bool collides(const Collider2D& other) const;
 private:
-	Collider2D();
+	Collider2D() = default;
 
 	void setupTriangles();
 	void setupCircle();

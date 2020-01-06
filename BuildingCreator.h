@@ -39,8 +39,7 @@ public:
 	BuildingCreator(ObjectManager* objManager);
 	void prepareResources();
 
-	void update();
-	void clickEvent();
+	void update() override;
 protected:
 	virtual void setCreatorModeAction() override;
 	virtual void setActiveAction() override;

@@ -33,6 +33,8 @@ public:
 	void setActive(bool active);
 
 	void drawUI();
+
+	virtual void update();
 protected:
 	virtual void setCreatorModeAction();
 	virtual void setActiveAction();
@@ -93,4 +95,9 @@ template<class UIType>
 void BasicCreator<UIType>::drawUI()
 {
 	m_ui.draw();
+}
+
+template<class UIType>
+inline void BasicCreator<UIType>::update()
+{
 }

@@ -181,12 +181,6 @@ bool Collider::circlesOverlay(const Circle& firstCircle, const Circle& secondCir
 	return circleDistances <= std::abs(r1 + r2);
 }
 
-
-Collider2D::Collider2D()
-	:m_position(glm::vec3()), m_rotation(glm::vec3())
-{
-}
-
 void Collider2D::set(const Points& newBoundaries, const glm::vec3& newPosition, const glm::vec3& newRotation)
 {
 	m_boundaries = newBoundaries;

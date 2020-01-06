@@ -9,18 +9,18 @@ void VulkanDataManager::initialize(VulkanBase* vkBase)
 	device = vkBase->getDevice();
 }
 
-void VulkanDataManager::cleanup(const VkAllocationCallbacks* allocator)
+void VulkanDataManager::cleanUp(const VkAllocationCallbacks* allocator)
 {
 	for (auto& [vertexFlag, rb] : vertexBuffers)
-		rb.buffer.cleanup(*device, allocator);
-	indexBuffer.buffer.cleanup(*device, allocator);
+		rb.buffer.cleanUp(*device, allocator);
+	indexBuffer.buffer.cleanUp(*device, allocator);
 
 	for (auto& texture : textures)
-		texture->image.cleanup(*device, allocator);
+		texture->image.cleanUp(*device, allocator);
 
 	for (auto& [vertexFlag, rb] : modelVertexBuffers)
-		rb.buffer.cleanup(*device, allocator);
-	modelIndexBuffer.buffer.cleanup(*device, allocator);
+		rb.buffer.cleanUp(*device, allocator);
+	modelIndexBuffer.buffer.cleanUp(*device, allocator);
 }
 
 VD::ModelData VulkanDataManager::loadModel(const Model& model)

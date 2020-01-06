@@ -3,17 +3,27 @@
 // for now
 #include "Collider2D.h"
 
-class PhysicsComponent;
-using pPhysicsComponent = PhysicsComponent*;
+
+struct PhysicsComponentCore
+{
+	Collider2D collider2D;
+
+	bool inCollision = false;
+	bool active = false;
+};
+using pPhysicsComponentCore = PhysicsComponentCore*;
 
 class PhysicsComponent
 {
 public:
 	friend class Physics;
-	static pPhysicsComponent const createPhysicsComponent();
-	static pPhysicsComponent const copyPhysicsComponent(const pPhysicsComponent& const copyPhysicsComponent);
-	static void destroyPhysicsComponent(pPhysicsComponent& physicsComponent);
 
+	PhysicsComponent();
+	~PhysicsComponent();
+	PhysicsComponent(const PhysicsComponent& copy);
+	PhysicsComponent(PhysicsComponent&& move) noexcept;
+	PhysicsComponent& operator=(const PhysicsComponent& copy);
+	PhysicsComponent& operator=(PhysicsComponent&& move) noexcept;
 
 	void setActive(bool active);
 	bool active() const;
@@ -23,10 +33,6 @@ public:
 	Collider2D& collider();
 	const Collider2D& collider() const;
 private:
-	PhysicsComponent();
-
-	bool m_active;
-	bool m_inCollision;
-	Collider2D collider2D;
+	pPhysicsComponentCore m_core = nullptr;
 };
 

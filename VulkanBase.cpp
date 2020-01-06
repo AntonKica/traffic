@@ -140,7 +140,7 @@ static void mouseButtonCallback(GLFWwindow* window, int button, int action, int 
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
 	{
-		App::simulationArea.clickEvent();
+		//App::simulationArea.clickEvent();
 	}
 }
 
@@ -224,19 +224,15 @@ void VulkanBase::initWindow()
 	glfwSetCursorPosCallback(m_window, cursorPosCallback);
 	glfwSetKeyCallback(m_window, keyboardInputCallback);
 }
-VulkanBase::VulkanBase()
-{
-}
 void VulkanBase::run()
 {
 	initWindow();
 	initVulkan();
-
 	initUI();
-
+	
 	mainLoop();
 
-	cleanup();
+	cleanUp();
 }
 
 VkRenderPass VulkanBase::getRenderPass() const
@@ -254,45 +250,43 @@ std::vector<vkh::structs::Buffer>& VulkanBase::getUniformBuffers()
 	return m_buffers.uniform;
 }
 
-GraphicsComponent* const VulkanBase::createGrahicsComponent()
+pGraphicsComponentCore VulkanBase::createGrahicsComponentCore()
 {
-	auto newGraphicsComponent = getGraphicsComponent();
-	newGraphicsComponent->setInitialized(false);
+	auto newGraphicsComponent = getGraphicsComponentCore();
 
 	return newGraphicsComponent;
 }
 
-void VulkanBase::updateGrahicsComponent(pGraphicsComponent& const graphicsComponent, const Info::GraphicsComponentCreateInfo& info)
+void VulkanBase::updateGrahicsComponentCore(pGraphicsComponentCore& graphicsCore, const Info::GraphicsComponentCreateInfo& info)
 {
-	auto modelData = getModelDataFromInfo(info);
-
-	graphicsComponent->setModelData(modelData);
-	graphicsComponent->setInitialized(true);
+	graphicsCore->modelData = getModelDataFromInfo(info);
 }
 
-GraphicsComponent* const VulkanBase::copyGraphicsComponent(const pGraphicsComponent& const copyGraphicsComponent)
+void VulkanBase::copyGraphicsComponentCore(const pGraphicsComponentCore& copyGraphicsCore, pGraphicsComponentCore& destinationGraphicsCore) const
 {
-	auto newGraphicsComponent = getGraphicsComponent();
-	*newGraphicsComponent = *copyGraphicsComponent;
+	*destinationGraphicsCore = *copyGraphicsCore;
+}
+pGraphicsComponentCore VulkanBase::copyCreateGraphicsComponentCore(const pGraphicsComponentCore& copyGraphicsCore)
+{
+	auto newGraphicsCore = getGraphicsComponentCore();
+	copyGraphicsComponentCore(copyGraphicsCore, newGraphicsCore);
 
-	return newGraphicsComponent;
+	return newGraphicsCore;
 }
 
-void VulkanBase::deactivateGraphicsComponent(pGraphicsComponent& toDeactivate)
+void VulkanBase::deactivateGraphicsComponentCore(pGraphicsComponentCore& deactivateCore)
 {
-	*toDeactivate = {};
 
 	// no error check
-	auto gComp = std::find(std::begin(m_activeGraphicsComponents), std::end(m_activeGraphicsComponents), toDeactivate);
-	if (gComp != std::end(m_activeGraphicsComponents))
-	{
-		m_activeGraphicsComponents.erase(gComp);
-		m_graphicsComponents.push(toDeactivate);
+	auto gComp = std::find(std::begin(m_activeGraphicsComponentCores), std::end(m_activeGraphicsComponentCores), deactivateCore);
+	m_activeGraphicsComponentCores.erase(gComp);
+	m_graphicsComponentCores.push(deactivateCore);
 
-		m_changedActiveComponentsSize = true;
-	}
+	m_changedActiveComponentsSize = true;
 
-	toDeactivate = nullptr;
+	// nulify
+	*deactivateCore = {};
+	deactivateCore = nullptr;
 }
 
 VD::ModelData VulkanBase::getModelDataFromInfo(const Info::GraphicsComponentCreateInfo& info)
@@ -315,12 +309,12 @@ VD::ModelData VulkanBase::getModelDataFromInfo(const Info::GraphicsComponentCrea
 	return modelData;
 }
 
-GraphicsComponent* const VulkanBase::getGraphicsComponent()
+pGraphicsComponentCore const VulkanBase::getGraphicsComponentCore()
 {
-	auto ptr = m_graphicsComponents.top();
-	m_graphicsComponents.pop();
+	auto ptr = m_graphicsComponentCores.top();
+	m_graphicsComponentCores.pop();
 
-	m_activeGraphicsComponents.push_back(ptr);
+	m_activeGraphicsComponentCores.push_back(ptr);
 	m_changedActiveComponentsSize = true;
 
 	return ptr;
@@ -390,16 +384,16 @@ void VulkanBase::initModules()
 	m_descriptorManager.init(this);
 	m_pipelinesManager.init(this);
 
-	initGraphicsComponents();
+	initGraphicsComponentCores();
 }
 
-void VulkanBase::initGraphicsComponents()
+void VulkanBase::initGraphicsComponentCores()
 {
-	m_graphicsComponentCount = 50'000;
-	m_graphicsComponentData = new GraphicsComponent[m_graphicsComponentCount];
+	m_graphicsComponentCoreCount = 50'000;
+	m_graphicsComponentCoresData = new GraphicsComponentCore[m_graphicsComponentCoreCount];
 
-	for (uint32_t index = 0; index < m_graphicsComponentCount; ++index)
-		m_graphicsComponents.push(m_graphicsComponentData + index);
+	for (uint32_t index = 0; index < m_graphicsComponentCoreCount; ++index)
+		m_graphicsComponentCores.push(m_graphicsComponentCoresData + index);
 }
 
 void VulkanBase::initUI()
@@ -410,16 +404,19 @@ void VulkanBase::initUI()
 
 void VulkanBase::mainLoop()
 {
-	GlobalSynchronizaion::moduleInitialized = true;
-	GlobalSynchronizaion::moduleInitialization.notify_one();
+	GlobalSynchronizaion::graphics.initialized = true;
+	GlobalSynchronizaion::graphics.cv.notify_one();
 	//just for testing puproses
 	while (GlobalSynchronizaion::shouldStopEngine == false)
 	{
 		{
-			std::unique_lock<std::mutex> lock(m_drawMutex);
-			GlobalSynchronizaion::engineUpdate.wait(lock, [] { return GlobalSynchronizaion::updateEngine; });
+			std::mutex updateWaitMutex;
+			std::unique_lock<std::mutex> updateWaitLock(updateWaitMutex);
+			GlobalSynchronizaion::graphics.cv.wait(updateWaitLock, [] { return GlobalSynchronizaion::graphics.update; });
+			GlobalSynchronizaion::graphics.update = false;
 		}
-		glfwSetWindowTitle(m_window, (std::string("Sample title ") + std::to_string(int(1.0 / App::time.deltaTime()))).c_str());
+
+		glfwSetWindowTitle(m_window, (std::string("Sample title ") + std::to_string(int(1.0 / App::time.deltaTime())) + std::string("FPS")).c_str());
 
 		prepareFrame();
 		drawFrame();
@@ -427,8 +424,10 @@ void VulkanBase::mainLoop()
 		glfwSwapBuffers(m_window);
 		glfwPollEvents();
 
-		GlobalSynchronizaion::updatedGraphics = true;
-		GlobalSynchronizaion::engineUpdate.notify_one();
+		{
+			GlobalSynchronizaion::graphics.updated = true;
+			GlobalSynchronizaion::graphics.cv.notify_one();
+		}
 	}
 
 	vkDeviceWaitIdle(m_device);
@@ -704,7 +703,7 @@ void VulkanBase::createImage(const char* filename, vkh::structs::Image& image) c
 	image.transitionLayout(m_device, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, copyBuffer);
 	m_device.flushCommandBuffer(copyBuffer, m_device.queues.graphics);
 
-	uploadBuffer.cleanup(m_device, nullptr);
+	uploadBuffer.cleanUp(m_device, nullptr);
 }
 
 
@@ -783,7 +782,7 @@ void VulkanBase::recreateSwapchain()
 	}
 	vkDeviceWaitIdle(m_device);
 
-	cleanupSwapchain();
+	cleanUpSwapchain();
 	createSwapchain();
 	createRenderPass();
 	//createGraphicsPipeline();
@@ -937,16 +936,16 @@ void VulkanBase::updateUniformBufferOffsets()
 		getRequiredAligment(sizeof(UniformBufferObject), m_device.properties.limits.minUniformBufferOffsetAlignment);
 	size_t totalBytes = 0;
 	
-	for (auto& graphicsComponent : m_activeGraphicsComponents)
-		totalBytes = graphicsComponent->m_modelData.meshDatas.size()* strideSize;
+	for (auto& graphicsCore : m_activeGraphicsComponentCores)
+		totalBytes = graphicsCore->modelData.meshDatas.size()* strideSize;
 
 	// pseudo warning
 	if (m_buffers.uniform[0].size < totalBytes)
 		throw std::runtime_error("Not engough space!");
 	VkDeviceSize offset = 0;
-	for (auto& graphicsComponent : m_activeGraphicsComponents)
+	for (auto& graphicsCore : m_activeGraphicsComponentCores)
 	{
-		for (auto& meshData : graphicsComponent->m_modelData.meshDatas)
+		for (auto& meshData : graphicsCore->modelData.meshDatas)
 		{
 			meshData.dynamicBufferOffset = offset;
 			offset += strideSize;
@@ -1017,12 +1016,13 @@ void VulkanBase::recreateCommandBuffer(uint32_t currentImage)
 	m_pushConstants.projection = App::camera.getProjection();
 	m_pushConstants.view = App::camera.getView();
 
-	for (const auto& graphicsComponent : m_activeGraphicsComponents)
+	for (const auto& graphicsCore : m_activeGraphicsComponentCores)
 	{
-		if(graphicsComponent->m_active)
-			drawModelData(graphicsComponent->m_modelData, cmdBuffer, currentImage);
+		if (graphicsCore->active)
+		{
+			drawModelData(graphicsCore->modelData, cmdBuffer, currentImage);
+		}
 	}
-
 	// drawUI
 	UI::getInstance().drawUI(cmdBuffer);
 	vkCmdEndRenderPass(cmdBuffer);
@@ -1131,7 +1131,7 @@ void VulkanBase::prepareFrame()
 
 void VulkanBase::drawFrame()
 {
-	vkWaitForFences(m_device, 1, &m_syncObjects.inFlightFences[m_syncObjects.currentFrame], VK_TRUE, UINT64_MAX);
+	vkWaitForFences(m_device, 1, &m_syncObjects.inFlightFences[m_syncObjects.currentFrame], VK_FALSE, UINT64_MAX);
 
 	VkResult res;
 	uint32_t imageIndex;
@@ -1214,15 +1214,15 @@ void VulkanBase::updateUniformBuffer(uint32_t currentImage)
 	uint8_t* const data = static_cast<uint8_t* const>(m_buffers.uniform[currentImage].map());
 
 	int count = 0;
-	for (const auto& graphicsComponent : m_activeGraphicsComponents)
+	for (const auto& graphicsCore : m_activeGraphicsComponentCores)
 	{
-		if (graphicsComponent->m_active)
+		if (graphicsCore->active)
 		{
-			for (const auto& meshData : graphicsComponent->m_modelData.meshDatas)
+			for (const auto& meshData : graphicsCore->modelData.meshDatas)
 			{
 				UniformBufferObject ubo;
 				auto model = glm::mat4(1.0);
-				const auto& [position, rotation, size] = graphicsComponent->m_transformations;
+				const auto& [position, rotation, size] = graphicsCore->transformations;
 
 				model = glm::translate(model, position);
 				model = glm::rotate(model, rotation.x, (glm::vec3)Transformations::VectorUp);
@@ -1230,31 +1230,39 @@ void VulkanBase::updateUniformBuffer(uint32_t currentImage)
 				model = glm::rotate(model, rotation.z, (glm::vec3)Transformations::VectorForward);
 				model = glm::scale(model, size);
 				ubo.model = model;
-				ubo.tint = graphicsComponent->m_shaderInfo.tint;
-				ubo.transparency = graphicsComponent->m_shaderInfo.transparency;
+				ubo.tint = graphicsCore->shaderInfo.tint;
+				ubo.transparency = graphicsCore->shaderInfo.transparency;
 
 				memcpy(data + meshData.dynamicBufferOffset, &ubo, dynamicAligment);
 			}
 		}
+
 	}
 	m_buffers.uniform[currentImage].unmap();
 }
 
 
-void VulkanBase::cleanup()
+void VulkanBase::cleanUp()
 {
+	{
+		std::mutex cleanUpWaitMutex;
+		std::unique_lock<std::mutex> cleanUpWaitLock(cleanUpWaitMutex);
+		GlobalSynchronizaion::graphics.cv.wait(cleanUpWaitLock, [] { return GlobalSynchronizaion::graphics.cleanUp; });
+		GlobalSynchronizaion::graphics.cleanUp = false;
+	}
+
 	UI::getInstance().destroyUI();
-	cleanupSwapchain();
-	cleanupGraphicsComponents();
-	cleanupBuffers();
+	cleanUpSwapchain();
+	cleanUpGraphicsComponentCores();
+	cleanUpBuffers();
 
 	vkDestroySampler(m_device, m_sampler, nullptr);
 
 	m_syncObjects.cleanUp(m_device, nullptr);
 	vkDestroyCommandPool(m_device, m_commandPool, nullptr);
-	m_pipelinesManager.cleanup(nullptr);
-	m_descriptorManager.cleanup(nullptr);
-	m_dataManager.cleanup(nullptr);
+	m_pipelinesManager.cleanUp(nullptr);
+	m_descriptorManager.cleanUp(nullptr);
+	m_dataManager.cleanUp(nullptr);
 	m_device.destroyVulkanDevice();
 
 	if (enableValidationLayers)
@@ -1266,9 +1274,14 @@ void VulkanBase::cleanup()
 	vkDestroyInstance(m_instance, nullptr);
 
 	glfwTerminate();
+
+	{
+		GlobalSynchronizaion::graphics.cleanedUp = true;
+		GlobalSynchronizaion::graphics.cv.notify_one();
+	}
 }
 
-void VulkanBase::cleanupSwapchain()
+void VulkanBase::cleanUpSwapchain()
 {
 	vkFreeCommandBuffers(m_device, m_commandPool, static_cast<uint32_t>(m_commandBuffers.size()),
 		m_commandBuffers.data());
@@ -1276,35 +1289,27 @@ void VulkanBase::cleanupSwapchain()
 	vkDestroyRenderPass(m_device, m_renderPass, nullptr);
 
 
-	m_depthImage.cleanup(m_device, nullptr);
-	m_swapchain.cleanup(m_device, nullptr);
+	m_depthImage.cleanUp(m_device, nullptr);
+	m_swapchain.cleanUp(m_device, nullptr);
 }
 
-void VulkanBase::cleanupBuffers()
+void VulkanBase::cleanUpBuffers()
 {
 	for (auto uniformBuffer : m_buffers.uniform)
-		uniformBuffer.cleanup(m_device, nullptr);
+		uniformBuffer.cleanUp(m_device, nullptr);
 
 	for (auto& [path, image] : m_images)
-		image.cleanup(m_device, nullptr);
+		image.cleanUp(m_device, nullptr);
 }
 
-void VulkanBase::cleanupGraphicsComponents()
+void VulkanBase::cleanUpGraphicsComponentCores()
 {
-	m_graphicsComponents = {};
-	m_activeGraphicsComponents = {};
-	delete[] m_graphicsComponentData;
+	m_activeGraphicsComponentCores = {};
+	m_graphicsComponentCores = {};
+	delete[] m_graphicsComponentCoresData;
 }
 
 void VulkanBase::processInput()
 {
-	//App::Scene.m_simArea.m_creator.setCreateObject(selection);
-	
 	bool enableMouse = !UI::getInstance().mouseOverlap();
-	App::simulationArea.setEnableMouse(enableMouse);
-}
-
-bool VulkanBase::finished() const
-{
-	return m_finished;
 }

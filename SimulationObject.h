@@ -4,16 +4,18 @@
 #include "GraphicsComponent.h"
 #include "PhysicsComponent.h"
 
-class SimulationAreaObject
+class SimulationObject
 {
 	friend class SimulationArea;
 public:
-	SimulationAreaObject();
-	SimulationAreaObject(const SimulationAreaObject& copy);
-	SimulationAreaObject(SimulationAreaObject&& move);
-	SimulationAreaObject& operator=(const SimulationAreaObject& copy);
-	SimulationAreaObject& operator=(SimulationAreaObject&& move);
-	virtual ~SimulationAreaObject();
+	SimulationObject();
+	virtual ~SimulationObject();
+	SimulationObject(const SimulationObject& copy);
+	SimulationObject(SimulationObject&& move);
+	SimulationObject& operator=(const SimulationObject & copy) = default;
+	SimulationObject& operator=(SimulationObject && move) = default;
+
+	virtual void update();
 
 	GraphicsComponent& getGraphicsComponent();
 	PhysicsComponent& getPhysicsComponent();
@@ -24,12 +26,12 @@ public:
 
 	void setupModel(const Info::ModelInfo& modelInfo, bool activateOnCreation);
 
-	virtual void update();
 private:
-	GraphicsComponent* m_graphicsComponent = nullptr;
-	PhysicsComponent* m_physicsComponent = nullptr;
+	GraphicsComponent m_graphicsComponent;
+	PhysicsComponent m_physicsComponent;
 
 	glm::vec3 m_position;
 	glm::vec3 m_rotation;
 };
+using pSimulationObject = SimulationObject*;
 

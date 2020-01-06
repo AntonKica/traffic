@@ -1,47 +1,89 @@
 #include "PhysicsComponent.h"
 #include "GlobalObjects.h"
 
-PhysicsComponent* const PhysicsComponent::createPhysicsComponent()
+
+PhysicsComponent::PhysicsComponent()
 {
-	return App::physics.createPhysicsComponent();
+	m_core = App::physics.createPhysicsComponentCore();
 }
 
-pPhysicsComponent const PhysicsComponent::copyPhysicsComponent(const pPhysicsComponent& const copyPhysicsComponent)
+PhysicsComponent::~PhysicsComponent()
 {
-	return App::physics.copyPhysicsComponent(copyPhysicsComponent);
+	if (m_core)
+		App::physics.deactivatePhysicsComponentCore(m_core);
 }
 
-void PhysicsComponent::destroyPhysicsComponent(pPhysicsComponent& physicsComponent)
+PhysicsComponent::PhysicsComponent(const PhysicsComponent& copy)
 {
-	App::physics.destroyPhysicsComponent(physicsComponent);
+	if (this == &copy)
+		return;
+
+	if (copy.m_core)
+		m_core = App::physics.copyCreatePhysicsComponentCore(copy.m_core);
+}
+
+PhysicsComponent::PhysicsComponent(PhysicsComponent&& move) noexcept
+{
+	if (this == &move)
+		return;
+
+	m_core = move.m_core;	move.m_core = nullptr;
+}
+
+PhysicsComponent& PhysicsComponent::operator=(const PhysicsComponent& copy)
+{
+	if (this == &copy)
+		return *this;
+
+	if (m_core)
+	{
+		if (copy.m_core)
+			App::physics.copyPhysicsComponentCore(copy.m_core, m_core);
+		else
+			App::physics.deactivatePhysicsComponentCore(m_core);
+	}
+	else if (copy.m_core)
+	{
+		if (copy.m_core)
+			App::physics.copyCreatePhysicsComponentCore(copy.m_core);
+	}
+
+	return *this;
+}
+
+PhysicsComponent& PhysicsComponent::operator=(PhysicsComponent&& move) noexcept
+{
+	if (this == &move)
+		return *this;
+
+	if (m_core)
+		App::physics.deactivatePhysicsComponentCore(m_core);
+	m_core = move.m_core;	move.m_core = nullptr;
+
+	return *this;
 }
 
 void PhysicsComponent::setActive(bool active)
 {
-	m_active = active;
+	m_core->active = active;
 }
 
 bool PhysicsComponent::active() const
 {
-	return m_active;
+	return m_core->active;
 }
 
 bool PhysicsComponent::inCollision() const
 {
-	return m_inCollision;
+	return m_core->inCollision;
 }
 
 Collider2D& PhysicsComponent::collider()
 {
-	return collider2D;
+	return m_core->collider2D;
 }
 
 const Collider2D& PhysicsComponent::collider() const
 {
-	return collider2D;
-}
-
-PhysicsComponent::PhysicsComponent()
-	: m_active(false)
-{
+	return m_core->collider2D;
 }

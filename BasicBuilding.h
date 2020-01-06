@@ -1,9 +1,9 @@
 #pragma once
-#include "SimulationAreaObject.h"
+#include "SimulationObject.h"
 #include <string>
 
 class BasicBuilding :
-	public SimulationAreaObject
+	public SimulationObject
 {
 public:
 	enum class BuildingType

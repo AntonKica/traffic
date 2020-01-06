@@ -41,7 +41,7 @@ class PipelinesManager
 public:
 
 	void init(VulkanBase* vkBase);
-	void cleanup(const VkAllocationCallbacks* allocator);
+	void cleanUp(const VkAllocationCallbacks* allocator);
 
 	void processModelData(VD::ModelData& modelData, const Info::DrawInfo& drawInfo);
 };

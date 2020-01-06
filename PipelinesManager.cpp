@@ -216,7 +216,7 @@ void PipelinesManager::init(VulkanBase* vkBase)
 	this->device = vkBase->getDevice();
 }
 
-void PipelinesManager::cleanup(const VkAllocationCallbacks* allocator)
+void PipelinesManager::cleanUp(const VkAllocationCallbacks* allocator)
 {
 	for (auto& pipeline : pipelines)
 	{

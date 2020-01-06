@@ -46,7 +46,7 @@ namespace vkh
 
 			void unmap();
 
-			void cleanup(VkDevice device, const VkAllocationCallbacks* allocator);
+			void cleanUp(VkDevice device, const VkAllocationCallbacks* allocator);
 		};
 
 		struct Image
@@ -70,7 +70,7 @@ namespace vkh
 
 			void setupDescriptor(VkSampler sampler);
 
-			void cleanup(VkDevice device, const VkAllocationCallbacks* allocator);
+			void cleanUp(VkDevice device, const VkAllocationCallbacks* allocator);
 
 			void transitionLayout(
 				const vkh::structs::VulkanDevice& vkDevice,
@@ -98,7 +98,7 @@ namespace vkh
 
 			bool framebufferResized;
 
-			void cleanup(VkDevice device, const VkAllocationCallbacks* pAllocator);
+			void cleanUp(VkDevice device, const VkAllocationCallbacks* pAllocator);
 		};
 	}
 }

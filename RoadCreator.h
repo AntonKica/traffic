@@ -49,8 +49,8 @@ private:
 	std::vector<Point> pointToDraw;
 	std::optional<Point> mousePoint;
 
-	GraphicsComponent* pointGraphics;
-	GraphicsComponent* lineGraphics;
+	GraphicsComponent pointGraphics;
+	GraphicsComponent lineGraphics;
 };
 
 
@@ -106,7 +106,6 @@ public:
 	RoadCreator(ObjectManager* objectManager);
 
 	void update();
-	void clickEvent();
 	void rollBackEvent();
 
 protected:

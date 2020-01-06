@@ -1,5 +1,5 @@
 #pragma once
-#include "SimulationAreaObject.h"
+#include "SimulationObject.h"
 #include "Utilities.h"
 #include <map>
 #include <glm/glm.hpp>
@@ -24,7 +24,7 @@ namespace Shape
 }
 
 class BasicRoad :
-	public SimulationAreaObject
+	public SimulationObject
 {
 public:
 	BasicRoad();

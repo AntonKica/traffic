@@ -3,7 +3,8 @@
 #include "camera.h"
 #include "VulkanBase.h"
 #include "Physics.h"
-#include "SimulationArea.h"
+#include "Simulation.h"
+#include "Input.h"
 
 //namespace
 namespace App
@@ -12,6 +13,7 @@ namespace App
 	extern Time time;
 	extern VulkanBase vulkanBase;
 	extern Physics physics;
-	extern SimulationArea simulationArea;
+	extern Input input;
+	extern Simulation simulation;
 }
 

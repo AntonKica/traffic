@@ -1,20 +1,29 @@
 #pragma once
 #include <memory>
 #include <condition_variable>
+#include <shared_mutex>
 
 
 namespace GlobalSynchronizaion
 {
-	extern std::condition_variable moduleInitialization;
-	extern bool moduleInitialized;
+	namespace detail
+	{
+		struct SynchronizationSet
+		{
+			std::condition_variable cv = {};
+			bool initialized = false;
 
-	extern std::condition_variable engineUpdate;
-	extern bool updateEngine;
-	// modules 
-	extern bool updatedGraphics;
-	extern bool updatedPhysics;
+			bool update		= false;
+			bool updated	= false;
 
+			bool cleanUp	= false;
+			bool cleanedUp	= false;
+		};
+	}
+
+	extern detail::SynchronizationSet graphics;
+	extern detail::SynchronizationSet physics;
+	extern detail::SynchronizationSet input;
 
 	extern bool shouldStopEngine;
-	//extern bool engineRunning;
 }

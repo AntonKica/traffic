@@ -2,14 +2,9 @@
 
 namespace GlobalSynchronizaion
 {
-	std::condition_variable moduleInitialization = {};
-	bool moduleInitialized = false;
+	detail::SynchronizationSet graphics = {};
+	detail::SynchronizationSet physics	= {};
+	detail::SynchronizationSet input	= {};
 
-	std::condition_variable engineUpdate = {};
-	bool updateEngine		= false;
-	bool updatedGraphics	= false;
-	bool updatedPhysics		= false;
-
-	bool shouldStopEngine = false;
-	//bool engineRunning = false;
+	bool shouldStopEngine	= false;
 }

@@ -48,15 +48,13 @@ static std::pair<std::vector<glm::vec3>, std::vector<uint32_t>>generateCircleVer
 	return std::make_pair(vertices, indices);
 }
 
-SimulationAreaVisualizer::SimulationAreaVisualizer()
+SimulationAreaVisualizer::SimulationAreaVisualizer(SimulationArea* pSimulationArea)
+	:m_pSimulationArea(pSimulationArea), position(glm::vec3())
 {
-	position = glm::vec3(0.0);
 }
 
 void SimulationAreaVisualizer::createVisuals(size_t xCount, size_t zCount, double distanceBetweenPoints)
 {
-	graphics = GraphicsComponent::createGraphicsComponent();
-
 	const int maxXCount = 150;
 	const int maxZCount = 155;
 	const size_t xPointsCount = std::clamp<size_t>(xCount, 0, maxXCount);
@@ -117,13 +115,13 @@ void SimulationAreaVisualizer::createVisuals(size_t xCount, size_t zCount, doubl
 	info.drawInfo = &drawInfo;
 	info.modelInfo = &modelInfo;
 
-	graphics->updateGraphicsComponent(info);
-	graphics->setActive(true);
+	graphics.updateGraphicsComponent(info);
+	graphics.setActive(true);
 }
 
 void SimulationAreaVisualizer::update()
 {	
-	if (!graphics)
+	if (!graphics.isActive())
 		return;
 
 	glm::vec3 camPos = App::camera.getPosition();
@@ -132,16 +130,17 @@ void SimulationAreaVisualizer::update()
 	if (glm::length(camPos - position) > 10)
 	{
 		// no stutter
-		position = glm::ivec3(App::simulationArea.getNearestPoint(camPos));
+		position = glm::ivec3(m_pSimulationArea->getNearestPoint(camPos));
 
-		graphics->setPosition(App::simulationArea.getNearestPoint(position));
+		graphics.setPosition(m_pSimulationArea->getNearestPoint(position));
 	}
 }
 
 
 SimulationArea::SimulationArea()
-	: m_objectManager(this)
+	: m_visuals(this), m_objectManager(this)
 {
+	m_enableMouse = true;
 }
 
 SimulationArea::~SimulationArea()
@@ -193,10 +192,6 @@ void SimulationArea::setEnableMouse(bool value)
 
 void SimulationArea::clickEvent()
 {
-	if (m_enableMouse)
-	{
-		m_objectManager.clickEvent();
-	}
 }
 
 std::pair<size_t, size_t> SimulationArea::getPointsCount() const

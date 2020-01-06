@@ -404,7 +404,7 @@ void DescriptorManager::processModelData(VD::ModelData& modelData)
 	}
 }
 
-void DescriptorManager::cleanup(const VkAllocationCallbacks* allocator)
+void DescriptorManager::cleanUp(const VkAllocationCallbacks* allocator)
 {
 	for (auto& descriptorPool : descriptorPools)
 		vkDestroyDescriptorPool(*device, descriptorPool->pool, allocator);

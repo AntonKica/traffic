@@ -75,10 +75,11 @@ public:
 	void setCreatorsModes(Creator::CreatorMode mode);
 
 	void clickEvent();
+
+	
 //
 private:
 	SimulationArea* m_pSimulationArea;
-
 	ObjectManagerUI m_ui;
 
 	//
@@ -87,7 +88,6 @@ private:
 	Container<Road> m_roads;
 	Container<RoadIntersection> m_intersections;
 	RoadCreator m_roadCreator;
-	//
 	BuildingCreator m_buildingCreator;
 };
 

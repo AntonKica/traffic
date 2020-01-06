@@ -11,14 +11,14 @@ BasicRoad::~BasicRoad()
 }
 
 BasicRoad::BasicRoad(const BasicRoad& copy)
-	: SimulationAreaObject(copy)
+	: SimulationObject(copy)
 {
 	copy.copyConnections(this);
 }
 
 
 BasicRoad::BasicRoad(BasicRoad&& move)
-	:SimulationAreaObject(std::move(move))
+	:SimulationObject(std::move(move))
 {
 	move.transferConnections(this);
 }
@@ -26,7 +26,7 @@ BasicRoad::BasicRoad(BasicRoad&& move)
 
 BasicRoad& BasicRoad::operator=(const BasicRoad& copy)
 {
-	SimulationAreaObject::operator=(copy);
+	SimulationObject::operator=(copy);
 
 	disconnectAll();
 	copy.copyConnections(this);
@@ -39,7 +39,7 @@ BasicRoad& BasicRoad::operator=(const BasicRoad& copy)
 
 BasicRoad& BasicRoad::operator=(BasicRoad&& move)
 {
-	SimulationAreaObject::operator=(std::move(move));
+	SimulationObject::operator=(std::move(move));
 
 	disconnectAll();
 

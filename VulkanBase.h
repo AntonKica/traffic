@@ -50,29 +50,6 @@ namespace
 	//constexpr bool enableValidationLayers = true;
 	constexpr bool enableValidationLayers = false;
 #endif // !
-
-	struct IndexBuffer : vkh::structs::Buffer
-	{
-		int indexCount = 0;
-	};
-	struct drawObject
-	{
-		vkh::structs::Buffer vertexBuffer;
-		IndexBuffer indexBuffer;
-		std::vector<vkh::structs::Buffer> uniformBuffer;
-
-		void cleanup(VkDevice device, const VkAllocationCallbacks* pAllocator)
-		{
-			vertexBuffer.cleanup(device, pAllocator);
-			indexBuffer.cleanup(device, pAllocator);
-			
-			for (auto& buffer : uniformBuffer)
-			{
-				buffer.cleanup(device, pAllocator);
-			}
-		}
-	};
-
 	struct syncObjects
 	{
 		std::vector<VkSemaphore> imageAvailableSemaphores;
@@ -175,27 +152,28 @@ public:
 
 
 	bool updatePhysics;
-	GraphicsComponent* m_graphicsComponentData;
-	uint32_t m_graphicsComponentCount;
-	std::stack<GraphicsComponent*>  m_graphicsComponents;
+	GraphicsComponentCore* m_graphicsComponentCoresData;
+	uint32_t m_graphicsComponentCoreCount;
+	std::stack<GraphicsComponentCore*>  m_graphicsComponentCores;
 
 	bool m_changedActiveComponentsSize = false;
-	std::vector<GraphicsComponent*> m_activeGraphicsComponents;
+	std::vector<GraphicsComponentCore*> m_activeGraphicsComponentCores;
 
-	GraphicsComponent* const createGrahicsComponent();
-	void updateGrahicsComponent(pGraphicsComponent& const grapgicsComponent, const Info::GraphicsComponentCreateInfo& info);
-	GraphicsComponent* const copyGraphicsComponent(const pGraphicsComponent& const copyGraphicsComponent);
-	void deactivateGraphicsComponent(pGraphicsComponent& toDeactivate);
+	pGraphicsComponentCore createGrahicsComponentCore();
+	void updateGrahicsComponentCore(pGraphicsComponentCore& graphicsCore, const Info::GraphicsComponentCreateInfo& info);
+	void copyGraphicsComponentCore(const pGraphicsComponentCore& copyGraphicsCore, pGraphicsComponentCore& destinationGraphicsCore) const;
+	pGraphicsComponentCore copyCreateGraphicsComponentCore(const pGraphicsComponentCore& copyGraphicsCore);
+	void deactivateGraphicsComponentCore(pGraphicsComponentCore& deactivateCore);
 
 private:
 	VD::ModelData getModelDataFromInfo(const Info::GraphicsComponentCreateInfo& info);
-	GraphicsComponent* const getGraphicsComponent();
+	pGraphicsComponentCore const getGraphicsComponentCore();
 private:
 	// menu
 	void initWindow();
 	void initVulkan();
 	void initModules();
-	void initGraphicsComponents();
+	void initGraphicsComponentCores();
 	void initUI();
 	void mainLoop();
 	// Foundation
@@ -252,18 +230,11 @@ private:
 	void drawFrame();
 	void updateUniformBuffer(uint32_t currentImage);
 	// clear
-	void cleanup();
-	void cleanupSwapchain();
-	void cleanupBuffers();
-	void cleanupGraphicsComponents();
+	void cleanUp();
+	void cleanUpSwapchain();
+	void cleanUpBuffers();
+	void cleanUpGraphicsComponentCores();
 	void processInput();
-
-	// synchronization
-public:
-	bool finished() const;
-private:
-	bool m_finished = false;
-	std::mutex m_drawMutex;
 };
 
 #endif // !VULKAN_BASE_H

@@ -16,24 +16,37 @@ namespace Info
 		const Info::ModelInfo* modelInfo;
 	};
 };
-class GraphicsComponent;
-using pGraphicsComponent = GraphicsComponent*;
+
+
+struct GraphicsComponentCore
+{
+	VD::ModelData modelData = {};
+
+	// Rotation is by default in radians
+	struct
+	{
+		glm::vec3 position = {};
+		glm::vec3 rotation = {};
+		glm::vec3 size = { 1.0, 1.0, 1.0 };
+	} transformations;
+
+	struct
+	{
+		glm::vec4 tint = {};
+		float transparency = 0;
+	} shaderInfo;
+
+	bool active = false;
+};
+using pGraphicsComponentCore = GraphicsComponentCore*;
 
 class GraphicsComponent
 {
-	// stupid
+	// neccesary
 	friend class VulkanBase;
-	friend class SimulationAreaObject;
-private:
-	// stupid to have pointer
-	bool m_initalized = false;
-	bool m_active = false;
-	//Info::GraphicsComponentCreateInfo createInfo;
+	friend class SimulationObject;
+
 public:
-	static pGraphicsComponent const createGraphicsComponent();
-	static pGraphicsComponent const copyGraphicsComponent(const pGraphicsComponent& copyGraphicsComponent);
-	static void destroyGraphicsComponent(pGraphicsComponent& graphicsComponent);
-private:
 	GraphicsComponent();
 	~GraphicsComponent();
 	GraphicsComponent(const GraphicsComponent& other);
@@ -41,16 +54,12 @@ private:
 	GraphicsComponent& operator=(const GraphicsComponent& other);
 	GraphicsComponent& operator=(GraphicsComponent&& other) noexcept;
 
-public:
 	void updateGraphicsComponent(const Info::GraphicsComponentCreateInfo& info);
-
 	void setActive(bool value);
 //private:
 	//void createGraphicsComponent(const Info::GraphicsComponentCreateInfo& info);
 	//void recreateGraphicsComponent(const Info::GraphicsComponentCreateInfo& info);
 
-	void setModelData(VD::ModelData modelData);
-	void setInitialized(bool value);
 	void setPosition(const glm::vec3& pos);
 	void setRotation(const glm::vec3& rotation);
 	void setRotationX(float rotationX);
@@ -61,31 +70,14 @@ public:
 	void setTint(const glm::vec4& tint);
 	void setTransparency(float transparency);
 
+	bool isActive() const;
 	glm::vec3 getPosition() const;
 	glm::vec3 getRotation() const;
 	float getRotationX() const;
 	float getRotationY() const;
 	float getRotationZ() const;
 	glm::vec3 getSize() const;
-	//stupid
-	bool initialized() const;
 
 private:
-	VD::ModelData m_modelData = {};
-
-	/*
-	* Rotation is by default in radians
-	*/
-	struct
-	{
-		glm::vec3 position = {};
-		glm::vec3 rotation = {};
-		glm::vec3 size = { 1.0, 1.0, 1.0 };
-	} m_transformations;
-
-	struct
-	{
-		glm::vec4 tint = {};
-		float transparency = 0;
-	} m_shaderInfo;
+	pGraphicsComponentCore m_core = nullptr;
 };

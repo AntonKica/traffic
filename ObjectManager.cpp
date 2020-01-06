@@ -186,12 +186,4 @@ void ObjectManager::setCreatorsModes(Creator::CreatorMode mode)
 
 void ObjectManager::clickEvent()
 {
-	if (m_ui.getCurrentCreator() == ObjectManagerUI::CreatorType::ROAD)
-	{
-		m_roadCreator.clickEvent();
-	}
-	else
-	{
-		m_buildingCreator.clickEvent();
-	}
 }

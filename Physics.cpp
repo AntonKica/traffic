@@ -2,6 +2,8 @@
 #include "PhysicsComponent.h"
 #include "GlobalSynchronization.h"
 
+#include <iostream>
+
 void Physics::run()
 {
 	initialize();
@@ -18,98 +20,120 @@ void Physics::initialize()
 
 void Physics::mainLoop()
 {
-	GlobalSynchronizaion::moduleInitialized = true;
-	GlobalSynchronizaion::moduleInitialization.notify_one();
+	GlobalSynchronizaion::physics.initialized = true;
+	GlobalSynchronizaion::physics.cv.notify_one();
 
 	while (GlobalSynchronizaion::shouldStopEngine == false)
 	{
 		{
-			std::unique_lock<std::mutex> lock(m_updateMutex);
-			GlobalSynchronizaion::engineUpdate.wait(lock, [] { return GlobalSynchronizaion::updateEngine; });
+			std::mutex updateWaitMutex;
+			std::unique_lock<std::mutex> updateWaitLock(updateWaitMutex);
+			GlobalSynchronizaion::physics.cv.wait(updateWaitLock, [] { return GlobalSynchronizaion::physics.update; });
+			GlobalSynchronizaion::physics.update = false;
 		}
 
 		updateCollisions();
 
 		// process collisions
-		GlobalSynchronizaion::updatedPhysics = true;
-		GlobalSynchronizaion::engineUpdate.notify_one();
+		{
+			GlobalSynchronizaion::physics.updated = true;
+			GlobalSynchronizaion::physics.cv.notify_one();
+		}
 	}
 }
 
-pPhysicsComponent Physics::createPhysicsComponent()
+pPhysicsComponentCore Physics::createPhysicsComponentCore()
 {
-	return getPhysicsComponent();
+	return getPhysicsComponentCore();
 }
 
-pPhysicsComponent Physics::copyPhysicsComponent(const pPhysicsComponent& const copy)
+void Physics::copyPhysicsComponentCore(const pPhysicsComponentCore& copyPhysicsCore, pPhysicsComponentCore& destinationPhysicsCore)
 {
-	auto ptr = getPhysicsComponent();
-
-	*ptr = *copy;
-	return ptr;
+	*destinationPhysicsCore = *copyPhysicsCore;
 }
 
-void Physics::destroyPhysicsComponent(pPhysicsComponent& physicsComponent)
+pPhysicsComponentCore Physics::copyCreatePhysicsComponentCore(const pPhysicsComponentCore& copyPhysicsCore)
 {
-	*physicsComponent = {};
+	auto newCore = getPhysicsComponentCore();
+	copyPhysicsComponentCore(copyPhysicsCore, newCore);
 
-	m_activePhysicsComponents.erase(std::find(
-		std::begin(m_activePhysicsComponents), 
-		std::end(m_activePhysicsComponents), 
-		physicsComponent));
-
-	m_physicsComponents.push(physicsComponent);
-
-	physicsComponent = nullptr;
+	return newCore;
 }
 
-pPhysicsComponent Physics::getPhysicsComponent()
+void Physics::deactivatePhysicsComponentCore(pPhysicsComponentCore& physicsComponentCore)
 {
-	auto ptr = m_physicsComponents.top();
-	m_physicsComponents.pop();
 
-	m_activePhysicsComponents.emplace_back(ptr);
+	m_activePhysicsComponentCores.erase(std::find(
+		std::begin(m_activePhysicsComponentCores),
+		std::end(m_activePhysicsComponentCores),
+		physicsComponentCore));
+
+	m_physicsComponentCores.push(physicsComponentCore);
+
+	*physicsComponentCore = {};
+	physicsComponentCore = nullptr;
+}
+
+pPhysicsComponentCore Physics::getPhysicsComponentCore()
+{
+	auto ptr = m_physicsComponentCores.top();
+	m_physicsComponentCores.pop();
+
+	m_activePhysicsComponentCores.emplace_back(ptr);
 	return ptr;
 }
 
 void Physics::prepareResources()
 {
-	m_physicsComponentCount = 50'000;
-	m_physicsComponentData = new PhysicsComponent[m_physicsComponentCount];
+	m_physicsComponentCoreCount = 50'000;
+	m_physicsComponentCoreData = new PhysicsComponentCore[m_physicsComponentCoreCount];
 
-	for (uint32_t index = 0; index < m_physicsComponentCount; ++index)
-		m_physicsComponents.push(m_physicsComponentData + index);
+	for (uint32_t index = 0; index < m_physicsComponentCoreCount; ++index)
+		m_physicsComponentCores.push(m_physicsComponentCoreData + index);
 }
 
 void Physics::destroyResourcces()
 {
-	m_physicsComponents = {};
-	m_activePhysicsComponents = {};
+	{
+		std::mutex cleanupMutex;
+		std::unique_lock<std::mutex> cleanupLock(cleanupMutex);
+		GlobalSynchronizaion::physics.cv.wait(cleanupLock, [] { return GlobalSynchronizaion::physics.cleanUp; });
+		GlobalSynchronizaion::physics.cleanUp = false;
+	}
 
-	delete[]  m_physicsComponentData;
+	m_physicsComponentCores = {};
+	m_activePhysicsComponentCores = {};
+
+	delete[]  m_physicsComponentCoreData;
+
+	{
+		GlobalSynchronizaion::physics.cleanedUp = true;
+		GlobalSynchronizaion::physics.cv.notify_one();
+	}
 }
 
 void Physics::updateCollisions()
 {
-	for (uint32_t currentIndex = 0; currentIndex < m_activePhysicsComponents.size(); ++currentIndex)
+	for (uint32_t currentIndex = 0; currentIndex < m_activePhysicsComponentCores.size(); ++currentIndex)
 	{
-		auto& currentComponent = *m_activePhysicsComponents[currentIndex];
-		currentComponent.m_inCollision = false;
-		for (uint32_t cursorIndex = currentIndex + 1; cursorIndex < m_activePhysicsComponents.size(); ++cursorIndex)
+		auto& currentCore = m_activePhysicsComponentCores[currentIndex];
+		if (!currentCore->active)
+			continue;
+		
+		currentCore->inCollision = false;
+		for (uint32_t cursorIndex = currentIndex + 1; cursorIndex < m_activePhysicsComponentCores.size(); ++cursorIndex)
 		{
-			auto& cursorComponent = *m_activePhysicsComponents[cursorIndex];
-			cursorComponent.m_inCollision = false;
+			auto& cursorCore = m_activePhysicsComponentCores[cursorIndex];
+			if (!cursorCore->active)
+				continue;
 
-			if (cursorComponent.collider2D.collides(currentComponent.collider2D))
+			cursorCore->inCollision = false;
+
+			if (cursorCore->collider2D.collides(currentCore->collider2D))
 			{
-				currentComponent.m_inCollision = true;
-				currentComponent.m_inCollision = true;
+				cursorCore->inCollision = true;
+				currentCore->inCollision = true;
 			}
 		}
 	}
-}
-
-bool Physics::finished() const
-{
-	return m_finished;
 }

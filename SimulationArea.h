@@ -6,7 +6,7 @@
 
 #include <glm/glm.hpp>
 #include "GraphicsComponent.h"
-#include "SimulationAreaObject.h"
+#include "SimulationObject.h"
 
 #include "ObjectManager.h"
 
@@ -47,30 +47,23 @@ namespace SimulationAreaStructs
 		uint32_t AreaWidth;
 		uint32_t AreaHeight;
 	};
-
-	struct SimulationAreaData
-	{
-		std::vector<SimulationAreaObject*> objects;
-
-
-		//std::vector<SimulationAreaObject*> buildings;
-		//std::vector<SimulationAreaObject*> roads;
-	};
 }
 namespace SAS = SimulationAreaStructs;
 
 // illusiun at its best
-class VulkanBase;
+class SimulationArea;
 class SimulationAreaVisualizer
 {
 public:
-	SimulationAreaVisualizer();
+	SimulationAreaVisualizer(SimulationArea* pSimulationArea);
 
 	void createVisuals(size_t xCount, size_t zCount, double distanceBetweenPoints);
 	void update();
 private:
+	SimulationArea* m_pSimulationArea;
+
+	GraphicsComponent graphics;
 	glm::vec3 position;
-	GraphicsComponent* graphics;
 };
 
 class SimulationArea final

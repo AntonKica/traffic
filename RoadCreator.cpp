@@ -1,5 +1,7 @@
 #include "RoadCreator.h"
 #include "RoadIntersection.h"
+#include "ObjectManager.h"
+#include "SimulationArea.h"
 
 #include "Collisions.h"
 #include "GlobalObjects.h"
@@ -197,27 +199,21 @@ const RC::Prototypes* RoadCreatorUI::getSelectedPrototype() const
 }
 
 RoadCreator::RoadCreator(ObjectManager* objectManager)
-	: BasicCreator(objectManager), visualizer()
+	: BasicCreator(objectManager)
 {
 
 }
 
 void RoadCreator::update()
 {
-	if (m_active)
-	{
-		updatePoints();
-
-		visualizer.update();
-	}
-}
-
-void RoadCreator::clickEvent()
-{
 	if (!m_active)
 		return;
+	
+	updatePoints();
+	visualizer.update();
 
-	setPoint();
+	if (App::input.pressedLMB())
+		setPoint();
 }
 
 void RoadCreator::rollBackEvent()
@@ -287,7 +283,7 @@ RC::ProcSitPts RoadCreator::processSittingPoints(const std::vector<RC::SittingPo
 
 void RoadCreator::setPoint()
 {
-	if (m_processedCurrentPoints.validPoints && m_roadPrototype.getPhysicsComponent().inCollision() && m_mousePoint)
+	if (m_processedCurrentPoints.validPoints && !m_roadPrototype.getPhysicsComponent().inCollision() && m_mousePoint)
 	{
 		m_setPoints.push_back(m_mousePoint.value());
 
@@ -553,7 +549,7 @@ void RoadCreator::updatePoints()
 void RoadCreator::updateMousePoint()
 {
 	// only if theres mouse
-	if (auto mousePosition = App::simulationArea.getMousePosition())
+	if (auto mousePosition = m_pObjectManager->m_pSimulationArea->getMousePosition())
 	{
 		const auto& mousePoint = mousePosition.value();
 		RC::SittingPoint newSittingPoint;
@@ -929,8 +925,8 @@ void CreatorVisualizer::setDraw(const std::vector<Point>& drawAxis, const std::v
 
 void CreatorVisualizer::setActive(bool active)
 {
-	pointGraphics->setActive(active);
-	lineGraphics->setActive(active);
+	pointGraphics.setActive(active);
+	lineGraphics.setActive(active);
 }
 
 VD::PositionVertices CreatorVisualizer::generateLines()
@@ -1000,12 +996,6 @@ std::pair<VD::PositionVertices, VD::ColorVertices> CreatorVisualizer::generatePo
 
 void CreatorVisualizer::updateGraphics()
 {
-	if (!pointGraphics && !lineGraphics)
-	{
-		pointGraphics = GraphicsComponent::createGraphicsComponent();
-		lineGraphics = GraphicsComponent::createGraphicsComponent();
-	}
-
 	if (axisToDraw.size() > 1)
 	{
 		Info::DrawInfo dInfo;
@@ -1030,12 +1020,12 @@ void CreatorVisualizer::updateGraphics()
 		gInfo.drawInfo = &dInfo;
 		gInfo.modelInfo = &mInfo;
 
-		lineGraphics->updateGraphicsComponent(gInfo);
-		lineGraphics->setActive(true);
+		lineGraphics.updateGraphicsComponent(gInfo);
+		lineGraphics.setActive(true);
 	}
 	else
 	{
-		lineGraphics->setActive(false);
+		lineGraphics.setActive(false);
 	}
 
 	const auto [vertices, colors] = generatePoints();
@@ -1059,11 +1049,11 @@ void CreatorVisualizer::updateGraphics()
 		gInfo.drawInfo = &dInfo;
 		gInfo.modelInfo = &mInfo;
 
-		pointGraphics->updateGraphicsComponent(gInfo);
-		pointGraphics->setActive(true);
+		pointGraphics.updateGraphicsComponent(gInfo);
+		pointGraphics.setActive(true);
 	}
 	else
 	{
-		pointGraphics->setActive(false);
+		pointGraphics.setActive(false);
 	}
 }

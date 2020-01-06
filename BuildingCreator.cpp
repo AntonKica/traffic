@@ -1,4 +1,7 @@
 #include "BuildingCreator.h"
+#include "ObjectManager.h"
+#include "SimulationArea.h"
+
 #include "GlobalObjects.h"
 #include "House.h"
 
@@ -112,17 +115,17 @@ void BuildingCreator::update()
 			m_currentResource->prototype->getGraphicsComponent().setActive(false);
 		}
 	}
-}
 
-void BuildingCreator::clickEvent()
-{
-	switch (m_currentResource->type)
+	if (App::input.pressedLMB())
 	{
-	case BasicBuilding::BuildingType::HOUSE:
-		House house = *static_cast<House*>(&*m_currentResource->prototype);
+		switch (m_currentResource->type)
+		{
+		case BasicBuilding::BuildingType::HOUSE:
+			House house = *static_cast<House*>(&*m_currentResource->prototype);
 
-		new House(house);
-		break;
+			new House(house);
+			break;
+		}
 	}
 }
 

@@ -1,9 +1,9 @@
 #pragma once
-#include "SimulationAreaObject.h"
+#include "SimulationObject.h"
 #include "Utilities.h"
 
 class SimpleCar
-	: public SimulationAreaObject
+	: public SimulationObject
 {
 private:
 	float speed = 1.0f;
@@ -12,7 +12,7 @@ private:
 	float currentlyTravelled;
 
 public:
-	void update(float deltaTime);
+	void update() override;
 
 	void create(const Points& pathPoints);
 };
