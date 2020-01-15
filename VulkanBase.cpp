@@ -116,58 +116,12 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
 	return VK_FALSE;
 }
 
-static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
-{
-	static int count = 0;
-	count++;
-	VulkanBase* myApp = reinterpret_cast<VulkanBase*>(glfwGetWindowUserPointer(window));
-	myApp->m_swapchain.framebufferResized = true;
-	App::camera.resizeView(width, height);
-}
-
-static void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
-{
-	if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
-	{
-		App::camera.setRotateMode(true);
-		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-	}
-	else if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_RELEASE)
-	{
-		App::camera.setRotateMode(false);
-		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-	}
-
-	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
-	{
-		//App::simulationArea.clickEvent();
-	}
-}
-
-
-
-static void cursorPosCallback(GLFWwindow* window, double width, double height)
-{
-	//App::Scene.m_grid.updateSelectedTile();
-}
-
 static inline glm::dvec2 getCursorPos(GLFWwindow* window)
 {
 	double xPos, yPos;
 	glfwGetCursorPos(window, &xPos, &yPos);
 
 	return { xPos, yPos };
-}
-
-static void keyboardInputCallback(GLFWwindow* window, int key, int scanCode, int action, int mods)
-{
-	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-	{
-		//App::Scene.m_simArea.roadCreator.rollBackEvent();
-	}
-
-	// weird
-	//App::Scene.m_simArea.m_creator.processKeyInput(key, action);
 }
 
 VkResult CreteDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
@@ -209,24 +163,8 @@ void VulkanBase::populateDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& mess
 	messengerInfo.pUserData = nullptr;
 }
 
-void VulkanBase::initWindow()
-{
-	glfwInit();
-
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
-	m_window = glfwCreateWindow(CameraSettings::defaultWidth, CameraSettings::defaultHeight, "Sample title", nullptr, nullptr);
-
-	glfwSetWindowUserPointer(m_window, this);
-	glfwSetFramebufferSizeCallback(m_window, framebufferResizeCallback);
-	glfwSetMouseButtonCallback(m_window, mouseButtonCallback);
-	glfwSetCursorPosCallback(m_window, cursorPosCallback);
-	glfwSetKeyCallback(m_window, keyboardInputCallback);
-}
 void VulkanBase::run()
 {
-	initWindow();
 	initVulkan();
 	initUI();
 	
@@ -336,11 +274,6 @@ VkSampler& VulkanBase::getSampler()
 	return m_sampler;
 }
 
-GLFWwindow* VulkanBase::getWindow()
-{
-	return m_window;
-}
-
 VkPushConstantRange& VulkanBase::getPushRange()
 {
 	return m_pushRange;
@@ -358,12 +291,8 @@ void VulkanBase::initVulkan()
 	// presentation
 	createSwapchain();
 	createTextureSampler();
-//	createImages();
 
-	//pipeline
 	createRenderPass();
-	//createDescriptorSetLayout();
-//	createGraphicsPipeline();
 
 	createDepthResources();
 	createFramebuffers();
@@ -404,29 +333,37 @@ void VulkanBase::initUI()
 
 void VulkanBase::mainLoop()
 {
-	GlobalSynchronizaion::graphics.initialized = true;
-	GlobalSynchronizaion::graphics.cv.notify_one();
-	//just for testing puproses
+	{
+		std::lock_guard updateWaitLock(GlobalSynchronizaion::graphics.notifyMutex);
+
+		GlobalSynchronizaion::graphics.initialized = true;
+		GlobalSynchronizaion::main_cv.notify_one();
+	}
+
 	while (GlobalSynchronizaion::shouldStopEngine == false)
 	{
 		{
-			std::mutex updateWaitMutex;
-			std::unique_lock<std::mutex> updateWaitLock(updateWaitMutex);
-			GlobalSynchronizaion::graphics.cv.wait(updateWaitLock, [] { return GlobalSynchronizaion::graphics.update; });
+			//std::cout << "G wait\n";
+			std::unique_lock updateWaitLock(GlobalSynchronizaion::graphics.updateWaitMutex);
+
+			auto waitPred = [] { return GlobalSynchronizaion::graphics.update; };
+			while(!waitPred())
+				GlobalSynchronizaion::thread_cv.wait(updateWaitLock);
+
 			GlobalSynchronizaion::graphics.update = false;
 		}
-
-		glfwSetWindowTitle(m_window, (std::string("Sample title ") + std::to_string(int(1.0 / App::time.deltaTime())) + std::string("FPS")).c_str());
+		//std::cout << "Started graphics loop\n";
 
 		prepareFrame();
 		drawFrame();
 		processInput();
-		glfwSwapBuffers(m_window);
-		glfwPollEvents();
 
 		{
+			std::lock_guard updateWaitLock(GlobalSynchronizaion::graphics.notifyMutex);
+			//std::cout << "Graphics about to notify\n";
+
 			GlobalSynchronizaion::graphics.updated = true;
-			GlobalSynchronizaion::graphics.cv.notify_one();
+			GlobalSynchronizaion::main_cv.notify_one();
 		}
 	}
 
@@ -503,7 +440,7 @@ void VulkanBase::setupDebugMessenger()
 void VulkanBase::createSurface()
 {
 	VkResult res;
-	res = glfwCreateWindowSurface(m_instance, m_window, nullptr, &m_surface);
+	res = glfwCreateWindowSurface(m_instance, App::window.getWindow(), nullptr, &m_surface);
 
 	if (res != VK_SUCCESS)
 	{
@@ -586,10 +523,9 @@ VkExtent2D VulkanBase::chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabili
 		return capabilities.currentExtent;
 	}
 
-	int width, height;
-	glfwGetFramebufferSize(m_window, &width, &height);
+	auto windowRect = App::window.getWindowSize();
 
-	VkExtent2D actualExtent{ width, height };
+	VkExtent2D actualExtent{ windowRect.width, windowRect.height};
 
 	actualExtent.width = std::clamp(actualExtent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
 	actualExtent.height = std::clamp(actualExtent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
@@ -654,7 +590,6 @@ void VulkanBase::createSwapchain()
 
 	m_swapchain.format = surfaceFormat.format;
 	m_swapchain.extent = extent;
-	m_swapchain.framebufferResized = false;
 
 	// and create image views
 	m_swapchain.imageViews.resize(m_swapchain.images.size());
@@ -773,11 +708,12 @@ void VulkanBase::createRenderPass()
 void VulkanBase::recreateSwapchain()
 {
 	// minimalization
+	return;
 	throw std::runtime_error("DOnt minimalize or resize, thanks!");
-	int width = 0, height = 0;
-	while (width == 0 || height == 0)
+	auto windowRect = App::window.getWindowSize();
+	while (windowRect.width == 0 || windowRect.height == 0)
 	{
-		glfwGetFramebufferSize(m_window, &width, &height);
+		windowRect = App::window.getWindowSize();
 		glfwWaitEvents();
 	}
 	vkDeviceWaitIdle(m_device);
@@ -785,7 +721,6 @@ void VulkanBase::recreateSwapchain()
 	cleanUpSwapchain();
 	createSwapchain();
 	createRenderPass();
-	//createGraphicsPipeline();
 	createDepthResources();
 	createFramebuffers();
 	
@@ -800,7 +735,6 @@ void VulkanBase::createTextureSampler()
 		VK_FILTER_LINEAR, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_MIPMAP_MODE_LINEAR,
 		VK_TRUE, 16.0f
 	);
-
 
 	VK_CHECK_RESULT(vkCreateSampler(m_device, &samplerInfo, nullptr, &m_sampler));
 }
@@ -1190,9 +1124,8 @@ void VulkanBase::drawFrame()
 	presentInfo.pResults = nullptr;
 
 	res = vkQueuePresentKHR(m_device.queues.present, &presentInfo);
-	if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR || m_swapchain.framebufferResized)
+	if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR || App::window.isResized())
 	{
-		m_swapchain.framebufferResized = false;
 		recreateSwapchain();
 	}
 	else if (res != VK_SUCCESS)
@@ -1245,9 +1178,9 @@ void VulkanBase::updateUniformBuffer(uint32_t currentImage)
 void VulkanBase::cleanUp()
 {
 	{
-		std::mutex cleanUpWaitMutex;
-		std::unique_lock<std::mutex> cleanUpWaitLock(cleanUpWaitMutex);
-		GlobalSynchronizaion::graphics.cv.wait(cleanUpWaitLock, [] { return GlobalSynchronizaion::graphics.cleanUp; });
+		std::unique_lock cleanUpWaitLock(GlobalSynchronizaion::graphics.cleanupWaitMutex);
+
+		GlobalSynchronizaion::thread_cv.wait(cleanUpWaitLock, [] { return GlobalSynchronizaion::graphics.cleanUp; });
 		GlobalSynchronizaion::graphics.cleanUp = false;
 	}
 
@@ -1276,8 +1209,10 @@ void VulkanBase::cleanUp()
 	glfwTerminate();
 
 	{
+		std::lock_guard notifyLock(GlobalSynchronizaion::graphics.cleanupWaitMutex);
+
 		GlobalSynchronizaion::graphics.cleanedUp = true;
-		GlobalSynchronizaion::graphics.cv.notify_one();
+		GlobalSynchronizaion::main_cv.notify_one();
 	}
 }
 
@@ -1297,9 +1232,6 @@ void VulkanBase::cleanUpBuffers()
 {
 	for (auto uniformBuffer : m_buffers.uniform)
 		uniformBuffer.cleanUp(m_device, nullptr);
-
-	for (auto& [path, image] : m_images)
-		image.cleanUp(m_device, nullptr);
 }
 
 void VulkanBase::cleanUpGraphicsComponentCores()

@@ -139,13 +139,8 @@ std::vector<Point> generateCurveFromThreePoints(const std::array<Point, 3>& poin
 RoadCreatorUI::RoadCreatorUI()
 {
 	m_prototypes = { 
-	{ "Basic 2-lane road", 2, 1.0f, "resources/materials/road.png" },
-	{ "Basic 4-lane road", 4, 2.0f, "resources/materials/road2.png" } ,
-	{ "Basic 2-lane road", 2, 1.0f, "resources/materials/road.png" },
-	{ "Basic 4-lane road", 4, 2.0f, "resources/materials/road2.png" },
-	{ "Basic 2-lane road", 2, 1.0f, "resources/materials/road.png" },
-	{ "Basic 4-lane road", 4, 2.0f, "resources/materials/road2.png" },
-	{ "Basic 2-lane road", 2, 1.0f, "resources/materials/road.png" },
+	{ "Basic 2-lane road", 2, 6.0f, "resources/materials/road.png" },
+	{ "Basic 4-lane road", 4, 12.0f, "resources/materials/road2.png" }
 	};
 
 	m_selectedPrototype = &m_prototypes[0];
@@ -201,7 +196,9 @@ const RC::Prototypes* RoadCreatorUI::getSelectedPrototype() const
 RoadCreator::RoadCreator(ObjectManager* objectManager)
 	: BasicCreator(objectManager)
 {
-
+	// sink road
+	m_roadPrototype.setPosition(glm::vec3(0.0, -0.02, 0.0));
+	m_roadPrototype.getPhysicsComponent().updateOtherCollisionTags({ "ROAD", "BUILDING" });
 }
 
 void RoadCreator::update()
@@ -210,10 +207,16 @@ void RoadCreator::update()
 		return;
 	
 	updatePoints();
-	visualizer.update();
+	//visualizer.update();
 
-	if (App::input.pressedLMB())
-		setPoint();
+	if (!UI::getInstance().mouseOverlap())
+	{
+		if (App::input.mouse.pressedButton(GLFW_MOUSE_BUTTON_LEFT))
+			setPoint();
+		if(App::input.keyboard.pressedKey(GLFW_KEY_ESCAPE))
+			rollBackEvent();
+	}
+
 }
 
 void RoadCreator::rollBackEvent()
@@ -227,6 +230,7 @@ void RoadCreator::setCreatorModeAction()
 	// could be clar points function tho
 	m_setPoints.clear();
 	m_creationPoints = {};
+	constructRoadPrototype();
 
 	visualizer.setActive(m_active);
 }
@@ -235,6 +239,7 @@ void RoadCreator::setActiveAction()
 {
 	m_setPoints.clear();
 	m_creationPoints = {};
+	constructRoadPrototype();
 
 	visualizer.setActive(m_active);
 }
@@ -283,7 +288,7 @@ RC::ProcSitPts RoadCreator::processSittingPoints(const std::vector<RC::SittingPo
 
 void RoadCreator::setPoint()
 {
-	if (m_processedCurrentPoints.validPoints && !m_roadPrototype.getPhysicsComponent().inCollision() && m_mousePoint)
+	if (m_processedCurrentPoints.validPoints && m_mousePoint && !m_roadPrototype.getPhysicsComponent().inCollision())
 	{
 		m_setPoints.push_back(m_mousePoint.value());
 
@@ -291,6 +296,7 @@ void RoadCreator::setPoint()
 	}
 }
 
+/*/
 void RoadCreator::validateCurrentShape()
 {
 	// doesntqoek rhe best
@@ -373,15 +379,27 @@ void RoadCreator::validateCurrentShape()
 				m_currentShapeValid = false;
 				break;
 			}
-		}*/
+		}
 	}
 }
-
+*/
 void RoadCreator::constructRoadPrototype()
 {
-	const auto& currentPrototype = *m_ui.getSelectedPrototype();
+	if (m_creationPoints.points.size() >= 2)
+	{
+		const auto& currentPrototype = *m_ui.getSelectedPrototype();
 
-	m_roadPrototype.construct(m_creationPoints.points, currentPrototype.laneCount, currentPrototype.width, currentPrototype.texture);
+		m_roadPrototype.construct(m_creationPoints.points, currentPrototype.laneCount, currentPrototype.width, currentPrototype.texture);
+		m_roadPrototype.getGraphicsComponent().setActive(true);
+
+		m_roadPrototype.getPhysicsComponent().setActive(true);
+	}
+	else
+	{
+		m_roadPrototype.construct({}, Road::RoadParameters());
+		m_roadPrototype.getGraphicsComponent().setActive(false);
+		m_roadPrototype.getPhysicsComponent().setActive(false);
+	}
 }
 
 void RoadCreator::handleCurrentPoints()
@@ -482,14 +500,18 @@ void RoadCreator::createRoadFromCurrent()
 	// creater road
 	const auto& currentPrototype = *m_ui.getSelectedPrototype();
 
-	handleConstruction(m_roadPrototype, connectingPoints);
+	Road newRoad = m_roadPrototype;
+	newRoad.getPhysicsComponent().updateOtherCollisionTags({});
+	newRoad.setPosition(glm::vec3());
 
+	handleConstruction(newRoad, connectingPoints);
+
+	// reset creation
 	m_setPoints.clear();
 }
 
 void RoadCreator::handleConstruction(Road newRoad, std::vector<RC::PointRoadPair> connectPoints)
 {
-
 	// max two points
 	std::vector<RoadIntersection> newIntersections;
 	std::vector<Road> newRoads;
@@ -541,7 +563,8 @@ void RoadCreator::updatePoints()
 	updateCreationPoints();
 
 	// befpre set
-	validateCurrentShape();
+	//validateCurrentShape();
+	constructRoadPrototype();
 
 	setVisualizerDraw();
 }
@@ -551,7 +574,12 @@ void RoadCreator::updateMousePoint()
 	// only if theres mouse
 	if (auto mousePosition = m_pObjectManager->m_pSimulationArea->getMousePosition())
 	{
-		const auto& mousePoint = mousePosition.value();
+		glm::vec3 mousePoint;
+		if (App::input.keyboard.pressedKey(GLFW_KEY_LEFT_ALT))
+			mousePoint = m_pObjectManager->m_pSimulationArea->getSelectedPointPos().value();
+		else
+			mousePoint = mousePosition.value();
+
 		RC::SittingPoint newSittingPoint;
 
 		//just for now this way of getting selected road

@@ -14,7 +14,6 @@ void UI::initUI(VulkanBase* pVulkanBase)
 {
 	vulkanBase = pVulkanBase;
 	device = vulkanBase->getDevice();
-	window = vulkanBase->getWindow();
 	imgui = {};
 
 
@@ -55,20 +54,7 @@ void UI::drawUI(VkCommandBuffer cmdBuffer)
 	if (m_UIElements.empty())
 		return;
 
-	ImGuiIO& io = ImGui::GetIO();
-	IM_ASSERT(io.Fonts->IsBuilt() &&
-		"Font atlas not built! It is generally built by the renderer back-end. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().");
-
-	int width, height;
-	int displayWidth, displayHeight;
-	glfwGetWindowSize(window, &width, &height);
-	glfwGetFramebufferSize(window, &displayWidth, &displayHeight);
-	io.DisplaySize = ImVec2(width, height);
-	if (width > 0 && height > 0)
-		io.DisplaySize =
-		ImVec2(float(displayWidth) / width, float(displayHeight) / height);
-
-	GUI::newFrame(window, App::time.deltaTime());
+	newFrame();
 	ImGui::NewFrame();
 
 	for (auto& element : m_UIElements)
@@ -147,6 +133,47 @@ void UI::createResources()
 	GUI::initGlfwImplementation(imgui);
 	// init texutres for font
 	GUI::createFontsTexture(*device, imgui);
+}
+
+void UI::newFrame()
+{
+	ImGuiIO& io = ImGui::GetIO();
+	IM_ASSERT(io.Fonts->IsBuilt() &&
+		"Font atlas not built! It is generally built by the renderer back-end. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().");
+
+	{
+		auto windowSize = App::window.getWindowSize();
+		io.DisplaySize = ImVec2(windowSize.width, windowSize.height);
+
+		auto framebufferSize = App::window.getFramebufferSize();
+		if (windowSize.width > 0 && windowSize.height > 0)
+		{
+			io.DisplayFramebufferScale = ImVec2(float(framebufferSize.width) / framebufferSize.width, float(framebufferSize.height) / framebufferSize.height);
+		}
+
+	} 
+	{
+		for (int i = 0; i < IM_ARRAYSIZE(io.MouseDown); ++i)
+		{
+			io.MouseDown[i] = GUI::ImGuiInfo::mouseJustPressed[i] || App::input.mouse.pressedButton(i);
+			GUI::ImGuiInfo::mouseJustPressed[i] = false;
+		}
+
+		// updateMOusePOs
+		const ImVec2 mousePosBackup = io.MousePos;
+		io.MousePos = ImVec2(-FLT_MAX, -FLT_MAX);
+
+		const bool focused = App::window.isFocused();
+
+		if (focused)
+		{
+			if (!io.WantSetMousePos)
+			{
+				auto cursorPos = App::window.getMousePosition();
+				io.MousePos = ImVec2(cursorPos.x, cursorPos.y);
+			}
+		}
+	}
 }
 
 // or what is it called

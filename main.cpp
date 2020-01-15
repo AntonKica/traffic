@@ -5,6 +5,8 @@
 #include "GlobalSynchronization.h"
 #include "SimulationArea.h"
 
+constexpr const char* AppName = "Traffic Simulation";
+
 void runGraphics()
 {
 	try
@@ -29,18 +31,6 @@ void runPhysics()
 	}
 }
 
-void runInput()
-{
-	try
-	{
-		App::input.run();
-	}
-	catch (const std::exception & exc)
-	{
-		std::cout << exc.what() << std::endl;
-	}
-}
-
 int main()
 {
 	//throw std::runtime_error("Pri vymazani treaba vymazat aj zo vsetkych cast, lebo DescrutporSet sa preplnuje!");
@@ -49,10 +39,11 @@ int main()
 
 	std::thread graphicsThread;
 	std::thread physicsThread;
-	std::thread inputThread;
+	//std::thread windowThread;
 
-	//GlobalSynchronizaion::shouldStopEngine = false;
-	// initialize
+	{
+		App::window.initialize(AppName);
+	}
 	{
 		std::mutex initializationMutex;
 		std::unique_lock initializationLock(initializationMutex);
@@ -60,25 +51,14 @@ int main()
 		{
 			GlobalSynchronizaion::graphics.initialized = false;
 			graphicsThread = std::thread(runGraphics);
-			GlobalSynchronizaion::graphics.cv.wait(initializationLock, [] { return GlobalSynchronizaion::graphics.initialized; });
+			GlobalSynchronizaion::main_cv.wait(initializationLock, [] { return GlobalSynchronizaion::graphics.initialized; });
 		}
 
 		{
 			GlobalSynchronizaion::physics.initialized = false;
 			physicsThread = std::thread(runPhysics);
-			GlobalSynchronizaion::physics.cv.wait(initializationLock, [] { return GlobalSynchronizaion::physics.initialized; });
+			GlobalSynchronizaion::main_cv.wait(initializationLock, [] { return GlobalSynchronizaion::physics.initialized; });
 		}
-
-		{
-			GlobalSynchronizaion::input.initialized = false;
-			inputThread = std::thread(runInput);
-			GlobalSynchronizaion::input.cv.wait(initializationLock, [] { return GlobalSynchronizaion::input.initialized; });
-		}
-	}
-
-	// Input
-	{
-		App::input.initialize();
 	}
 
 	{
@@ -89,40 +69,47 @@ int main()
 		GlobalSynchronizaion::shouldStopEngine = false;
 		while (GlobalSynchronizaion::shouldStopEngine == false)
 		{
+			//std::cout << "New loop\n";
 			App::time.tick();
 
-			// firstly update camera
+			// update outside objects
 			{
+				App::window.updateFrame();
 				App::camera.update();
 			}
 			// should before update, because they rely on this
-			GlobalSynchronizaion::shouldStopEngine = glfwWindowShouldClose(App::vulkanBase.getWindow());
+			GlobalSynchronizaion::shouldStopEngine = App::window.isClosed();
 			// update graphics and physics
 			{
 				std::mutex updateMutex;
 				std::unique_lock updateLock(updateMutex);
 
-				GlobalSynchronizaion::graphics.update = true;
-				GlobalSynchronizaion::physics.update = true;
-				GlobalSynchronizaion::graphics.cv.notify_one();
-				GlobalSynchronizaion::physics.cv.notify_one();
+				// reset
+				{
+					GlobalSynchronizaion::graphics.update = true;
+					GlobalSynchronizaion::graphics.updated = false;
 
-				GlobalSynchronizaion::graphics.cv.wait(updateLock, []
-					{ return GlobalSynchronizaion::graphics.updated; });
-				GlobalSynchronizaion::graphics.updated = false;
-				GlobalSynchronizaion::physics.cv.wait(updateLock, []
-					{ return GlobalSynchronizaion::physics.updated; });
-				GlobalSynchronizaion::physics.updated = false;
+					GlobalSynchronizaion::physics.update = true;
+					GlobalSynchronizaion::physics.updated = false;
 
-				GlobalSynchronizaion::input.update = true;
-				GlobalSynchronizaion::input.cv.notify_one();
-				GlobalSynchronizaion::input.cv.wait(updateLock, []
-					{ return GlobalSynchronizaion::input.updated; });
-				GlobalSynchronizaion::input.updated = false;
+					GlobalSynchronizaion::thread_cv.notify_all();
+				}
+				// send and wait for signal
+				{
+
+					//std::cout << "Started all wait.. \n";
+					auto waitPred = [] {
+						return	GlobalSynchronizaion::graphics.updated &&
+							GlobalSynchronizaion::physics.updated;
+					};
+
+					while (!waitPred())
+						//GlobalSynchronizaion::main_cv.wait_for(updateLock, std::chrono::milliseconds(1));
+						std::this_thread::sleep_for(std::chrono::nanoseconds(10));
+				}
 			}
 
 			{
-				// update objects
 				App::simulation.updateSimulation();
 				simulationArea.update();
 			}
@@ -135,32 +122,19 @@ int main()
 		{
 			GlobalSynchronizaion::graphics.cleanUp = true;
 			GlobalSynchronizaion::graphics.cleanedUp = false;
-			GlobalSynchronizaion::graphics.cv.notify_one();
-			GlobalSynchronizaion::graphics.cv.wait(cleanUpLock, [] { return GlobalSynchronizaion::graphics.cleanedUp; });
+			GlobalSynchronizaion::thread_cv.notify_all();
+			GlobalSynchronizaion::main_cv.wait(cleanUpLock, [] { return GlobalSynchronizaion::graphics.cleanedUp; });
 			graphicsThread.join();
 		}
 
 		{
 			GlobalSynchronizaion::physics.cleanUp = true;
 			GlobalSynchronizaion::physics.cleanedUp = false;
-			GlobalSynchronizaion::physics.cv.notify_one();
-			GlobalSynchronizaion::physics.cv.wait(cleanUpLock, [] { return GlobalSynchronizaion::physics.cleanedUp; });
+			GlobalSynchronizaion::thread_cv.notify_all();
+			GlobalSynchronizaion::main_cv.wait(cleanUpLock, [] { return GlobalSynchronizaion::physics.cleanedUp; });
 			physicsThread.join();
 		}
-
-		{
-			GlobalSynchronizaion::input.cleanUp = true;
-			GlobalSynchronizaion::input.cleanedUp = false;
-			GlobalSynchronizaion::input.cv.notify_one();
-			GlobalSynchronizaion::input.cv.wait(cleanUpLock, [] { return GlobalSynchronizaion::input.cleanedUp; });
-			inputThread.join();
-		}
 	}
-
-#ifndef _DEBUG
-	std::cout << "Prss any button to exit... ";
-	getchar();
-#endif // _DEBUG
 
 	return 0;
 }

@@ -417,6 +417,9 @@ std::optional<Shape::AxisPoint> SegmentedShape::getShapeAxisPoint(Point arbitrar
 Mesh SegmentedShape::createMesh(const SegmentedShape& shape)
 {
 	auto& joints = shape.getShape();
+	if (joints.empty())
+		return {};
+
 	const auto verticesCount = joints.size() * 2;
 
 	VD::PositionVertices vertices(verticesCount);
@@ -1072,34 +1075,48 @@ void Road::construct(Points creationPoints, uint32_t laneCount, float width, std
 
 void Road::construct(Points creationPoints, const RoadParameters& parameters)
 {
-	m_parameters = parameters;
-
-	SegmentedShape::OrientedConstructionPoints cps;
-	cps.points = creationPoints;
-	for (const auto& cp : m_connections)
+	if (creationPoints.empty())
 	{
-		if (approxSamePoints(creationPoints.front(), cp.point))
-			cps.tailDirectionPoint = cp.connected->getDirectionPointFromConnectionPoint(creationPoints.front());
-		else
-			cps.headDirectionPoint = cp.connected->getDirectionPointFromConnectionPoint(creationPoints.back());
+		m_shape = SegmentedShape();
 	}
-	m_shape.construct(cps, m_parameters.width);
+	else
+	{
+		m_parameters = parameters;
 
-	// model
-	auto mesh = SegmentedShape::createMesh(m_shape);
-	mesh.textures[VD::TextureType::DIFFUSE] = m_parameters.texture;
+		SegmentedShape::OrientedConstructionPoints cps;
+		cps.points = creationPoints;
+		for (const auto& cp : m_connections)
+		{
+			if (approxSamePoints(creationPoints.front(), cp.point))
+				cps.tailDirectionPoint = cp.connected->getDirectionPointFromConnectionPoint(creationPoints.front());
+			else
+				cps.headDirectionPoint = cp.connected->getDirectionPointFromConnectionPoint(creationPoints.back());
+		}
+		m_shape.construct(cps, m_parameters.width);
 
-	Model model;
-	model.meshes.push_back(mesh);
+		// model
+		auto mesh = SegmentedShape::createMesh(m_shape);
+		mesh.textures[VD::TextureType::DIFFUSE] = m_parameters.texture;
 
-	Info::ModelInfo modelInfo;
-	modelInfo.model = &model;
+		Model model;
+		model.meshes.push_back(mesh);
 
-	setupModel(modelInfo, true);
-	createPaths();
+		Info::ModelInfo modelInfo;
+		modelInfo.model = &model;
 
-	auto pts = m_shape.getSkeleton();
-	getPhysicsComponent().collider().setBoundaries(Points(pts.begin(), pts.end()));
+		setupModel(modelInfo, true);
+		createPaths();
+
+		auto& physicComponent = getPhysicsComponent();
+		physicComponent.setActive(true);
+		auto pts = m_shape.getSkeleton();
+		physicComponent.collider().setBoundaries(Points(pts.begin(), pts.end()));
+
+		Info::PhysicsComponentUpdateTags updateTags;
+		updateTags.newTags = { "ROAD" };
+		updateTags.newOtherTags = {};
+		physicComponent.updateCollisionTags(updateTags);
+	}
 }
 
 void Road::reconstruct()

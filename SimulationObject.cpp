@@ -30,8 +30,8 @@ SimulationObject::SimulationObject(SimulationObject&& move)
 {
 	App::simulation.registerObject(this);
 
-	m_graphicsComponent.operator=(std::move(m_graphicsComponent));
-	m_physicsComponent.operator=(std::move(m_physicsComponent));
+	m_graphicsComponent.operator=(std::move(move.m_graphicsComponent));
+	m_physicsComponent.operator=(std::move(move.m_physicsComponent));
 
 	m_position = std::move(move.m_position);
 	m_rotation = std::move(move.m_rotation);

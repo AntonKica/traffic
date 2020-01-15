@@ -16,9 +16,19 @@ namespace Utility
 	public:
 		NonCopy() = default;
 		NonCopy(const NonCopy&) = delete;
-		NonCopy(const NonCopy&&) = delete;
+		NonCopy(NonCopy&&) = delete;
 		NonCopy& operator= (const NonCopy&) = delete;
-		NonCopy& operator= (const NonCopy&&) = delete;
+		NonCopy& operator= (NonCopy&&) = delete;
+	};
+
+	class PrivateClass
+	{
+	protected:
+		PrivateClass() = default;
+		PrivateClass(const PrivateClass&) = default;
+		PrivateClass(PrivateClass&&) = default;
+		PrivateClass& operator= (const PrivateClass&) = default;
+		PrivateClass& operator= (PrivateClass&&) = default;
 	};
 
 	template<class T>

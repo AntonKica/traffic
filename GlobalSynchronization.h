@@ -1,7 +1,7 @@
 #pragma once
 #include <memory>
 #include <condition_variable>
-#include <shared_mutex>
+#include <mutex>
 
 
 namespace GlobalSynchronizaion
@@ -10,7 +10,10 @@ namespace GlobalSynchronizaion
 	{
 		struct SynchronizationSet
 		{
-			std::condition_variable cv = {};
+			std::mutex notifyMutex;
+			std::mutex updateWaitMutex;
+			std::mutex cleanupWaitMutex;
+
 			bool initialized = false;
 
 			bool update		= false;
@@ -23,7 +26,10 @@ namespace GlobalSynchronizaion
 
 	extern detail::SynchronizationSet graphics;
 	extern detail::SynchronizationSet physics;
-	extern detail::SynchronizationSet input;
+	//extern detail::SynchronizationSet window;
+
+	extern std::condition_variable thread_cv;
+	extern std::condition_variable main_cv;
 
 	extern bool shouldStopEngine;
 }

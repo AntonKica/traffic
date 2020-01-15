@@ -5,10 +5,11 @@
 #include "Physics.h"
 #include "Simulation.h"
 #include "Input.h"
-
+#include "Window.h"
 //namespace
 namespace App
 {
+	extern Window window;
 	extern Camera camera;
 	extern Time time;
 	extern VulkanBase vulkanBase;

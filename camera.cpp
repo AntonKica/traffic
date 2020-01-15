@@ -16,13 +16,12 @@ Camera::Camera()
 
 	m_fov = defaultFov;
 
-	m_width = defaultWidth;
-	m_height = defaultHeight;
+	m_viewWidth = Settings::Window::defaultWidth;
+	m_viewHeight = Settings::Window::defaultHeight;
 
 	m_speed = defaultSpeed;
-	m_rotateMode = false;
 
-	updateMouse(m_width / 2, m_height / 2);
+	updateMouse(m_viewWidth / 2, m_viewHeight / 2);
 	updateVectors();
 }
 
@@ -48,32 +47,18 @@ glm::dvec3 Camera::getMouseRay() const
 
 glm::mat4 Camera::getProjection() const
 {
-	double ratio = 0;
-	// minimalisation
-	if (m_height > 0.0)
-	{
-		ratio = double(m_width) / double(m_height);
-	}
-	glm::mat4 projection = glm::perspective(m_fov, ratio, m_near, m_far);
-	projection[1][1] *= -1;
-	return projection;
+	return m_matrices.projection;
 }
 
 glm::mat4 Camera::getView() const
 {
-	return glm::lookAt(m_position, m_position + m_front, m_up);
+	return m_matrices.view;
 	//return glm::lookAt(glm::dvec3(2.0),glm::dvec3(0.0), Transformations::VectorUp);
 }
 
 glm::vec3 Camera::getPosition() const
 {
 	return m_position;
-}
-
-void Camera::resizeView(int newWidth, int newHeight)
-{
-	m_width = newWidth;
-	m_height = newHeight;
 }
 
 void Camera::updateMouse(int newX, int newY)
@@ -92,35 +77,59 @@ void Camera::updateMouse(glm::dvec2 newMousePos)
 	}
 }
 
-void Camera::setRotateMode(bool val)
-{
-	m_rotateMode = val;
-}
-
 void Camera::update()
 {
 	glm::dvec2 mousePosition;
-	glfwGetCursorPos(App::vulkanBase.getWindow(), &mousePosition.x, &mousePosition.y);
+	glfwGetCursorPos(App::window.getWindow(), &mousePosition.x, &mousePosition.y);
 	// minimalized and null division precaution
-	if (m_width == 0 || m_height == 0)
-		return;
+	updateViewSize();
 
-	if (m_rotateMode)
+	if (m_viewWidth != 0 && m_viewHeight != 0)
 	{
-		updateRotations(App::time.deltaTime());
+		if (App::input.keyboard.heldKey(GLFW_KEY_LEFT_ALT))
+			updateRotations();
+		else
+			updatePosition();
+
+		updateMatrices();
+		updateMouse(mousePosition);
 	}
-	else
+}
+
+void Camera::updateViewSize()
+{
+	if (!App::window.isResized())
 	{
-		updatePosition(App::time.deltaTime());
+		auto windowRect = App::window.getWindowSize();
+		m_viewWidth = windowRect.width;
+		m_viewHeight = windowRect.height;
+	}
+}
+
+void Camera::updateMatrices()
+{
+	{
+		m_matrices.view = glm::lookAt(m_position, m_position + m_front, m_up);
 	}
 
-	updateMouse(mousePosition);
+	{
+		double ratio = 0;
+		// minimalisation
+		if (m_viewHeight > 0.0)
+		{
+			ratio = double(m_viewWidth) / double(m_viewHeight);
+		}
+		glm::mat4 projection = glm::perspective(m_fov, ratio, m_near, m_far);
+		projection[1][1] *= -1;
+
+		m_matrices.projection = projection;
+	}
 }
 
 void Camera::updateMouseRay()
 {
-	double x = (2.0 * m_mousePos.x) / m_width - 1.0;
-	double y = 1.0 - (2.0 * m_mousePos.y) / m_height;
+	double x = (2.0 * m_mousePos.x) / m_viewWidth - 1.0;
+	double y = 1.0 - (2.0 * m_mousePos.y) / m_viewHeight;
 	double z = 1.0;
 	glm::vec3 ray_nds = glm::vec3(x, y, z);
 
@@ -138,13 +147,13 @@ void Camera::updateMouseRay()
 	m_mouseRay = ray_world;
 }
 
-void Camera::updatePosition(double deltaTime)
+void Camera::updatePosition()
 {
-	double xNorm = 2.0 * m_mousePos.x / m_width - 1.0;
-	double yNorm = 2.0 * m_mousePos.y / m_height - 1.0;
+	double xNorm = 2.0 * m_mousePos.x / m_viewWidth - 1.0;
+	double yNorm = 2.0 * m_mousePos.y / m_viewHeight - 1.0;
 
 	const double border = 0.2;
-	double moveSpeed = m_speed * deltaTime;
+	double moveSpeed = m_speed * App::time.deltaTime();
 
 	/* MAGIC */
 	if (!isInRange(xNorm, -1.0 + border, 1.0 - border))
@@ -161,10 +170,10 @@ void Camera::updatePosition(double deltaTime)
 	}
 }
 
-void Camera::updateRotations(double deltaTime)
+void Camera::updateRotations()
 {
-	m_yaw += m_mouseOffset.x * deltaTime * 100;
-	m_pitch -= m_mouseOffset.y * deltaTime * 100;
+	m_yaw += m_mouseOffset.x * App::time.deltaTime() * 100;
+	m_pitch -= m_mouseOffset.y * App::time.deltaTime() * 100;
 
 	if (m_yaw > 180.0) m_yaw = -180.0;
 	else if (m_yaw < -180.0) m_yaw = 180.0;

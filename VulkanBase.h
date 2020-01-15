@@ -1,9 +1,6 @@
 #ifndef VULKAN_BASE_H
 #define VULKAN_BASE_H
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-
 #include <glm/glm.hpp>
 #include <vector>
 #include <array>
@@ -93,8 +90,6 @@ namespace VulkanSettings
 class VulkanBase
 {
 private:
-	// visuals
-	GLFWwindow* m_window;
 	// members
 	VkInstance m_instance;
 	VkDebugUtilsMessengerEXT m_debugMessenger;
@@ -118,7 +113,6 @@ private:
 	PipelinesManager m_pipelinesManager;
 
 	VkSampler m_sampler;
-	std::map<std::string, vkh::structs::Image> m_images;
 	VkPushConstantRange m_pushRange;
 	struct PushRange
 	{
@@ -143,7 +137,6 @@ public:
 	vkh::structs::VulkanDevice* getDevice();
 	vkh::structs::Swapchain& getSwapchain();
 	VkSampler& getSampler();
-	GLFWwindow* getWindow();
 	VkPushConstantRange& getPushRange();
 
 	VkRenderPass getRenderPass() const;
@@ -170,7 +163,6 @@ private:
 	pGraphicsComponentCore const getGraphicsComponentCore();
 private:
 	// menu
-	void initWindow();
 	void initVulkan();
 	void initModules();
 	void initGraphicsComponentCores();

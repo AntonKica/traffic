@@ -41,9 +41,7 @@ namespace GUI
 		ImDrawData* drawData, VkCommandBuffer cmdBuffer, int fbWidth, int fbHeight);
 	void drawRenderData(const vkh::structs::VulkanDevice& device, GUI::ImGuiInfo& imgui, ImDrawData* drawData, VkCommandBuffer cmdBuffer);
 
-	void updateMousePosAndButtons(GLFWwindow* window);
 	void updateMouseCursor(GLFWwindow* window);
-	void newFrame(GLFWwindow* window, double deltaTime);
 }
 
 

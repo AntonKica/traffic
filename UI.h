@@ -30,7 +30,6 @@ class UI
 private:
 	VulkanBase* vulkanBase;
 	vkh::structs::VulkanDevice* device;
-	GLFWwindow* window;
 
 	std::vector<UIElement*> m_UIElements;
 	std::map<std::string, vkh::structs::Image> m_loadedImages;
@@ -51,6 +50,8 @@ private:
 
 	UI();
 	void createResources();
+
+	void newFrame();
 
 	friend class UIElement;
 	void registerUIElement(UIElement* element);

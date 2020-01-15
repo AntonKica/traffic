@@ -55,11 +55,11 @@ SimulationAreaVisualizer::SimulationAreaVisualizer(SimulationArea* pSimulationAr
 
 void SimulationAreaVisualizer::createVisuals(size_t xCount, size_t zCount, double distanceBetweenPoints)
 {
-	const int maxXCount = 150;
-	const int maxZCount = 155;
+	const int maxXCount = 500;
+	const int maxZCount = 500;
 	const size_t xPointsCount = std::clamp<size_t>(xCount, 0, maxXCount);
 	const size_t zPointsCount = std::clamp<size_t>(zCount, 0, maxZCount);
-	const float sinkYCoord = -0.01;
+	constexpr const float sinkYCoord = -0.01;
 
 	VD::PositionVertices vertices;
 	VD::Indices indices;

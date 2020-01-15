@@ -34,7 +34,7 @@ static glm::dvec3 rotate(const glm::dvec3 vector, const glm::dvec3 axis, double 
 
 namespace CameraSettings
 {
-	const glm::vec3 defaultPosition = glm::vec3(0.0, 2.5, 0.0);
+	const glm::vec3 defaultPosition = glm::vec3(0.0, 12.5, 0.0);
 	const glm::vec3 defaultFront = Transformations::VectorForward;
 	const double defaultYaw = 90.0f;
 	const double defaultPitch = 0.0;
@@ -44,10 +44,7 @@ namespace CameraSettings
 
 	const double defaultFov = 45.0f;
 
-	const double defaultWidth = 1024;
-	const double defaultHeight = 768;
-
-	const double defaultSpeed = 5.0f;
+	const double defaultSpeed = 25.0f;
 }
 
 class Camera
@@ -62,14 +59,19 @@ private:
 	double m_near, m_far;
 	double m_fov;
 
-	int m_width, m_height;
+	int m_viewWidth, m_viewHeight;
 	double m_speed;
-
-	bool m_rotateMode;
 
 	glm::ivec2 m_mousePos;
 	glm::dvec2 m_mouseOffset;
 	glm::dvec3 m_mouseRay;
+
+	struct
+	{
+		glm::mat4 view;
+		glm::mat4 projection;
+	} m_matrices;
+
 public:
 
 	Camera();
@@ -81,15 +83,17 @@ public:
 	glm::mat4 getProjection() const;
 	glm::mat4 getView() const;
 	glm::vec3 getPosition() const;
-	void resizeView(int newWidth, int newHeight);
 	void updateMouse(int newX, int newY);
 	void updateMouse(glm::dvec2 newMousePos);
-	void setRotateMode(bool val);
 	void update();
 
+private:
+	void updateViewSize();
+	void updateMatrices();
+
 	void updateMouseRay();
-	void updatePosition(double deltaTime);
-	void updateRotations(double deltaTime);
+	void updatePosition();
+	void updateRotations();
 	void updateVectors();
 };
 #endif // !CAMERA_H

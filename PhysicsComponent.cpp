@@ -63,6 +63,27 @@ PhysicsComponent& PhysicsComponent::operator=(PhysicsComponent&& move) noexcept
 	return *this;
 }
 
+void PhysicsComponent::updateSelfCollisionTags(const std::vector<std::string>& newSelfTags)
+{
+	Info::PhysicsComponentUpdateTags tags;
+	tags.newTags = newSelfTags;
+
+	updateCollisionTags(tags);
+}
+
+void PhysicsComponent::updateOtherCollisionTags(const std::vector<std::string>& newOtherTags)
+{
+	Info::PhysicsComponentUpdateTags tags;
+	tags.newOtherTags = newOtherTags;
+
+	updateCollisionTags(tags);
+}
+
+void PhysicsComponent::updateCollisionTags(const Info::PhysicsComponentUpdateTags& updateInfo)
+{
+	App::physics.updatePhysicsComponentCollisionTags(m_core, updateInfo);
+}
+
 void PhysicsComponent::setActive(bool active)
 {
 	m_core->active = active;
@@ -75,7 +96,12 @@ bool PhysicsComponent::active() const
 
 bool PhysicsComponent::inCollision() const
 {
-	return m_core->inCollision;
+	return m_core->inCollisionWith != 0;
+}
+
+bool PhysicsComponent::inCollision(std::string tag) const
+{
+	return m_core->inCollisionWith & App::physics.getTagFlag(tag);
 }
 
 Collider2D& PhysicsComponent::collider()

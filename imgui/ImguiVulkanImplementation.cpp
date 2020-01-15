@@ -539,37 +539,6 @@ void GUI::drawRenderData(
 	}
 }
 
-void GUI::updateMousePosAndButtons(GLFWwindow* window)
-{
-	ImGuiIO& io = ImGui::GetIO();
-	for (int i = 0; i < IM_ARRAYSIZE(io.MouseDown); ++i)
-	{
-		io.MouseDown[i] = GUI::ImGuiInfo::mouseJustPressed[i] ||
-			glfwGetMouseButton(window, i) != GLFW_RELEASE;
-		GUI::ImGuiInfo::mouseJustPressed[i] = false;
-	}
-
-	// updateMOusePOs
-	const ImVec2 mousePosBackup = io.MousePos;
-	io.MousePos = ImVec2(-FLT_MAX, -FLT_MAX);
-
-	const bool focused = glfwGetWindowAttrib(window, GLFW_FOCUSED) != GLFW_FALSE;
-
-	if (focused)
-	{
-		if (io.WantSetMousePos)
-		{
-			glfwSetCursorPos(window, (double)mousePosBackup.x, (double)mousePosBackup.y);
-		}
-		else
-		{
-			double mouseX, mouseY;
-			glfwGetCursorPos(window, &mouseX, &mouseY);
-			io.MousePos = ImVec2(mouseX, mouseY);
-		}
-	}
-}
-
 void GUI::updateMouseCursor(GLFWwindow* window)
 {
 	ImGuiIO& io = ImGui::GetIO();
@@ -591,26 +560,6 @@ void GUI::updateMouseCursor(GLFWwindow* window)
 			GUI::ImGuiInfo::cursors[ImGuiMouseCursor_Arrow]);
 		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 	}
-}
-
-void GUI::newFrame(GLFWwindow* window, double deltaTime)
-{
-	ImGuiIO& io = ImGui::GetIO();
-	IM_ASSERT(io.Fonts->IsBuilt() && "Font atlas not built! It is generally built by the renderer back-end. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().");
-
-	int width, height;
-	int displayWidth, displayHeight;
-
-	glfwGetWindowSize(window, &width, &height);
-	glfwGetFramebufferSize(window, &displayWidth, &displayHeight);
-	io.DisplaySize = ImVec2((float)displayWidth, (float)displayHeight);
-	if(width > 0 && height > 0)
-		io.DisplayFramebufferScale = ImVec2((float)displayWidth / width, (float)displayHeight / height);
-
-	io.DeltaTime = deltaTime;
-
-	updateMousePosAndButtons(window);
-	updateMousePosAndButtons(window);
 }
 
 void GUI::ImGuiInfo::cleanup(VkDevice device, const VkAllocationCallbacks* allocator)

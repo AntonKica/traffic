@@ -18,10 +18,11 @@ class Window
 {
 private:
 	// callbacks
-	friend void windowResizeCallback(GLFWwindow* pWindow, int x, int y);
-	friend void windowCloseCallback(GLFWwindow* pWindow);
-	friend void windowFocusCallback(GLFWwindow* pWindow, int focused);
-
+	static void windowResizeCallback(GLFWwindow* pWindow, int x, int y);
+	static void windowCloseCallback(GLFWwindow* pWindow);
+	static void windowFocusCallback(GLFWwindow* pWindow, int focused);
+	static void windowKeyboardInputCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+	static void windowMouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 public:
 	struct Rectangle
 	{
@@ -38,12 +39,11 @@ public:
 
 	glm::dvec2 getMousePosition() const;
 private:
-	friend class VulkanBase;
 	friend int main();
 
-	void initialize(std::string name);
+	void initialize(std::string windowName);
 	void cleanup();
-	void update();
+	void updateFrame();
 	
 
 	enum class State
@@ -53,9 +53,12 @@ private:
 		FOCUSED = 1 << 2,
 	};
 	void setState(State state);
+	void resetState(State state);
 	void switchState(State state);
 
 	GLFWwindow* m_window;
+	std::string m_windowName;
+
 	uint32_t m_state;
 };
 

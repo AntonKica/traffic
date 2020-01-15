@@ -70,6 +70,8 @@ BC::Resource::Resource(std::string modelPath, std::string name, BasicBuilding::B
 		House house;
 		house.create(glm::vec3(), modelPath);
 		house.getGraphicsComponent().setActive(false);
+		house.getPhysicsComponent().updateOtherCollisionTags({ "BUILDING", "ROAD" });
+		house.getPhysicsComponent().setActive(true);
 
 		this->prototype = std::shared_ptr<BasicBuilding>(new House(house));
 		break;
@@ -115,13 +117,18 @@ void BuildingCreator::update()
 			m_currentResource->prototype->getGraphicsComponent().setActive(false);
 		}
 	}
+	else
+	{
+		m_currentResource->prototype->getGraphicsComponent().setActive(false);
+	}
 
-	if (App::input.pressedLMB())
+	if (App::input.mouse.pressedButton(GLFW_MOUSE_BUTTON_LEFT) && !UI::getInstance().mouseOverlap() && !m_currentResource->prototype->getPhysicsComponent().inCollision())
 	{
 		switch (m_currentResource->type)
 		{
 		case BasicBuilding::BuildingType::HOUSE:
 			House house = *static_cast<House*>(&*m_currentResource->prototype);
+			house.getPhysicsComponent().updateOtherCollisionTags({});
 
 			new House(house);
 			break;
@@ -131,9 +138,6 @@ void BuildingCreator::update()
 
 void BuildingCreator::setCreatorModeAction()
 {
-	m_currentResource->prototype->getGraphicsComponent().setActive(
-		m_currentMode == Creator::CreatorMode::CREATE);
-
 }
 
 void BuildingCreator::setActiveAction()

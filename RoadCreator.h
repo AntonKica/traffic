@@ -126,7 +126,6 @@ private:
 	};
 	RC::ProcSitPts processSittingPoints(const std::vector<RC::SittingPoint> sittingPoints) const;
 	void setPoint();
-	void validateCurrentShape();
 	void constructRoadPrototype();
 	void handleCurrentPoints();
 	void tryToConstructRoad();

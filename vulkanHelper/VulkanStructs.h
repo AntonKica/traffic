@@ -96,8 +96,6 @@ namespace vkh
 			std::vector<VkImageView> imageViews;
 			std::vector<VkFramebuffer> framebuffers;
 
-			bool framebufferResized;
-
 			void cleanUp(VkDevice device, const VkAllocationCallbacks* pAllocator);
 		};
 	}
