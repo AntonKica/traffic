@@ -162,11 +162,12 @@ void Physics::updateCollisions()
 	if (m_tagFlags.size() <= 1)
 		return;
 
-	// reset collisions
 	for (auto& [_, comps] : m_activePhysicsComponentCores)
 	{
 		for (auto& comp : comps)
+		{
 			comp->inCollisionWith = 0;
+		}
 	}
 
 	// process by tags

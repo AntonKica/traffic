@@ -1,6 +1,7 @@
 #pragma once
 #include "BuildingCreator.h"
 #include "RoadCreator.h"
+#include "House.h"
 #include "UI.h"
 #include <list>
 
@@ -75,8 +76,6 @@ public:
 	void setCreatorsModes(Creator::CreatorMode mode);
 
 	void clickEvent();
-
-	
 //
 private:
 	SimulationArea* m_pSimulationArea;
@@ -87,7 +86,17 @@ private:
 	std::optional<BasicRoad*> m_selectedRoad;
 	Container<Road> m_roads;
 	Container<RoadIntersection> m_intersections;
+	Container<House> m_houses;
+
 	RoadCreator m_roadCreator;
 	BuildingCreator m_buildingCreator;
+
+
+public:
+	void disableCreators();
+	void enableCreators();
+
+private: 
+	bool m_disabledCreators = false;
 };
 

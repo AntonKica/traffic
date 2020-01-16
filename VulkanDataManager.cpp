@@ -218,7 +218,7 @@ VD::SharedTexture VulkanDataManager::loadTexture(std::string path)
 	}
 
 	int width, height, channels;
-	unsigned char* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
+	unsigned char* data = stbi_load(path.c_str(), &width, &height, &channels, 4);
 	if (!data)
 		throw std::runtime_error("Failed to load texture " + path);
 

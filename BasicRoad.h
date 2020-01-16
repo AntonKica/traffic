@@ -64,6 +64,10 @@ public:
 	virtual RoadType getRoadType() const = 0;
 
 	virtual Shape::AxisPoint getAxisPoint(Point pointOnRoad) const = 0;
+
+	using Path = Points;
+	virtual void createPaths() = 0;
+	Path getClosestPath(Point pt) const;
 protected:
 	struct Connection
 	{
@@ -99,5 +103,7 @@ protected:
 	void disconnectAll();
 
 	std::vector<Connection> m_connections;
+	std::vector<Path> m_paths;
+private:
 };
 

@@ -57,10 +57,14 @@ void UI::drawUI(VkCommandBuffer cmdBuffer)
 	newFrame();
 	ImGui::NewFrame();
 
+	int i = 0;
 	for (auto& element : m_UIElements)
 	{
+		//if(i++)
 		if (element->active())
+		{
 			element->draw();
+		}
 	}
 
 	ImGui::Render();
@@ -70,7 +74,7 @@ void UI::drawUI(VkCommandBuffer cmdBuffer)
 
 bool UI::mouseOverlap() const
 {
-	return ImGui::IsAnyWindowHovered();
+	return ImGui::IsAnyWindowHovered() || ImGui::IsAnyItemHovered();
 }
 
 vkh::structs::Image* UI::loadImage(std::string path)

@@ -42,8 +42,8 @@ private:
 
 	Collider::Circle m_circle;
 	Triangles m_triangles;
-	glm::vec3 m_position;
-	glm::vec3 m_rotation;
+	glm::vec3 m_position = {};
+	glm::vec3 m_rotation = {};
 
 	Collider::Circle m_collisionCircle;
 	Triangles m_collisionTriangles;

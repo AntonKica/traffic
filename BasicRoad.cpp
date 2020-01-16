@@ -134,3 +134,26 @@ bool BasicRoad::hasBody() const
 {
 	return false;
 }
+
+BasicRoad::Path BasicRoad::getClosestPath(Point pt) const
+{
+	auto closestTraiPoint = [](const Trail& trail, Point pt)
+	{
+		// find edges
+		const auto [p1, p2] = findTwoClosestPoints(trail, pt);
+		return getClosestPointToLine(p1, p2, pt);
+	};
+
+	const Path* pPath = &*m_paths.begin();
+	Point minPt = closestTraiPoint(*pPath, pt);
+
+	for (const auto& path : m_paths)
+	{
+		auto curPt = closestTraiPoint(path, pt);
+
+		if (glm::length(pt - curPt) < glm::length(pt - minPt))
+			pPath = &path;
+	}
+
+	return *pPath;
+}

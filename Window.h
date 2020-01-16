@@ -9,8 +9,8 @@ namespace Settings
 {
 	namespace Window
 	{
-		constexpr uint32_t defaultWidth = 800;
-		constexpr uint32_t defaultHeight = 600;
+		constexpr uint32_t defaultWidth = 1280;
+		constexpr uint32_t defaultHeight = 768;
 	}
 }
 

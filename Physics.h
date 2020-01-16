@@ -2,6 +2,7 @@
 #include "BasicGeometry.h"
 #include "PhysicsInfo.h"
 #include "PhysicsComponent.h"
+#include "GraphicsComponent.h"
 
 #include <stack>
 #include <unordered_map>
@@ -37,10 +38,11 @@ private:
 	void registerPhysicsCoreTags(pPhysicsComponentCore& physicsCore, uint32_t newTag);
 	void unregisterPhysicsCoreFromTags(pPhysicsComponentCore& physicsCore);
 
+	
+
 	pPhysicsComponentCore m_physicsComponentCoreData;
 	uint32_t m_physicsComponentCoreCount;
 	std::stack<pPhysicsComponentCore>  m_physicsComponentCores;
-
 
 	std::unordered_map<uint32_t, std::vector<pPhysicsComponentCore>> m_activePhysicsComponentCores;
 	std::unordered_map<std::string, uint32_t> m_tagFlags;

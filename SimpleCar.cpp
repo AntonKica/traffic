@@ -2,6 +2,7 @@
 #include "PipelinesManager.h"
 #include <numeric>
 #include <glm/gtx/string_cast.hpp>
+#include <glm/gtx/vector_angle.hpp>
 #include "GlobalObjects.h"
 
 void SimpleCar::update()
@@ -19,22 +20,25 @@ void SimpleCar::update()
 			currentlyTravelled = 0;
 		}
 
-		glm::vec3 direction = glm::normalize(pathToTake[currentLine + 1] - pathToTake[currentLine]);
+		const glm::vec3 direction = glm::normalize(pathToTake[currentLine + 1] - pathToTake[currentLine]);
 		glm::vec3 newPosition = pathToTake[currentLine] + (direction * currentlyTravelled);
+		newPosition.y += 0.3f * 3;
 
-		float xRotation = glm::degrees(glm::acos(glm::dot(direction, glm::vec3(0.0, 0.0, 1.0))));
+		const float xRotation = std::atan2(direction.x, direction.z) + glm::half_pi<float>();
+
 		getGraphicsComponent().setPosition(newPosition);
-		getGraphicsComponent().setRotation(glm::vec3(xRotation, 0.0, 0.0));
+		getGraphicsComponent().setRotationX(xRotation);
 	}
 }
 
-void SimpleCar::create(const Points& pathPoints)
+void SimpleCar::drive(const BasicRoad& road)
 {
-	pathToTake = pathPoints;
+	pathToTake = road.getClosestPath(getPosition());
+	speed = 7.0f;
 
 	Info::ModelInfo mInfo;
-	mInfo.model = "resources/models/Car/Car.obj";
+	mInfo.model = "resources/models/car2/car2.obj";
 
 	setupModel(mInfo, true);
-	getGraphicsComponent().setSize(glm::vec3(0.1));
+	getGraphicsComponent().setSize(glm::vec3(3));
 }

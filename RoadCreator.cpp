@@ -139,8 +139,8 @@ std::vector<Point> generateCurveFromThreePoints(const std::array<Point, 3>& poin
 RoadCreatorUI::RoadCreatorUI()
 {
 	m_prototypes = { 
-	{ "Basic 2-lane road", 2, 6.0f, "resources/materials/road.png" },
-	{ "Basic 4-lane road", 4, 12.0f, "resources/materials/road2.png" }
+	{ "Basic 2-lane road", 2, 6.0f, "resources/materials/road1.jpg" },
+	{ "Basic 4-lane road", 4, 12.0f, "resources/materials/road2.jpg" }
 	};
 
 	m_selectedPrototype = &m_prototypes[0];
@@ -216,7 +216,6 @@ void RoadCreator::update()
 		if(App::input.keyboard.pressedKey(GLFW_KEY_ESCAPE))
 			rollBackEvent();
 	}
-
 }
 
 void RoadCreator::rollBackEvent()
@@ -288,7 +287,7 @@ RC::ProcSitPts RoadCreator::processSittingPoints(const std::vector<RC::SittingPo
 
 void RoadCreator::setPoint()
 {
-	if (m_processedCurrentPoints.validPoints && m_mousePoint && !m_roadPrototype.getPhysicsComponent().inCollision())
+	if (m_mousePoint)//&& !m_roadPrototype.getPhysicsComponent().inCollision())
 	{
 		m_setPoints.push_back(m_mousePoint.value());
 

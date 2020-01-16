@@ -273,3 +273,7 @@ Shape::AxisPoint RoadIntersection::getAxisPoint(Point pointOnRoad) const
 	return Shape::AxisPoint(m_centre);
 }
 
+void RoadIntersection::createPaths()
+{
+}
+

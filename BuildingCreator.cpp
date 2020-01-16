@@ -130,7 +130,7 @@ void BuildingCreator::update()
 			House house = *static_cast<House*>(&*m_currentResource->prototype);
 			house.getPhysicsComponent().updateOtherCollisionTags({});
 
-			new House(house);
+			m_pObjectManager->m_houses.add(house);
 			break;
 		}
 	}

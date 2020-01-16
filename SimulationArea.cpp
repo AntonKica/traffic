@@ -1,5 +1,6 @@
 #include "SimulationArea.h"
 #include "GlobalObjects.h"
+#include "SimpleCar.h"
 #include <optional>
 
 static std::optional<glm::vec3> planeIntersectPoint(const glm::vec3& rayDirection, const glm::vec3& rayPosition,
@@ -138,7 +139,7 @@ void SimulationAreaVisualizer::update()
 
 
 SimulationArea::SimulationArea()
-	: m_visuals(this), m_objectManager(this)
+	: m_visuals(this), m_objectManager(this), m_topMenu(this)
 {
 	m_enableMouse = true;
 }
@@ -167,8 +168,14 @@ void SimulationArea::update()
 	updateMousePosition();
 
 	m_visuals.update();
+	if (m_editMode)
+	{
+		m_objectManager.update();
+	}
+	else
+	{
 
-	m_objectManager.update();
+	}
 }
 
 bool SimulationArea::placeObject()
@@ -188,10 +195,6 @@ bool SimulationArea::isInArea(const glm::vec3& position) const
 void SimulationArea::setEnableMouse(bool value)
 {
 	m_enableMouse = value;
-}
-
-void SimulationArea::clickEvent()
-{
 }
 
 std::pair<size_t, size_t> SimulationArea::getPointsCount() const
@@ -228,7 +231,7 @@ void SimulationArea::initTraits()
 
 void SimulationArea::updateMousePosition()
 {
-	if (!m_enableMouse)
+	if (!m_enableMouse || UI::getInstance().mouseOverlap())
 	{
 		m_mousePosition.reset();
 	}
@@ -280,3 +283,143 @@ inline float SimulationArea::getDirectPointDistance() const
 {
 	return m_traits.UnitLength / m_traits.PointsPerUnit;
 }
+
+Point closestTraiPoint(const Trail& trail, Point pt)
+{
+	// find edges
+	const auto [p1, p2] = findTwoClosestPoints(trail, pt);
+	return getClosestPointToLine(p1, p2, pt);
+}
+
+const Road* SimulationArea::findClosestRoadFromBuilding(const BasicBuilding& building) const
+{
+	const auto buildingPos = building.getPosition();
+
+	const Road* closestRoad = nullptr;
+	float closestDistance= {};
+	for (const auto& road : m_objectManager.m_roads.data)
+	{
+		auto axis = road.getAxis();
+		Points pts(std::begin(axis), std::end(axis));
+
+		auto pt = closestTraiPoint(pts, buildingPos);
+		if (!closestRoad || glm::length(buildingPos - pt) < closestDistance)
+		{
+			closestRoad = &road;
+			closestDistance = glm::length(buildingPos - pt);
+		}
+	}
+
+	return closestRoad;
+}
+
+void SimulationArea::play()
+{
+	m_objectManager.disableCreators();
+
+	for (auto& road : m_objectManager.m_roads.data)
+		road.createPaths();
+	for (auto& intersection : m_objectManager.m_intersections.data)
+		intersection.createPaths();
+
+	exampleCars.clear();
+
+	for (auto& house : m_objectManager.m_houses.data)
+	{
+		auto closestRoad = findClosestRoadFromBuilding(house);
+		SimpleCar car;
+		car.setPosition(house.getPosition());
+		car.drive(*closestRoad);
+
+		exampleCars.push_back(car);
+	}
+}
+
+void SimulationArea::edit()
+{
+	exampleCars.clear();
+
+	m_objectManager.enableCreators();
+}
+
+void SimulationArea::setEditMode(bool editMode)
+{
+	if (m_editMode != editMode)
+	{
+		m_editMode = editMode;
+
+		if (m_editMode)
+			edit();
+		else
+			play();
+	}
+
+}
+
+TopMenu::TopMenu(SimulationArea* pSimulationArea)
+	:m_pSimulationArea(pSimulationArea)
+{
+	setActive(true);
+}
+
+void TopMenu::draw()
+{
+	auto io = ImGui::GetIO();
+
+	ImGui::SetNextWindowBgAlpha(1.0);
+	ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar;
+	ImGui::Begin("TopMenu", 0, windowFlags);
+
+
+	auto dispaySize = io.DisplaySize;
+	auto windowWidth = ImGui::GetWindowWidth();
+
+	auto height = 50.0f;
+
+	ImGui::SetWindowSize(ImVec2(dispaySize.x, height));
+	ImGui::SetWindowPos(ImVec2(0, 0));
+
+	ImVec2 buttonSize(height * 0.9, height * 0.9);
+
+
+	const ImVec4 greyColor(130 / 255.0, 130 / 255.0, 130 / 255.0, 255 / 255.0);
+	const ImVec4 greenColor(125 / 255.0, 202 / 255.0, 24 / 255.0, 255 / 255.0);
+
+	ImVec4 curColor;
+	if (m_pressedPlay)
+		curColor = greenColor;
+	else
+		curColor = greyColor;
+
+	ImGui::PushStyleColor(ImGuiCol_Button, curColor);
+	ImGui::SetCursorPos(ImVec2(windowWidth / 2 - 40, height - buttonSize.y));
+	if (ImGui::Button("Play", buttonSize))
+	{
+		m_pressedPlay = true;
+		m_pSimulationArea->setEditMode(false);
+	}
+
+	if (!m_pressedPlay)
+		curColor = greenColor;
+	else
+		curColor = greyColor;
+
+	ImGui::SetCursorPos(ImVec2(windowWidth / 2 + 40, height - buttonSize.y));
+	ImGui::PushStyleColor(ImGuiCol_Button, curColor);
+	if (ImGui::Button("Stop", buttonSize))
+	{
+		m_pressedPlay = false;
+		m_pSimulationArea->setEditMode(true);
+	}
+
+	ImGui::PopStyleColor(2);
+
+	ImGui::End();
+}
+
+bool TopMenu::pressedPlay() const
+{
+	return m_pressedPlay;
+}
+

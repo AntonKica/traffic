@@ -1056,6 +1056,11 @@ bool Road::sitsOnEndPoints(const Point& point) const
 	return m_shape.sitsOnTailOrHead(point);
 }
 
+Shape::Axis Road::getAxis() const
+{
+	return m_shape.getAxis();
+}
+
 void Road::construct(Shape::Axis axisPoints, uint32_t laneCount, float width, std::string texture)
 {
 	Points points(std::begin(axisPoints), std::end(axisPoints));
@@ -1105,7 +1110,7 @@ void Road::construct(Points creationPoints, const RoadParameters& parameters)
 		modelInfo.model = &model;
 
 		setupModel(modelInfo, true);
-		createPaths();
+		//createPaths();
 
 		auto& physicComponent = getPhysicsComponent();
 		physicComponent.setActive(true);
@@ -1353,18 +1358,62 @@ Shape::AxisPoint Road::getAxisPoint(Point pointOnRoad) const
 	return m_shape.getShapeAxisPoint(pointOnRoad).value();
 }
 
+Points createSubLineFromAxis(const Points& axis, const Points& line, float percentageDistanceFromAxis)
+{
+	Points newPoints(line);
+	for (uint32_t index = 0; index < axis.size(); ++index)
+	{
+		const auto dir = glm::normalize(line[index] - axis[index]);
+		const auto dist = glm::length(line[index] - axis[index]);
+		newPoints[index] = axis[index] + dir * dist * percentageDistanceFromAxis;
+	}
+
+	return newPoints;
+}
+
 void Road::createPaths()
 {
-	float offsetPerLane = (m_parameters.laneCount / m_parameters.width) / 2.0f;
-	float startOffset = 0.25f;
+	float offsetPerLane = 1.0 / m_parameters.laneCount;
+	float startOffset = 0.25 + offsetPerLane;
 
+	auto sortToLeftAndRightPoints = [](const Points & pts)
+	{
+		Points leftPts(pts.size() / 2);
+		auto leftIt = leftPts.begin();
+		Points rightPts(pts.size() / 2);
+		auto rightIt = rightPts.begin();
+
+		auto ptsIt = pts.begin();
+		while (ptsIt != pts.end())
+		{
+			*leftIt++ = *ptsIt++;
+			*rightIt++ = *ptsIt++;
+		}
+
+		return std::make_pair(leftPts, rightPts);
+	};
+
+	const auto [leftLanePts, rightLanePts] = sortToLeftAndRightPoints(m_shape.getSkeleton());
+
+	// transform to normal points
+	Points axis;
+	{
+		const auto axisPoints = m_shape.getAxis();
+		std::transform(std::begin(axisPoints), std::end(axisPoints), std::back_inserter(axis),
+			[](const Shape::AxisPoint& ap)
+			{
+				return Point(ap);
+			});
+	}
 	// supposse we have two lanes
 	m_paths.clear();
-	for (int i = 0; i < m_parameters.laneCount / 2.0; ++i)
+	for (int i = 0; i < m_parameters.laneCount / 2; ++i)
 	{
-		auto pathLanes = m_shape.getSkeleton();
+		auto leftLine = createSubLineFromAxis(leftLanePts, axis, startOffset + offsetPerLane * i);
+		std::reverse(std::begin(leftLine), std::end(leftLine));
+		auto rightLine = createSubLineFromAxis(rightLanePts, axis,startOffset + offsetPerLane * i);
 
-		m_paths.insert(m_paths.begin(), std::vector(pathLanes.rbegin() + (pathLanes.size() / 2), pathLanes.rend()));
-		m_paths.insert(m_paths.end(), std::vector(pathLanes.begin(), pathLanes.begin() + (pathLanes.size() / 2)));
+		m_paths.insert(m_paths.begin(), Path(leftLine.begin(), leftLine.end()));
+		m_paths.insert(m_paths.end(), Path(rightLine.begin(), rightLine.end()));
 	}
 }

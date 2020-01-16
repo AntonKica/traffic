@@ -7,7 +7,7 @@
 #include <glm/glm.hpp>
 #include "GraphicsComponent.h"
 #include "SimulationObject.h"
-
+#include "SimpleCar.h"
 #include "ObjectManager.h"
 
 namespace Settings
@@ -66,6 +66,21 @@ private:
 	glm::vec3 position;
 };
 
+class TopMenu : 
+	public UIElement
+{
+public:
+	TopMenu(SimulationArea* pSimulationArea);
+
+	virtual void draw() override;
+
+	bool pressedPlay() const;
+private:
+	SimulationArea* m_pSimulationArea;
+
+	bool m_pressedPlay = false;
+};
+
 class SimulationArea final
 {
 	friend class SimulationAreaVisualizer;
@@ -82,7 +97,6 @@ public:
 	bool isInArea(const glm::vec3& position) const;
 
 	void setEnableMouse(bool value);
-	void clickEvent();
 
 	std::pair<size_t, size_t> getPointsCount() const;
 	std::optional<glm::vec3> getSelectedPointPos() const;
@@ -100,10 +114,20 @@ private:
 
 	SAS::SimulationAreaTraits m_traits;
 	SimulationAreaVisualizer m_visuals;
-
 	// where mouse falls on area
 	
 	std::optional<glm::vec3> m_mousePosition;
 	bool m_enableMouse = false;
+
+	// new
+	TopMenu m_topMenu;
+	bool m_editMode = true;
+
+	std::vector<SimpleCar> exampleCars;
+	const Road* findClosestRoadFromBuilding(const BasicBuilding& building) const;
+	void play();
+	void edit();
+public:
+	void setEditMode(bool editMode);
 };
 

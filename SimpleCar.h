@@ -1,5 +1,6 @@
 #pragma once
 #include "SimulationObject.h"
+#include "BasicRoad.h"
 #include "Utilities.h"
 
 class SimpleCar
@@ -14,6 +15,6 @@ private:
 public:
 	void update() override;
 
-	void create(const Points& pathPoints);
+	void drive(const BasicRoad& road);
 };
 

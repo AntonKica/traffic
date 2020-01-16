@@ -18,7 +18,7 @@ void ObjectManagerUI::draw()
 
 	ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | 
 		ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse;
-	ImGui::Begin(" ", 0, windowFlags);
+	ImGui::Begin("SelectMenu", 0, windowFlags);
 
 
 	auto dispaySize = io.DisplaySize;
@@ -121,20 +121,29 @@ void ObjectManager::initialize()
 
 void ObjectManager::update()
 {
-	if (m_ui.getCurrentCreator() == ObjectManagerUI::CreatorType::ROAD)
+	if (m_disabledCreators)
 	{
-		m_roadCreator.setActive(true);
-		m_buildingCreator.setActive(false);
+		m_selectedRoad.reset();
+		return;
 	}
-	else
+	else 
 	{
-		m_roadCreator.setActive(false);
-		m_buildingCreator.setActive(true);
-	}
-	updateSelectedRoad();
+		if (m_ui.getCurrentCreator() == ObjectManagerUI::CreatorType::ROAD)
+		{
+			m_roadCreator.setActive(true);
+			m_buildingCreator.setActive(false);
+		}
+		else
+		{
+			m_roadCreator.setActive(false);
+			m_buildingCreator.setActive(true);
+		}
 
-	m_roadCreator.update();
-	m_buildingCreator.update();
+		updateSelectedRoad();
+
+		m_roadCreator.update();
+		m_buildingCreator.update();
+	}
 }
 
 void ObjectManager::updateSelectedRoad()
@@ -186,4 +195,23 @@ void ObjectManager::setCreatorsModes(Creator::CreatorMode mode)
 
 void ObjectManager::clickEvent()
 {
+}
+
+void ObjectManager::disableCreators()
+{
+	m_roadCreator.setActive(false);
+	m_buildingCreator.setActive(false);
+
+	m_disabledCreators = true;
+
+	m_ui.setActive(false);
+}
+
+void ObjectManager::enableCreators()
+{
+	m_roadCreator.setActive(false);
+	m_buildingCreator.setActive(true);
+
+	m_disabledCreators = false;
+	m_ui.setActive(true);
 }

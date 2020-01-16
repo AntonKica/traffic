@@ -119,6 +119,7 @@ public:
 	// Getters
 	RoadParameters getParameters() const;
 	bool sitsOnEndPoints(const Point& point) const;
+	Shape::Axis getAxis() const;
 
 	//
 	void construct(Shape::Axis axisPoints, uint32_t laneCount, float width, std::string texture);
@@ -145,15 +146,13 @@ public:
 	bool sitsPointOn(Point point) const override;
 	virtual RoadType getRoadType() const override;
 	virtual Shape::AxisPoint getAxisPoint(Point pointOnRoad) const override;
+
+	virtual void createPaths() override;
 private:
-	using Path = Points;
-	void createPaths();
 
 	SegmentedShape m_shape;
 	RoadParameters m_parameters;
 	// just for cause
-public:
-	std::vector<Path> m_paths;
 };
 
 struct Road::SplitProduct

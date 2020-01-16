@@ -20,7 +20,7 @@
 #include "DescriptorManager.h"
 #include "PipelinesManager.h"
 
-#define ENABLE_VSYNC false
+#define ENABLE_VSYNC true
 
 using GraphicsObjects::ID;
 
