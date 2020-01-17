@@ -21,7 +21,7 @@ private:
 	void initialize();
 	void initializeKeys();
 
-	void setKeyValue(IL::GLFW_KEYCODE key, bool value);
+	void setKeyValue(IL::GLFW_KEYCODE key, IL::GLFW_KEY_STATE state);
 	void updateRecords();
 
 	uint32_t trackedKeyCount;

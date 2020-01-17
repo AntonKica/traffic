@@ -21,9 +21,9 @@ private:
 	void initialize();
 	void initializeButtons();
 
-	void setButtonValue(IL::GLFW_KEYCODE button, bool value);
+	void setButtonValue(IL::GLFW_KEYCODE button, IL::GLFW_KEY_STATE state);
 	void updateRecords();
 	
-	std::array<IL::Record, GLFW_MOUSE_BUTTON_LAST + 1> m_butonRecords;
+	std::array<IL::Record, GLFW_MOUSE_BUTTON_LAST + 1> m_buttonRecords;
 };
 

@@ -10,8 +10,6 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 
-#include "Transformations.h"
-
 template<typename T> bool isInRange(const T& val, const T& min, const T& max)
 {
 	return val >= min && val <= max;
@@ -34,10 +32,10 @@ static glm::dvec3 rotate(const glm::dvec3 vector, const glm::dvec3 axis, double 
 
 namespace CameraSettings
 {
-	const glm::vec3 defaultPosition = glm::vec3(0.0, 12.5, 0.0);
-	const glm::vec3 defaultFront = Transformations::VectorForward;
-	const double defaultYaw = 90.0f;
-	const double defaultPitch = 0.0;
+	const glm::vec3 defaultFocusPosition = glm::dvec3(0.0, 0.0, 0.0);
+	const glm::vec3 defaultFront = glm::dvec3(0.0, 0.0, 1.0);
+	const double defaultYaw = 0.0;
+	const double defaultPitch = -glm::quarter_pi<double>();
 
 	const double defaultNear = 0.01f;
 	const double defaultFar = 100.0f;
@@ -45,12 +43,15 @@ namespace CameraSettings
 	const double defaultFov = 45.0f;
 
 	const double defaultSpeed = 25.0f;
+
+	const double defaultCircleDistance = 25.0f;
 }
 
 class Camera
 {
 private:
 	glm::dvec3 m_position;
+	glm::dvec3 m_focusPosition;
 	glm::dvec3 m_front;
 	glm::dvec3 m_up;
 	glm::dvec3 m_right;
@@ -61,6 +62,9 @@ private:
 
 	int m_viewWidth, m_viewHeight;
 	double m_speed;
+	double m_circleDistance;
+
+	glm::dvec3 m_circleOffsetPosition;
 
 	glm::ivec2 m_mousePos;
 	glm::dvec2 m_mouseOffset;
@@ -93,7 +97,9 @@ private:
 
 	void updateMouseRay();
 	void updatePosition();
+	void updateFocusPosition();
 	void updateRotations();
 	void updateVectors();
+	void updateCircleOffsetPosition();
 };
 #endif // !CAMERA_H

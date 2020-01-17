@@ -38,6 +38,10 @@ public:
 	bool isFocused() const;
 
 	glm::dvec2 getMousePosition() const;
+
+	void showCursor();
+	void hideCursor();
+	void disableCursor();
 private:
 	friend int main();
 

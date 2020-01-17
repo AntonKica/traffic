@@ -28,12 +28,12 @@ void Window::windowFocusCallback(GLFWwindow* pWindow, int focused)
 
 void Window::windowKeyboardInputCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-	App::input.keyboard.setKeyValue(key, action == GLFW_PRESS);
+	App::input.keyboard.setKeyValue(key, action);
 }
 
 void Window::windowMouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 {
-	App::input.mouse.setButtonValue(button, action == GLFW_PRESS);
+	App::input.mouse.setButtonValue(button, action);
 }
 
 void Window::initialize(std::string windowName)
@@ -135,7 +135,6 @@ void Window::updateFrame()
 		glfwSwapBuffers(m_window);
 	}
 
-	//update global input
 	{
 		App::input.update();
 	}
@@ -201,3 +200,17 @@ glm::dvec2 Window::getMousePosition() const
 	return mousePosition;
 }
 
+void Window::showCursor()
+{
+	glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+}
+
+void Window::hideCursor()
+{
+	glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+}
+
+void Window::disableCursor()
+{
+	glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+}

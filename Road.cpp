@@ -1373,8 +1373,9 @@ Points createSubLineFromAxis(const Points& axis, const Points& line, float perce
 
 void Road::createPaths()
 {
+	// half width
 	float offsetPerLane = 1.0 / m_parameters.laneCount;
-	float startOffset = 0.25 + offsetPerLane;
+	float startOffset = offsetPerLane;
 
 	auto sortToLeftAndRightPoints = [](const Points & pts)
 	{
@@ -1410,8 +1411,8 @@ void Road::createPaths()
 	for (int i = 0; i < m_parameters.laneCount / 2; ++i)
 	{
 		auto leftLine = createSubLineFromAxis(leftLanePts, axis, startOffset + offsetPerLane * i);
-		std::reverse(std::begin(leftLine), std::end(leftLine));
 		auto rightLine = createSubLineFromAxis(rightLanePts, axis,startOffset + offsetPerLane * i);
+		std::reverse(std::begin(rightLine), std::end(rightLine));
 
 		m_paths.insert(m_paths.begin(), Path(leftLine.begin(), leftLine.end()));
 		m_paths.insert(m_paths.end(), Path(rightLine.begin(), rightLine.end()));

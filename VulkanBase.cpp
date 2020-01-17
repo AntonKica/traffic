@@ -2,19 +2,15 @@
 #include "vulkanHelper/VulkanHelper.h"
 #include "vulkanHelper/VulkanStructs.h"
 
-
 #include <stdexcept>
 #include <iostream>
 #include <filesystem>
 #include <set>
 #include <algorithm>
 #include <numeric>
-#include <chrono>
-#include <thread>
-#include <future>
-#include <functional>
 
 #include "GlobalObjects.h"
+#include "Transformations.h"
 #include "GlobalSynchronization.h"
 #include "GraphicsObjects.h"
 #include "Models.h"

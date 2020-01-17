@@ -1,11 +1,14 @@
 #include "camera.h"
 #include "GlobalObjects.h"
+#include "Transformations.h"
+#include <cmath>
 
 Camera::Camera()
 {
 	using namespace CameraSettings;
 
-	m_position = defaultPosition;
+	m_position = {};
+	m_focusPosition = defaultFocusPosition;
 	m_front = defaultFront;
 
 	m_yaw = defaultYaw;
@@ -20,6 +23,8 @@ Camera::Camera()
 	m_viewHeight = Settings::Window::defaultHeight;
 
 	m_speed = defaultSpeed;
+	m_circleDistance = defaultCircleDistance;
+	m_circleOffsetPosition = {};
 
 	updateMouse(m_viewWidth / 2, m_viewHeight / 2);
 	updateVectors();
@@ -87,9 +92,20 @@ void Camera::update()
 	if (m_viewWidth != 0 && m_viewHeight != 0)
 	{
 		if (App::input.keyboard.heldKey(GLFW_KEY_LEFT_ALT))
+		{
 			updateRotations();
+			App::window.disableCursor();
+
+			m_speed = 0;
+		}
 		else
-			updatePosition();
+		{
+			App::window.showCursor();
+
+			m_speed = CameraSettings::defaultSpeed;
+		}
+		updatePosition();
+
 
 		updateMatrices();
 		updateMouse(mousePosition);
@@ -149,6 +165,16 @@ void Camera::updateMouseRay()
 
 void Camera::updatePosition()
 {
+	// wow, just trying new fatures
+	if (UI::getInstance().mouseOverlap())
+		return;
+	updateFocusPosition();
+	// circle dist
+	m_position = m_focusPosition + m_circleOffsetPosition;
+}
+
+void Camera::updateFocusPosition()
+{
 	double xNorm = 2.0 * m_mousePos.x / m_viewWidth - 1.0;
 	double yNorm = 2.0 * m_mousePos.y / m_viewHeight - 1.0;
 
@@ -159,26 +185,28 @@ void Camera::updatePosition()
 	if (!isInRange(xNorm, -1.0 + border, 1.0 - border))
 	{
 		double distance = lerp(0, xNorm - border, moveSpeed);
-		m_position.x -= sin(glm::radians(m_yaw)) * distance;
-		m_position.z += cos(glm::radians(m_yaw)) * distance;
+		m_focusPosition.x -= sin(m_yaw) * distance;
+		m_focusPosition.z += cos(m_yaw) * distance;
 	}
 	if (!isInRange(yNorm, -1.0 + border, 1.0 - border))
 	{
 		double distance = lerp(0, yNorm - border, moveSpeed);
-		m_position.x -= cos(glm::radians(m_yaw)) * distance;
-		m_position.z -= sin(glm::radians(m_yaw)) * distance;
+		m_focusPosition.x -= cos(m_yaw) * distance;
+		m_focusPosition.z -= sin(m_yaw) * distance;
 	}
 }
 
 void Camera::updateRotations()
 {
-	m_yaw += m_mouseOffset.x * App::time.deltaTime() * 100;
-	m_pitch -= m_mouseOffset.y * App::time.deltaTime() * 100;
+	m_yaw += m_mouseOffset.x * App::time.deltaTime();
+	m_pitch -= m_mouseOffset.y * App::time.deltaTime();
 
-	if (m_yaw > 180.0) m_yaw = -180.0;
-	else if (m_yaw < -180.0) m_yaw = 180.0;
+	const auto pi = glm::pi<double>();
+	if (m_yaw > pi) m_yaw = -pi;
+	else if (m_yaw < -pi) m_yaw = pi;
 
-	m_pitch = std::clamp(m_pitch, -60.0, 60.0);
+	// constrain to 90 degrees
+	m_pitch = std::clamp(m_pitch, -glm::half_pi<double>(), 0.0);
 
 	updateVectors();
 }
@@ -186,11 +214,18 @@ void Camera::updateRotations()
 void Camera::updateVectors()
 {
 	glm::dvec3 front;
-	front.x = cos(glm::radians(m_yaw)) * cos(glm::radians(m_pitch));
-	front.y = sin(glm::radians(m_pitch));
-	front.z = sin(glm::radians(m_yaw)) * cos(glm::radians(m_pitch));
+	front.x = cos(m_yaw) * cos(m_pitch);
+	front.y = sin(m_pitch);
+	front.z = sin(m_yaw) * cos(m_pitch);
 
-	m_front = glm::normalize(front);
-	m_right = glm::normalize(glm::cross(m_front, Transformations::VectorUp));
-	m_up = glm::normalize(glm::cross(m_right, m_front));
+	m_front =	glm::normalize(front);
+	m_right =	glm::normalize(glm::cross(m_front, Transformations::VectorUp));
+	m_up	=	glm::normalize(glm::cross(m_right, m_front));
+
+	updateCircleOffsetPosition();
+}
+
+void Camera::updateCircleOffsetPosition()
+{
+	m_circleOffsetPosition = -m_front * m_circleDistance;
 }

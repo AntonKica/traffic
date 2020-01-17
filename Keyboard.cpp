@@ -33,11 +33,11 @@ void Keyboard::initializeKeys()
 		m_keyRecords[curKey] = IL::Record();
 }
 
-void Keyboard::setKeyValue(IL::GLFW_KEYCODE key, bool value)
+void Keyboard::setKeyValue(IL::GLFW_KEYCODE key, IL::GLFW_KEY_STATE state)
 {
-	auto& [_, record] = *m_keyRecords.find(key);
+	auto& [_, keyState] = *m_keyRecords.find(key);
 
-	record.pressed = value;
+	keyState.pressed = (state == GLFW_PRESS) || (state == GLFW_REPEAT);
 }
 
 void Keyboard::updateRecords()

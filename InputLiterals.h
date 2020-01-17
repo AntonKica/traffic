@@ -5,10 +5,11 @@ namespace InputLiterals
 {
 	using GLFW_VALUE = uint32_t;
 	using GLFW_KEYCODE = uint16_t;
+	using GLFW_KEY_STATE = GLFW_VALUE;
 
 	struct Record
 	{
-		bool pressed = false;
+		GLFW_KEY_STATE pressed = false;
 
 		bool pressedCurrentFrame = false;
 		bool pressedLastFrame = false;
