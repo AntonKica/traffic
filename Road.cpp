@@ -486,6 +486,17 @@ Shape::Axis SegmentedShape::getAxis() const
 	return axis;
 }
 
+Points SegmentedShape::getAxisPoints() const
+{
+	Points axis(m_joints.size());
+
+	auto axisIter = axis.begin();
+	for (const auto& joint : m_joints)
+		*axisIter++ = joint.centre;
+
+	return axis;
+}
+
 Shape::AxisPoint  SegmentedShape::getHead() const
 {
 	return m_joints.back().centre;
@@ -1059,6 +1070,11 @@ bool Road::sitsOnEndPoints(const Point& point) const
 Shape::Axis Road::getAxis() const
 {
 	return m_shape.getAxis();
+}
+
+Points Road::getAxisPoints() const
+{
+	return m_shape.getAxisPoints();
 }
 
 void Road::construct(Shape::Axis axisPoints, uint32_t laneCount, float width, std::string texture)

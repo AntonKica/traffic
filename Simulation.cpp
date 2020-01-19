@@ -3,7 +3,10 @@
 void Simulation::updateSimulation()
 {
 	for (auto& object : m_simulationAreaObjects)
-		object->update();
+	{
+		if(object->isActive())
+			object->update();
+	}
 }
 
 void Simulation::registerObject(pSimulationObject toRegister)

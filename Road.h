@@ -40,6 +40,7 @@ public:
 	const Joints& getShape() const;
 	Points getSkeleton() const;
 	Shape::Axis getAxis() const;
+	Points getAxisPoints() const;
 	Shape::AxisPoint getHead() const;
 	Shape::AxisPoint getTail() const;
 	bool sitsOnHead(const Point& point) const;
@@ -120,6 +121,7 @@ public:
 	RoadParameters getParameters() const;
 	bool sitsOnEndPoints(const Point& point) const;
 	Shape::Axis getAxis() const;
+	Points getAxisPoints() const;
 
 	//
 	void construct(Shape::Axis axisPoints, uint32_t laneCount, float width, std::string texture);

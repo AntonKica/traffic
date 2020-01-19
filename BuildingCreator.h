@@ -1,6 +1,7 @@
 #pragma once
 #include "BasicCreator.h"
 #include "BasicBuilding.h"
+#include "SimulationObject.h"
 #include <map>
 #include <memory>
 
@@ -31,6 +32,34 @@ namespace BC
 
 	};
 }
+class BuildingCreator;
+class PlacementRectangle
+	: public SimulationObject
+{
+public:
+	PlacementRectangle(SimulationArea* pSimulationArea);
+	virtual void update() override;
+
+	void setSize(glm::dvec2 newSize);
+	glm::dvec3 getPaddedPosition() const;
+	glm::dvec3 getPaddedRotation() const;
+
+private:
+	void updatePosition();
+	void updateVertices();
+	void updateGraphicsData();
+	void updatePhysicsData();
+	void updatePaddings();
+
+	bool m_changedSize = false;
+	glm::dvec2 m_rectangleSize;
+	std::array<Point, 4> m_vertices;
+
+	glm::dvec3 m_paddedPosition;
+	glm::dvec3 m_paddedRotation;
+
+	SimulationArea* m_pSimulationArea;
+};
 
 class BuildingCreator
 	: public BasicCreator<BuildingCreatorUI>
@@ -38,8 +67,9 @@ class BuildingCreator
 public:
 	BuildingCreator(ObjectManager* objManager);
 	void prepareResources();
+	void setResource(BC::Resource* resource);
 
-	void update() override;
+	void update();
 protected:
 	virtual void setCreatorModeAction() override;
 	virtual void setActiveAction() override;
@@ -47,6 +77,7 @@ protected:
 private:
 	std::map<BasicBuilding::BuildingType, std::vector<BC::Resource>> m_resources;
 
+	PlacementRectangle m_placementRectangle;
 	BC::Resource* m_currentResource;
 };
 

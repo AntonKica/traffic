@@ -12,26 +12,43 @@ public:
 	virtual ~SimulationObject();
 	SimulationObject(const SimulationObject& copy);
 	SimulationObject(SimulationObject&& move);
-	SimulationObject& operator=(const SimulationObject & copy) = default;
-	SimulationObject& operator=(SimulationObject && move) = default;
+	SimulationObject& operator=(const SimulationObject & copy);
+	SimulationObject& operator=(SimulationObject && move);
 
 	virtual void update();
 
 	GraphicsComponent& getGraphicsComponent();
 	PhysicsComponent& getPhysicsComponent();
+
+	void disableComponents();
+	void disableGraphics();
+	void disablePhysics();
+	void enableComponents();
+	void enableGraphics();
+	void enablePhysics();
+
+
 	glm::vec3 getPosition() const;
 	glm::vec3 getRotation() const;
-	void setPosition(const glm::vec3& newPosition);
-	void setRotation(const glm::vec3& newRotation);
+	void setPosition(glm::vec3 newPosition);
+	void setRotation(glm::vec3 newRotation);
+	bool isActive() const;
+	void setActive(bool active);
 
 	void setupModel(const Info::ModelInfo& modelInfo, bool activateOnCreation);
-
 private:
-	GraphicsComponent m_graphicsComponent;
-	PhysicsComponent m_physicsComponent;
+	struct
+	{
+		GraphicsComponent graphics;
+		PhysicsComponent physics;
+	} m_components;
 
 	glm::vec3 m_position;
 	glm::vec3 m_rotation;
+
+	bool m_active = false;
+	bool m_disableGraphics = false;
+	bool m_disablePhysics = false;
 };
 using pSimulationObject = SimulationObject*;
 

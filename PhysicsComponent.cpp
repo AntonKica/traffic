@@ -2,6 +2,60 @@
 #include "GlobalObjects.h"
 
 
+void PhysicsComponent::updateSelfCollisionTags(const std::vector<std::string>& newSelfTags)
+{
+	Info::PhysicsComponentUpdateTags tags;
+	tags.newTags = newSelfTags;
+
+	updateCollisionTags(tags);
+}
+
+void PhysicsComponent::updateOtherCollisionTags(const std::vector<std::string>& newOtherTags)
+{
+	Info::PhysicsComponentUpdateTags tags;
+	tags.newOtherTags = newOtherTags;
+
+	updateCollisionTags(tags);
+}
+
+void PhysicsComponent::updateCollisionTags(const Info::PhysicsComponentUpdateTags& updateInfo)
+{
+	App::physics.updatePhysicsComponentCollisionTags(m_core, updateInfo);
+}
+
+void PhysicsComponent::setActive(bool active)
+{
+	m_core->active = active;
+}
+
+bool PhysicsComponent::isActive() const
+{
+	return m_core->active;
+}
+
+bool PhysicsComponent::inCollision() const
+{
+	return !m_core->inCollisionWith.empty();
+}
+
+SimulationObject* PhysicsComponent::inCollision(std::string tag) const
+{
+	auto flag = App::physics.getTagFlag(tag);
+	auto result = m_core->inCollisionWith.find(flag);
+
+	return result != m_core->inCollisionWith.end() ? result->second : nullptr;
+}
+
+Collider2D& PhysicsComponent::collider()
+{
+	return m_core->collider2D;
+}
+
+const Collider2D& PhysicsComponent::collider() const
+{
+	return m_core->collider2D;
+}
+
 PhysicsComponent::PhysicsComponent()
 {
 	m_core = App::physics.createPhysicsComponentCore();
@@ -20,6 +74,8 @@ PhysicsComponent::PhysicsComponent(const PhysicsComponent& copy)
 
 	if (copy.m_core)
 		m_core = App::physics.copyCreatePhysicsComponentCore(copy.m_core);
+
+	m_core->pOwner = m_pOwner;
 }
 
 PhysicsComponent::PhysicsComponent(PhysicsComponent&& move) noexcept
@@ -48,6 +104,8 @@ PhysicsComponent& PhysicsComponent::operator=(const PhysicsComponent& copy)
 			App::physics.copyCreatePhysicsComponentCore(copy.m_core);
 	}
 
+	m_core->pOwner = m_pOwner;
+
 	return *this;
 }
 
@@ -63,53 +121,8 @@ PhysicsComponent& PhysicsComponent::operator=(PhysicsComponent&& move) noexcept
 	return *this;
 }
 
-void PhysicsComponent::updateSelfCollisionTags(const std::vector<std::string>& newSelfTags)
+void PhysicsComponent::setOwner(SimulationObject* pNewOwner)
 {
-	Info::PhysicsComponentUpdateTags tags;
-	tags.newTags = newSelfTags;
-
-	updateCollisionTags(tags);
-}
-
-void PhysicsComponent::updateOtherCollisionTags(const std::vector<std::string>& newOtherTags)
-{
-	Info::PhysicsComponentUpdateTags tags;
-	tags.newOtherTags = newOtherTags;
-
-	updateCollisionTags(tags);
-}
-
-void PhysicsComponent::updateCollisionTags(const Info::PhysicsComponentUpdateTags& updateInfo)
-{
-	App::physics.updatePhysicsComponentCollisionTags(m_core, updateInfo);
-}
-
-void PhysicsComponent::setActive(bool active)
-{
-	m_core->active = active;
-}
-
-bool PhysicsComponent::active() const
-{
-	return m_core->active;
-}
-
-bool PhysicsComponent::inCollision() const
-{
-	return m_core->inCollisionWith != 0;
-}
-
-bool PhysicsComponent::inCollision(std::string tag) const
-{
-	return m_core->inCollisionWith & App::physics.getTagFlag(tag);
-}
-
-Collider2D& PhysicsComponent::collider()
-{
-	return m_core->collider2D;
-}
-
-const Collider2D& PhysicsComponent::collider() const
-{
-	return m_core->collider2D;
+	m_pOwner = pNewOwner;
+	m_core->pOwner = m_pOwner;
 }

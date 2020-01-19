@@ -328,6 +328,7 @@ void SimulationArea::play()
 	{
 		auto closestRoad = findClosestRoadFromBuilding(house);
 		SimpleCar car;
+		car.setActive(true);
 		car.setPosition(house.getPosition());
 		car.drive(*closestRoad);
 

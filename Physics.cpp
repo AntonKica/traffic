@@ -66,6 +66,7 @@ void Physics::copyPhysicsComponentCore(const pPhysicsComponentCore& copyPhysicsC
 	unregisterPhysicsCoreFromTags(destinationPhysicsCore);
 
 	*destinationPhysicsCore = *copyPhysicsCore;
+	destinationPhysicsCore->pOwner = nullptr;
 	// register raw
 	registerPhysicsCoreTags(destinationPhysicsCore, copyPhysicsCore->tag);
 }
@@ -166,7 +167,7 @@ void Physics::updateCollisions()
 	{
 		for (auto& comp : comps)
 		{
-			comp->inCollisionWith = 0;
+			comp->inCollisionWith.clear();
 		}
 	}
 
@@ -176,8 +177,6 @@ void Physics::updateCollisions()
 		// each component
 		for (auto& firstComponent : firstComponents)
 		{
-			bool collided = false;
-
 			// or if no othr collisions skip
 			if (!firstComponent->active || !firstComponent->otherTags)
 				continue;
@@ -198,16 +197,10 @@ void Physics::updateCollisions()
 					if (firstComponent->collider2D.collides(secondComponent->collider2D))
 					{
 						// set only with set flags
-						firstComponent->inCollisionWith |= secondTag;
-						collided = true;
-					}
-
-					if (collided)
+						firstComponent->inCollisionWith.emplace(secondTag, secondComponent->pOwner);
 						break;
+					}
 				}
-
-				if (collided)
-					break;
 			}
 		}
 
@@ -225,7 +218,7 @@ uint32_t Physics::createTagFlag(std::string tagName)
 
 bool Physics::compatibleTags(uint32_t firstFlags, uint32_t secondFlags) const
 {
-	return firstFlags & secondFlags != 0;
+	return (firstFlags & secondFlags) != 0;
 }
 
 void Physics::registerPhysicsCoreTags(pPhysicsComponentCore& physicsCore, const std::vector<std::string>& tags)
