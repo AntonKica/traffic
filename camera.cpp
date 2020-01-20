@@ -91,7 +91,7 @@ void Camera::update()
 
 	if (m_viewWidth != 0 && m_viewHeight != 0)
 	{
-		if (App::input.keyboard.heldKey(GLFW_KEY_LEFT_ALT))
+		if (App::input.mouse.heldButton(GLFW_MOUSE_BUTTON_MIDDLE))
 		{
 			updateRotations();
 			App::window.disableCursor();

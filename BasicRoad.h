@@ -23,6 +23,16 @@ namespace Shape
 	using AxisSegment = std::array<AxisPoint, 2>;
 }
 
+class BasicRoad;
+struct Path
+{
+	Points points;
+	BasicRoad* connectsTo = nullptr;
+	enum class Side { LEFT, RIGHT };
+	Side side;
+
+};
+
 class BasicRoad :
 	public SimulationObject
 {
@@ -65,7 +75,6 @@ public:
 
 	virtual Shape::AxisPoint getAxisPoint(Point pointOnRoad) const = 0;
 
-	using Path = Points;
 	virtual void createPaths() = 0;
 	Path getClosestPath(Point pt) const;
 protected:
@@ -89,12 +98,15 @@ protected:
 	};
 
 	//Connection& findConnection(BasicRoad* connectedRoad);
-	Connection& getConnection(Connection connection);
-	Connection& getConnection(BasicRoad* road, Point point);
+	const Connection& getConnection(Connection connection) const;
+	const Connection& getConnection(BasicRoad* road, Point point) const;
 	/*
 	* Carefully with this
 	*/
 	const Connection& getConnection(Point point) const;
+	const Connection* findConnection(Point point) const;
+	BasicRoad* findConnectedRoad(Point point) const;
+
 	void connect(BasicRoad* connectionRoad, Point connectionPoint);
 	void addConnection(Connection connection);
 	void copyConnections(BasicRoad* destinationRoad) const;
@@ -103,7 +115,7 @@ protected:
 	void disconnectAll();
 
 	std::vector<Connection> m_connections;
-	std::vector<Path> m_paths;
+	std::unordered_map<Path::Side, std::vector<Path>> m_paths;
 private:
 };
 

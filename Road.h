@@ -104,6 +104,7 @@ private:
 	std::map<SegmentPart, Point> m_endDirectionPoints;
 };
 
+class BasicBuilding;
 class Road :
 	public BasicRoad
 {
@@ -117,6 +118,19 @@ public:
 		std::string texture;
 	};
 public:
+	// overrided
+	ConnectionPossibility getConnectionPossibility(Line connectionLine, Shape::AxisPoint connectionPoint) const override;
+
+	glm::vec3 getDirectionPointFromConnectionPoint(Point connectionPoint) override;
+
+	virtual void destroy() override;
+	virtual bool hasBody() const override;
+	bool sitsPointOn(Point point) const override;
+	virtual RoadType getRoadType() const override;
+	virtual Shape::AxisPoint getAxisPoint(Point pointOnRoad) const override;
+
+	virtual void createPaths() override;
+
 	// Getters
 	RoadParameters getParameters() const;
 	bool sitsOnEndPoints(const Point& point) const;
@@ -138,22 +152,19 @@ public:
 	using CutProduct = SplitProduct;
 	CutProduct cut(SegmentedShape::ShapeCut cutPoints);
 
-	// overrided
-	ConnectionPossibility getConnectionPossibility(Line connectionLine, Shape::AxisPoint connectionPoint) const override;
-
-	glm::vec3 getDirectionPointFromConnectionPoint(Point connectionPoint) override;
-
-	virtual void destroy() override;
-	virtual bool hasBody() const override;
-	bool sitsPointOn(Point point) const override;
-	virtual RoadType getRoadType() const override;
-	virtual Shape::AxisPoint getAxisPoint(Point pointOnRoad) const override;
-
-	virtual void createPaths() override;
+	void resetNearbyBuildings();
+	void addNearbyByuilding(BasicBuilding* nearbyBuilding, Point entryPoint);
 private:
-
 	SegmentedShape m_shape;
 	RoadParameters m_parameters;
+
+	struct NearbyBuildingPlacement
+	{
+		BasicBuilding* building;
+		Point entryPoint;
+	};
+
+	std::vector<NearbyBuildingPlacement> m_nearbyBuildings;
 	// just for cause
 };
 

@@ -60,12 +60,12 @@ uint32_t BasicRoad::getConnectedCount() const
 
 
 
-BasicRoad::Connection& BasicRoad::getConnection(Connection connection)
+const BasicRoad::Connection& BasicRoad::getConnection(Connection connection) const
 {
 	return *std::find(std::begin(m_connections), std::end(m_connections), connection);
 }
 
-BasicRoad::Connection& BasicRoad::getConnection(BasicRoad* road, Point point)
+const BasicRoad::Connection& BasicRoad::getConnection(BasicRoad* road, Point point) const
 {
 	return getConnection({ road, point });
 }
@@ -76,6 +76,20 @@ BasicRoad::Connection& BasicRoad::getConnection(BasicRoad* road, Point point)
 const BasicRoad::Connection& BasicRoad::getConnection(Point point) const
 {
 	return *std::find(std::begin(m_connections), std::end(m_connections), point);
+}
+
+const BasicRoad::Connection* BasicRoad::findConnection(Point point) const
+{
+	auto findIter = std::find(std::begin(m_connections), std::end(m_connections), point);
+
+	return findIter != std::end(m_connections) ? &*findIter : nullptr;
+}
+
+BasicRoad* BasicRoad::findConnectedRoad(Point point) const
+{
+	auto findIter = std::find(std::begin(m_connections), std::end(m_connections), point);
+
+	return findIter != std::end(m_connections) ? findIter->connected : nullptr;
 }
 
 void BasicRoad::connect(BasicRoad* connectionRoad, Point connectionPoint)
@@ -129,13 +143,7 @@ void BasicRoad::disconnectAll()
 	}
 }
 
-
-bool BasicRoad::hasBody() const
-{
-	return false;
-}
-
-BasicRoad::Path BasicRoad::getClosestPath(Point pt) const
+Path BasicRoad::getClosestPath(Point pt) const
 {
 	auto closestTraiPoint = [](const Trail& trail, Point pt)
 	{
@@ -144,15 +152,26 @@ BasicRoad::Path BasicRoad::getClosestPath(Point pt) const
 		return getClosestPointToLine(p1, p2, pt);
 	};
 
-	const Path* pPath = &*m_paths.begin();
-	Point minPt = closestTraiPoint(*pPath, pt);
+	const Path* pPath = nullptr;
+	Point minPt = {};
 
-	for (const auto& path : m_paths)
+	for (auto& [side, paths] : m_paths)
 	{
-		auto curPt = closestTraiPoint(path, pt);
+		for (auto& path : paths)
+		{
+			if (!pPath)
+			{
+				pPath = &path;
+				minPt = closestTraiPoint(pPath->points, pt);
+			}
+			else
+			{
+				auto curPt = closestTraiPoint(path.points, pt);
 
-		if (glm::length(pt - curPt) < glm::length(pt - minPt))
-			pPath = &path;
+				if (glm::length(pt - curPt) < glm::length(pt - minPt))
+					pPath = &path;
+			}
+		}
 	}
 
 	return *pPath;

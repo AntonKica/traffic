@@ -525,15 +525,6 @@ bool SegmentedShape::sitsOnTailOrHead(const Point& point) const
 bool SegmentedShape::sitsOnShape(const Point& point) const
 {
 	return selectSegment(point).has_value();
-	/*for (int index = 0; index + 1 < m_joints.size(); ++index)
-	{
-		Points vertices = {
-			m_joints[index].side.left, m_joints[index + 1].side.left, 
-			m_joints[index + 1].side.right, m_joints[index].side.right};
-		if (polygonPointCollision(vertices, point))
-			return true;
-	}
-	return false;*/
 }
 
 bool SegmentedShape::sitsOnAxis(const Point& point) const
@@ -1057,187 +1048,6 @@ void SegmentedShape::createShape(const Points& axis)
 	}
 }
 
-Road::RoadParameters Road::getParameters() const
-{
-	return m_parameters;
-}
-
-bool Road::sitsOnEndPoints(const Point& point) const
-{
-	return m_shape.sitsOnTailOrHead(point);
-}
-
-Shape::Axis Road::getAxis() const
-{
-	return m_shape.getAxis();
-}
-
-Points Road::getAxisPoints() const
-{
-	return m_shape.getAxisPoints();
-}
-
-void Road::construct(Shape::Axis axisPoints, uint32_t laneCount, float width, std::string texture)
-{
-	Points points(std::begin(axisPoints), std::end(axisPoints));
-
-	construct(points, laneCount, width, texture);
-}
-
-void Road::construct(Points creationPoints, uint32_t laneCount, float width, std::string texture)
-{
-	RoadParameters parameters;
-	parameters.laneCount = laneCount;
-	parameters.width = width;
-	parameters.texture = texture;
-
-	construct(creationPoints, parameters);
-}
-
-void Road::construct(Points creationPoints, const RoadParameters& parameters)
-{
-	if (creationPoints.empty())
-	{
-		m_shape = SegmentedShape();
-	}
-	else
-	{
-		m_parameters = parameters;
-
-		SegmentedShape::OrientedConstructionPoints cps;
-		cps.points = creationPoints;
-		for (const auto& cp : m_connections)
-		{
-			if (approxSamePoints(creationPoints.front(), cp.point))
-				cps.tailDirectionPoint = cp.connected->getDirectionPointFromConnectionPoint(creationPoints.front());
-			else
-				cps.headDirectionPoint = cp.connected->getDirectionPointFromConnectionPoint(creationPoints.back());
-		}
-		m_shape.construct(cps, m_parameters.width);
-
-		// model
-		auto mesh = SegmentedShape::createMesh(m_shape);
-		mesh.textures[VD::TextureType::DIFFUSE] = m_parameters.texture;
-
-		Model model;
-		model.meshes.push_back(mesh);
-
-		Info::ModelInfo modelInfo;
-		modelInfo.model = &model;
-
-		setupModel(modelInfo, true);
-		//createPaths();
-
-		auto& physicComponent = getPhysicsComponent();
-		physicComponent.setActive(true);
-		auto pts = m_shape.getSkeleton();
-		physicComponent.collider().setBoundaries(Points(pts.begin(), pts.end()));
-
-		Info::PhysicsComponentUpdateTags updateTags;
-		updateTags.newTags = { "ROAD" };
-		updateTags.newOtherTags = {};
-		physicComponent.updateCollisionTags(updateTags);
-	}
-}
-
-void Road::reconstruct()
-{
-	auto axis = m_shape.getAxis();
-	Points points(std::begin(axis), std::end(axis));
-
-	construct(points, m_parameters);
-}
-
-void Road::mergeWith(Road& road)
-{
-	m_shape.mergeWith(road.m_shape);
-	road.transferConnections(this);
-	reconstruct();
-}
-Road::SplitProduct Road::split(Shape::AxisPoint splitPoint)
-{
-
-	Road::SplitProduct product;
-	if (auto optSplit = m_shape.split(splitPoint))
-	{
-		Road road;
-		// // validate connections
-		for(auto& connection : m_connections)
-		{
-			if (!sitsOnEndPoints(connection.point))
-			{
-				road.addConnection(connection);
-				//product.connection = connection;
-				dismissConnection(connection);
-			}
-		}
-		// then construct
-		road.construct(optSplit.value().getAxis(), m_parameters.laneCount, m_parameters.width, m_parameters.texture);
-
-		product.road = road;
-	}
-	// reconstruct t the end, may be bettter performance, who knows
-	reconstruct();
-
-	return product;
-}
-
-
-Shape::AxisPoint Road::shorten(Shape::AxisPoint roadEnd, float size)
-{
-	auto shortPoint = m_shape.shorten(roadEnd, size);
-	reconstruct();
-	return shortPoint;
-}
-
-void Road::extend(Shape::AxisPoint roadEnd, Point point)
-{
-	m_shape.extend(roadEnd, point);
-	reconstruct();
-}
-
-SegmentedShape::ShapeCut Road::getCut(Shape::AxisPoint roadAxisPoint) const
-{
-	return m_shape.getShapeCut(roadAxisPoint, m_parameters.width);
-}
-
-Road::CutProduct Road::cut(SegmentedShape::ShapeCut cutPoints)
-{
-	Road::CutProduct product;
-	if (auto optSplit = m_shape.cut(cutPoints))
-	{
-		Road road;
-		// // validate connections
-		for (auto& connection : m_connections)
-		{
-			if (!sitsOnEndPoints(connection.point))
-			{
-				road.addConnection(connection);
-				dismissConnection(connection);
-			}
-		}
-		// then construct
-		road.construct(optSplit.value().getAxis(), m_parameters.laneCount, m_parameters.width, m_parameters.texture);
-		reconstruct();
-
-		product.road = road;
-
-	}
-	else if (m_shape.getAxis().size()) // purge connections
-	{
-		for (auto& connection : m_connections)
-		{
-			if (!sitsOnEndPoints(connection.point))
-				dismissConnection(connection);
-		}
-
-		reconstruct();
-
-	}
-
-	return product;
-}
-
 BasicRoad::ConnectionPossibility Road::getConnectionPossibility(Line connectionLine, Shape::AxisPoint connectionPoint) const
 {
 	ConnectionPossibility connectionPossibility{};
@@ -1381,7 +1191,7 @@ Points createSubLineFromAxis(const Points& axis, const Points& line, float perce
 	{
 		const auto dir = glm::normalize(line[index] - axis[index]);
 		const auto dist = glm::length(line[index] - axis[index]);
-		newPoints[index] = axis[index] + dir * dist * percentageDistanceFromAxis;
+		newPoints[index] = axis[index] + (dir * dist * percentageDistanceFromAxis);
 	}
 
 	return newPoints;
@@ -1393,7 +1203,7 @@ void Road::createPaths()
 	float offsetPerLane = 1.0 / m_parameters.laneCount;
 	float startOffset = offsetPerLane;
 
-	auto sortToLeftAndRightPoints = [](const Points & pts)
+	auto sortToLeftAndRightPoints = [](const Points& pts)
 	{
 		Points leftPts(pts.size() / 2);
 		auto leftIt = leftPts.begin();
@@ -1413,24 +1223,232 @@ void Road::createPaths()
 	const auto [leftLanePts, rightLanePts] = sortToLeftAndRightPoints(m_shape.getSkeleton());
 
 	// transform to normal points
-	Points axis;
-	{
-		const auto axisPoints = m_shape.getAxis();
-		std::transform(std::begin(axisPoints), std::end(axisPoints), std::back_inserter(axis),
-			[](const Shape::AxisPoint& ap)
-			{
-				return Point(ap);
-			});
-	}
+	Points axis = m_shape.getAxisPoints();
+
 	// supposse we have two lanes
 	m_paths.clear();
 	for (int i = 0; i < m_parameters.laneCount / 2; ++i)
 	{
-		auto leftLine = createSubLineFromAxis(leftLanePts, axis, startOffset + offsetPerLane * i);
-		auto rightLine = createSubLineFromAxis(rightLanePts, axis,startOffset + offsetPerLane * i);
-		std::reverse(std::begin(rightLine), std::end(rightLine));
+		{
+			auto leftLine = createSubLineFromAxis(leftLanePts, axis, startOffset + offsetPerLane * i);
 
-		m_paths.insert(m_paths.begin(), Path(leftLine.begin(), leftLine.end()));
-		m_paths.insert(m_paths.end(), Path(rightLine.begin(), rightLine.end()));
+			Path leftPath;
+			leftPath.side = Path::Side::LEFT;
+			leftPath.points = Points(leftLine.rbegin(), leftLine.rend());
+			leftPath.connectsTo = findConnectedRoad(axis.front());
+
+			m_paths[Path::Side::LEFT].push_back(leftPath);
+		}
+
+		{
+			auto rightLine = createSubLineFromAxis(rightLanePts, axis, startOffset + offsetPerLane * i);
+
+			Path rightPath;
+			rightPath.side = Path::Side::RIGHT;
+			rightPath.points = Points(rightLine.begin(), rightLine.end());
+			rightPath.connectsTo = findConnectedRoad(axis.back());
+
+			m_paths[Path::Side::RIGHT].push_back(rightPath);
+		}
 	}
+}
+
+Road::RoadParameters Road::getParameters() const
+{
+	return m_parameters;
+}
+
+bool Road::sitsOnEndPoints(const Point& point) const
+{
+	return m_shape.sitsOnTailOrHead(point);
+}
+
+Shape::Axis Road::getAxis() const
+{
+	return m_shape.getAxis();
+}
+
+Points Road::getAxisPoints() const
+{
+	return m_shape.getAxisPoints();
+}
+
+void Road::construct(Shape::Axis axisPoints, uint32_t laneCount, float width, std::string texture)
+{
+	Points points(std::begin(axisPoints), std::end(axisPoints));
+
+	construct(points, laneCount, width, texture);
+}
+
+void Road::construct(Points creationPoints, uint32_t laneCount, float width, std::string texture)
+{
+	RoadParameters parameters;
+	parameters.laneCount = laneCount;
+	parameters.width = width;
+	parameters.texture = texture;
+
+	construct(creationPoints, parameters);
+}
+
+void Road::construct(Points creationPoints, const RoadParameters& parameters)
+{
+	if (creationPoints.empty())
+	{
+		m_shape = SegmentedShape();
+	}
+	else
+	{
+		m_parameters = parameters;
+
+		SegmentedShape::OrientedConstructionPoints cps;
+		cps.points = creationPoints;
+		for (const auto& cp : m_connections)
+		{
+			if (approxSamePoints(creationPoints.front(), cp.point))
+				cps.tailDirectionPoint = cp.connected->getDirectionPointFromConnectionPoint(creationPoints.front());
+			else
+				cps.headDirectionPoint = cp.connected->getDirectionPointFromConnectionPoint(creationPoints.back());
+		}
+		m_shape.construct(cps, m_parameters.width);
+
+		// graphics model
+		{
+			auto mesh = SegmentedShape::createMesh(m_shape);
+			mesh.textures[VD::TextureType::DIFFUSE] = m_parameters.texture;
+
+			Model model;
+			model.meshes.push_back(mesh);
+
+			Info::ModelInfo modelInfo;
+			modelInfo.model = &model;
+
+			setupModel(modelInfo, true);
+		}
+		//createPaths();
+
+		// physics
+		{
+			auto& physicComponent = getPhysicsComponent();
+			physicComponent.setActive(true);
+			auto pts = m_shape.getSkeleton();
+			physicComponent.collider().setBoundaries(Points(pts.begin(), pts.end()));
+
+			Info::PhysicsComponentUpdateTags updateTags;
+			updateTags.newTags = { "ROAD" };
+			updateTags.newOtherTags = {};
+			physicComponent.updateCollisionTags(updateTags);
+		}
+	}
+}
+
+void Road::reconstruct()
+{
+	auto axis = m_shape.getAxis();
+	Points points(std::begin(axis), std::end(axis));
+
+	construct(points, m_parameters);
+}
+
+void Road::mergeWith(Road& road)
+{
+	m_shape.mergeWith(road.m_shape);
+	road.transferConnections(this);
+	reconstruct();
+}
+Road::SplitProduct Road::split(Shape::AxisPoint splitPoint)
+{
+
+	Road::SplitProduct product;
+	if (auto optSplit = m_shape.split(splitPoint))
+	{
+		Road road;
+		// // validate connections
+		for(auto& connection : m_connections)
+		{
+			if (!sitsOnEndPoints(connection.point))
+			{
+				road.addConnection(connection);
+				//product.connection = connection;
+				dismissConnection(connection);
+			}
+		}
+		// then construct
+		road.construct(optSplit.value().getAxis(), m_parameters.laneCount, m_parameters.width, m_parameters.texture);
+
+		product.road = road;
+	}
+	// reconstruct t the end, may be bettter performance, who knows
+	reconstruct();
+
+	return product;
+}
+
+
+Shape::AxisPoint Road::shorten(Shape::AxisPoint roadEnd, float size)
+{
+	auto shortPoint = m_shape.shorten(roadEnd, size);
+	reconstruct();
+	return shortPoint;
+}
+
+void Road::extend(Shape::AxisPoint roadEnd, Point point)
+{
+	m_shape.extend(roadEnd, point);
+	reconstruct();
+}
+
+SegmentedShape::ShapeCut Road::getCut(Shape::AxisPoint roadAxisPoint) const
+{
+	return m_shape.getShapeCut(roadAxisPoint, m_parameters.width);
+}
+
+Road::CutProduct Road::cut(SegmentedShape::ShapeCut cutPoints)
+{
+	Road::CutProduct product;
+	if (auto optSplit = m_shape.cut(cutPoints))
+	{
+		Road road;
+		// // validate connections
+		for (auto& connection : m_connections)
+		{
+			if (!sitsOnEndPoints(connection.point))
+			{
+				road.addConnection(connection);
+				dismissConnection(connection);
+			}
+		}
+		// then construct
+		road.construct(optSplit.value().getAxis(), m_parameters.laneCount, m_parameters.width, m_parameters.texture);
+		reconstruct();
+
+		product.road = road;
+
+	}
+	else if (m_shape.getAxis().size()) // purge connections
+	{
+		for (auto& connection : m_connections)
+		{
+			if (!sitsOnEndPoints(connection.point))
+				dismissConnection(connection);
+		}
+
+		reconstruct();
+
+	}
+
+	return product;
+}
+
+void Road::resetNearbyBuildings()
+{
+	m_nearbyBuildings.clear();
+}
+
+void Road::addNearbyByuilding(BasicBuilding* nearbyBuilding, Point entryPoint)
+{
+	NearbyBuildingPlacement placement;
+	placement.building = nearbyBuilding;
+	placement.entryPoint = entryPoint;
+
+	m_nearbyBuildings.emplace_back(placement);
 }

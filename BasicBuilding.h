@@ -2,6 +2,7 @@
 #include "SimulationObject.h"
 #include <string>
 
+class Road;
 class BasicBuilding :
 	public SimulationObject
 {
@@ -15,9 +16,17 @@ public:
 	BasicBuilding();
 
 	virtual void create(glm::vec3 position, std::string modelPath) = 0;
-protected:
-	//std::string getModelPath() const override;
-//private:
 
+	Road* getNearbyRoad() const;
+	void resetNearbyRoad();
+	void setNearbyRoad(Road* nearbyRoad, Point entryPoint);
+protected:
+	struct NearbyRoad
+	{
+		Road* road = nullptr;
+		Point entryPoint = {};
+	};
+
+	NearbyRoad m_nearbyRoad;
 };
 

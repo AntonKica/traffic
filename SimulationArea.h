@@ -125,6 +125,8 @@ private:
 
 	std::vector<SimpleCar> exampleCars;
 	const Road* findClosestRoadFromBuilding(const BasicBuilding& building) const;
+	void connectBuildingsAndRoads();
+	void connectBuildingToClosestRoad(BasicBuilding& building);
 	void play();
 	void edit();
 public:

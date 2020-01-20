@@ -33,7 +33,7 @@ void SimpleCar::update()
 
 void SimpleCar::drive(const BasicRoad& road)
 {
-	pathToTake = road.getClosestPath(getPosition());
+	pathToTake = road.getClosestPath(getPosition()).points;
 	speed = 7.0f;
 
 	Info::ModelInfo mInfo;

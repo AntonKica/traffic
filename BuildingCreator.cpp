@@ -92,6 +92,11 @@ glm::dvec3 PlacementRectangle::getPaddedRotation() const
 	return m_paddedRotation;
 }
 
+bool PlacementRectangle::paddedPosition() const
+{
+	return m_isPositionPadded;
+}
+
 void PlacementRectangle::updatePosition()
 {
 	auto optPosition = m_pSimulationArea->getMousePosition();
@@ -153,6 +158,8 @@ void PlacementRectangle::updatePaddings()
 
 	if (auto obj = pComp.inCollision("ROAD"))
 	{
+		m_isPositionPadded = true;
+
 		if (auto collisionRoad = dynamic_cast<Road*>(obj))
 		{
 			auto axis = collisionRoad->getAxisPoints();
@@ -203,7 +210,7 @@ void PlacementRectangle::updatePaddings()
 					auto myForward = glm::vec3(glm::sin(m_paddedRotation.x), 0.0, glm::cos(m_paddedRotation.x));
 					float angle = glm::acos(glm::dot(roadForward, myForward));
 
-					bool useHeight = glm::epsilonEqual(angle, glm::half_pi<float>(), glm::epsilon<float>());
+					bool useHeight = glm::epsilonEqual(angle, glm::half_pi<float>(), 0.01f);
 
 					const float sideWidth = useHeight ? m_rectangleSize.y : m_rectangleSize.x;
 					const float roadWidth = collisionRoad->getParameters().width;
@@ -218,6 +225,8 @@ void PlacementRectangle::updatePaddings()
 	}
 	else
 	{
+		m_isPositionPadded = false;
+
 		m_paddedPosition = getPosition();
 		m_paddedRotation = getRotation();
 	}
@@ -300,9 +309,20 @@ void BuildingCreator::update()
 	}
 
 	if (App::input.mouse.pressedButton(GLFW_MOUSE_BUTTON_LEFT) && 
-		!UI::getInstance().mouseOverlap() && 
-		!m_currentResource->prototype->getPhysicsComponent().inCollision())
+		!UI::getInstance().mouseOverlap())
 	{
+		// check collisions,
+		// basically if i in collision and if is padded but not same road, return
+		if (building.getPhysicsComponent().inCollision("ROAD"))
+		{
+			if (m_placementRectangle.paddedPosition() && 
+				building.getPhysicsComponent().inCollision("ROAD") != m_placementRectangle.getPhysicsComponent().inCollision("ROAD"))
+			{
+				return;
+			}
+		}
+
+
 		switch (m_currentResource->type)
 		{
 		case BasicBuilding::BuildingType::HOUSE:

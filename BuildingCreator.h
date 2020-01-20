@@ -43,7 +43,7 @@ public:
 	void setSize(glm::dvec2 newSize);
 	glm::dvec3 getPaddedPosition() const;
 	glm::dvec3 getPaddedRotation() const;
-
+	bool paddedPosition() const;
 private:
 	void updatePosition();
 	void updateVertices();
@@ -51,6 +51,7 @@ private:
 	void updatePhysicsData();
 	void updatePaddings();
 
+	bool m_isPositionPadded = false;
 	bool m_changedSize = false;
 	glm::dvec2 m_rectangleSize;
 	std::array<Point, 4> m_vertices;

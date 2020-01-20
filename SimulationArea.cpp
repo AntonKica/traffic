@@ -313,26 +313,87 @@ const Road* SimulationArea::findClosestRoadFromBuilding(const BasicBuilding& bui
 	return closestRoad;
 }
 
+void SimulationArea::connectBuildingsAndRoads()
+{
+	for (auto& building : m_objectManager.m_houses.data)
+		connectBuildingToClosestRoad(building);
+}
+
+void SimulationArea::connectBuildingToClosestRoad(BasicBuilding& building)
+{
+	const auto buildingPos = building.getPosition();
+
+	Road* closestRoad = nullptr;
+	Point closestRoadPoint = {};
+	for (auto& road : m_objectManager.m_roads.data)
+	{
+		const auto roadAxis = road.getAxisPoints();
+		const auto roadPoint = closestTraiPoint(roadAxis, buildingPos);
+
+		if (!closestRoad)
+		{
+			closestRoad = &road;
+			closestRoadPoint = roadPoint;
+		}
+		else
+		{
+			auto closestDistance = glm::length(buildingPos - closestRoadPoint);
+			auto currentDistance = glm::length(buildingPos - roadPoint);
+
+			if (currentDistance < closestDistance)
+			{
+				closestRoad = &road;
+				closestRoadPoint = roadPoint;
+			}
+		}
+	}
+
+	// set
+	if (closestRoad)
+	{
+		closestRoad->addNearbyByuilding(&building, closestRoadPoint);
+		building.setNearbyRoad(closestRoad, closestRoadPoint);
+	}
+}
+
+
 void SimulationArea::play()
 {
 	m_objectManager.disableCreators();
 
-	for (auto& road : m_objectManager.m_roads.data)
-		road.createPaths();
-	for (auto& intersection : m_objectManager.m_intersections.data)
-		intersection.createPaths();
-
-	exampleCars.clear();
-
-	for (auto& house : m_objectManager.m_houses.data)
+	// reset and setup
 	{
-		auto closestRoad = findClosestRoadFromBuilding(house);
-		SimpleCar car;
-		car.setActive(true);
-		car.setPosition(house.getPosition());
-		car.drive(*closestRoad);
+		for (auto& road : m_objectManager.m_roads.data)
+		{
+			road.createPaths();
+			road.resetNearbyBuildings();
+		}
+		for (auto& intersection : m_objectManager.m_intersections.data)
+		{
+			intersection.createPaths();
+		}
+	}
 
-		exampleCars.push_back(car);
+	// then connect
+	{
+		connectBuildingsAndRoads();
+	}
+
+	// cars last
+	{
+		exampleCars.clear();
+		for (auto& house : m_objectManager.m_houses.data)
+		{
+			if (auto road = house.getNearbyRoad())
+			{
+				SimpleCar car;
+				car.setActive(true);
+				car.setPosition(house.getPosition());
+				car.drive(*road);
+
+				exampleCars.push_back(car);
+			}
+		}
 	}
 }
 
