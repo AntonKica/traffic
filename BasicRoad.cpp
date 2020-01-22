@@ -60,6 +60,11 @@ uint32_t BasicRoad::getConnectedCount() const
 
 
 
+const std::vector<BasicRoad::Connection>& BasicRoad::getConnections() const
+{
+	return m_connections;
+}
+
 const BasicRoad::Connection& BasicRoad::getConnection(Connection connection) const
 {
 	return *std::find(std::begin(m_connections), std::end(m_connections), connection);

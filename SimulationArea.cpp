@@ -2,6 +2,7 @@
 #include "GlobalObjects.h"
 #include "SimpleCar.h"
 #include <optional>
+#include "RoadPathFinder.h"
 
 static std::optional<glm::vec3> planeIntersectPoint(const glm::vec3& rayDirection, const glm::vec3& rayPosition,
 	const glm::vec3& planeNormal, const glm::vec3& planePosition)
@@ -379,6 +380,13 @@ void SimulationArea::play()
 		connectBuildingsAndRoads();
 	}
 
+	// EXPERIMENT
+	{
+		auto& roads = m_objectManager.m_roads.data;
+		auto route = createRoadRoutes(&roads.front(), &roads.back());
+
+		std::cout << "Found" << route.size() << "Routes\n";
+	}
 	// cars last
 	{
 		exampleCars.clear();

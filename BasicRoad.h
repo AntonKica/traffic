@@ -30,13 +30,31 @@ struct Path
 	BasicRoad* connectsTo = nullptr;
 	enum class Side { LEFT, RIGHT };
 	Side side;
-
 };
 
 class BasicRoad :
 	public SimulationObject
 {
 public:
+	struct Connection
+	{
+		BasicRoad* connected = nullptr;
+		Point point = {};
+
+		bool operator==(const BasicRoad* otherRoad) const
+		{
+			return this->connected == otherRoad;
+		}
+		bool operator==(const Point& otherPoint) const
+		{
+			return approxSamePoints(this->point, otherPoint);
+		}
+		bool operator==(const Connection& otherPair) const
+		{
+			return operator==(otherPair.connected) && operator==(otherPair.point);
+		}
+	};
+
 	BasicRoad();
 	virtual ~BasicRoad();
 
@@ -46,6 +64,7 @@ public:
 	BasicRoad& operator=(BasicRoad&& move);
 
 	uint32_t getConnectedCount() const;
+	const std::vector<Connection>& getConnections() const;
 
 	virtual glm::vec3 getDirectionPointFromConnectionPoint(Point connectionPoint) = 0;
 	struct ConnectionPossibility 
@@ -78,24 +97,6 @@ public:
 	virtual void createPaths() = 0;
 	Path getClosestPath(Point pt) const;
 protected:
-	struct Connection
-	{
-		BasicRoad* connected = nullptr;
-		Point point = {};
-
-		bool operator==(const BasicRoad* otherRoad) const
-		{
-			return this->connected == otherRoad;
-		}
-		bool operator==(const Point& otherPoint) const
-		{
-			return approxSamePoints(this->point, otherPoint);
-		}
-		bool operator==(const Connection& otherPair) const
-		{
-			return operator==(otherPair.connected) && operator==(otherPair.point);
-		}
-	};
 
 	//Connection& findConnection(BasicRoad* connectedRoad);
 	const Connection& getConnection(Connection connection) const;
