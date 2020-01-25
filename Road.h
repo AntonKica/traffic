@@ -130,6 +130,7 @@ public:
 	virtual Shape::AxisPoint getAxisPoint(Point pointOnRoad) const override;
 
 	virtual void createPaths() override;
+	virtual bool canSwitchLanes() const override;
 
 	// Getters
 	RoadParameters getParameters() const;
@@ -154,6 +155,9 @@ public:
 
 	void resetNearbyBuildings();
 	void addNearbyByuilding(BasicBuilding* nearbyBuilding, Point entryPoint);
+
+	struct NearbyBuildingPlacement;
+	const std::vector<NearbyBuildingPlacement>& getNearbyBuildings() const;
 private:
 	SegmentedShape m_shape;
 	RoadParameters m_parameters;

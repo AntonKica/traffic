@@ -1236,6 +1236,7 @@ void Road::createPaths()
 			leftPath.side = Path::Side::LEFT;
 			leftPath.points = Points(leftLine.rbegin(), leftLine.rend());
 			leftPath.connectsTo = findConnectedRoad(axis.front());
+			leftPath.connectsFrom = findConnectedRoad(axis.back());
 
 			m_paths[Path::Side::LEFT].push_back(leftPath);
 		}
@@ -1247,10 +1248,17 @@ void Road::createPaths()
 			rightPath.side = Path::Side::RIGHT;
 			rightPath.points = Points(rightLine.begin(), rightLine.end());
 			rightPath.connectsTo = findConnectedRoad(axis.back());
+			rightPath.connectsFrom = findConnectedRoad(axis.front());
 
 			m_paths[Path::Side::RIGHT].push_back(rightPath);
 		}
 	}
+}
+
+bool Road::canSwitchLanes() const
+{
+	// for now
+	return true;
 }
 
 Road::RoadParameters Road::getParameters() const
@@ -1451,4 +1459,9 @@ void Road::addNearbyByuilding(BasicBuilding* nearbyBuilding, Point entryPoint)
 	placement.entryPoint = entryPoint;
 
 	m_nearbyBuildings.emplace_back(placement);
+}
+
+const std::vector<Road::NearbyBuildingPlacement>& Road::getNearbyBuildings() const
+{
+	return m_nearbyBuildings;
 }

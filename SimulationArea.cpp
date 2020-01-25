@@ -383,9 +383,20 @@ void SimulationArea::play()
 	// EXPERIMENT
 	{
 		auto& roads = m_objectManager.m_roads.data;
-		auto route = createRoadRoutes(&roads.front(), &roads.back());
+		auto& r1 = roads.front();
+		auto& r2 = roads.back();
+		auto route = createRoadRoutes(&r1, &r2);
 
-		std::cout << "Found" << route.size() << "Routes\n";
+		if (!route.empty())
+		{
+			std::cout << "Found" << route.size() << "Routes\n";
+			const auto& firstRoute = route.front();
+
+			if (!r1.getNearbyBuildings().empty() && !r2.getNearbyBuildings().empty())
+			{
+				auto path = findPathOnRoute(firstRoute, r1.getNearbyBuildings()[0].entryPoint, r2.getNearbyBuildings()[0].entryPoint);
+			}
+		}
 	}
 	// cars last
 	{

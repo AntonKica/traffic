@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <stack>
+#include <algorithm>
 
 namespace PathFinding
 {
@@ -27,8 +28,51 @@ namespace PathFinding
 	};
 	using TravelledRoads = std::vector<TravellRoad>;
 
-	using RoadRoute = std::vector<BasicRoad*>;
+	using pBasicRoad = BasicRoad*;
+	using RoadRoute = std::vector<pBasicRoad>;
 	using RoadRoutes = std::vector<RoadRoute>;
+
+	struct TravellSegment
+	{
+		BasicRoad* road = nullptr;
+		Path path = {};
+		std::optional<Path> alternativeExitPath;
+	};
+	using TravellSegments = std::vector<TravellSegment>;
+
+	static TravellSegments transferRoadRouteToTravellSegments(const RoadRoute& route)
+	{
+		TravellSegments travellSegments(route.size());
+		std::transform(std::begin(route), std::end(route), std::begin(travellSegments), [](const pBasicRoad& road)
+			{
+				TravellSegment segment;
+				segment.road = road;
+
+				return segment;
+			});
+
+		return travellSegments;
+	}
+
+	static void keepOnlyPathsConnectingTo(std::vector<Path>& paths, BasicRoad* connectsToRoad)
+	{
+		paths.erase(std::remove_if(std::begin(paths), std::end(paths),
+			[&connectsToRoad](const Path& path)
+			{	
+				return path.connectsTo != connectsToRoad;
+			}), 
+			paths.end());
+	}
+
+	static void keepOnlyPathsConnectingFrom(std::vector<Path>& paths, BasicRoad* connectFromRoad)
+	{
+		paths.erase(std::remove_if(std::begin(paths), std::end(paths),
+			[&connectFromRoad](const Path& path)
+			{
+				return path.connectsFrom != connectFromRoad;
+			}),
+			paths.end());
+	}
 }
 
 PathFinding::RoadRoutes startTravellToDestinationAndGetAllRoutes(PathFinding::TravellRoad routeStart, BasicRoad* destination)
@@ -125,4 +169,156 @@ PathFinding::RoadRoutes findRoadPath(BasicRoad* startRoad, BasicRoad* endRoad)
 
 
 	return createRoadRoutes(startRoad, endRoad);
+}
+
+/*
+* Each given itrator must be in range of container
+* namely next segment
+*/
+void reverseSegmentsUntilAllPathsAreConnected(
+	PathFinding::TravellSegments::iterator prevSegment, 
+	PathFinding::TravellSegments::iterator curSegment, 
+	PathFinding::TravellSegments::iterator nextSegment,
+	const PathFinding::TravellSegments& travellSegments)
+{
+	if (prevSegment == travellSegments.end() ||
+		curSegment == travellSegments.end() ||
+		nextSegment == travellSegments.end())
+	{
+		// trying to reverse invalid 
+		throw std::runtime_error("trying to reverse invalid, not supported by this function");
+	}
+
+	// set current segment
+	{
+		auto possiblePaths = curSegment->road->getAllPathsConnectingTwoRoads(prevSegment->road, nextSegment->road);
+		if (possiblePaths.empty())
+			throw std::runtime_error("Cannot make path from this route");
+
+		if (curSegment->road->canSwitchLanes())
+			// take first one
+			curSegment->alternativeExitPath = possiblePaths.front();
+		else // this is path we need to go
+			curSegment->path = possiblePaths.front();
+	}
+
+	bool pathsCanConnect = false;
+	while (!pathsCanConnect)
+	{
+		//check previous path if we can connect to curent path
+		if (Path::pathLeadsToPath(prevSegment->path, curSegment->path))
+		{
+			pathsCanConnect = true;
+		}
+		else
+		{
+			auto possiblePaths = prevSegment->road->getAllPathsConnectingTo(curSegment->road);
+			if (possiblePaths.empty())
+				throw std::runtime_error("Cannot make path from this route");
+
+			if (prevSegment->road->canSwitchLanes())
+			{
+				// take first one
+				prevSegment->alternativeExitPath = possiblePaths.front();
+			}
+			else // this is path we need to go back
+			{
+				prevSegment->path = possiblePaths.front();
+
+				if (prevSegment == travellSegments.begin())
+				{
+					throw std::runtime_error("Cannot make path from this route");
+				}
+				else
+				{
+					--prevSegment;	--curSegment;	--nextSegment;
+				}
+			}
+		}
+	}
+}
+
+PathFinding::TravellSegments findPathOnRoute(const PathFinding::RoadRoute& route, Point startPoint, Point endPoint)
+{
+	// no prevention from one route road
+	auto segmentsToTravell = PathFinding::transferRoadRouteToTravellSegments(route);
+
+	// prepare first segment and last segment
+	{
+		auto& firstSegment = segmentsToTravell.front();
+		firstSegment.path = firstSegment.road->getClosestPath(startPoint);
+	}
+
+	if (segmentsToTravell.size() >= 3)
+	{
+		// start from begin
+		auto prevSegment = segmentsToTravell.begin();
+		auto curSegment = prevSegment + 1;
+		auto nextSegment = curSegment + 1;
+
+		// step each segment to make path
+		while (nextSegment != segmentsToTravell.end())
+		{
+			const auto& connectingPathFromPrevious = prevSegment->alternativeExitPath ?
+				prevSegment->alternativeExitPath.value() : prevSegment->path;
+
+			// get possible paths from current
+			auto possiblePaths = curSegment->road->getSubsequentPathsFromConnectingPath(connectingPathFromPrevious);
+
+			//filter them
+			PathFinding::keepOnlyPathsConnectingTo(possiblePaths, nextSegment->road);
+
+			// if there are any, take first
+			if (!possiblePaths.empty())
+			{
+				curSegment->path = possiblePaths[0];
+			}
+			// we must changle lane
+			else
+			{
+				reverseSegmentsUntilAllPathsAreConnected(prevSegment, curSegment, nextSegment, segmentsToTravell);
+			}
+
+			// step forward
+			++prevSegment;	++curSegment;	++nextSegment;
+		}
+	}
+
+	// close with last segment
+	{
+		auto& oneBeforeLastSegment = *(segmentsToTravell.end() - 2);
+		auto& oneBeforeLastPath = oneBeforeLastSegment.alternativeExitPath ? 
+			oneBeforeLastSegment.alternativeExitPath.value() : oneBeforeLastSegment.path;
+		auto& lastSegment = segmentsToTravell.back();
+
+		// get possible paths from previous road so we can decide if we can continue to next
+		auto possiblePaths = lastSegment.road->getSubsequentPathsFromConnectingPath(oneBeforeLastPath);
+		if (possiblePaths.empty())
+			throw std::runtime_error("Cannot make path from this route");
+
+		bool mustChangeLastPath = true;
+		// check if can use same path
+		auto closestPath = lastSegment.road->getClosestPath(endPoint);
+		for (const auto& possiblePath : possiblePaths)
+		{
+			if (closestPath == possiblePath)
+			{
+				mustChangeLastPath = false;
+				break;
+			}
+		}
+
+		if (mustChangeLastPath)
+		{
+			// first
+			oneBeforeLastSegment.path = possiblePaths[0];
+			oneBeforeLastSegment.alternativeExitPath = closestPath;
+		}
+		else
+		{
+			oneBeforeLastSegment.path = closestPath;
+		}
+	}
+
+	return segmentsToTravell;
 }

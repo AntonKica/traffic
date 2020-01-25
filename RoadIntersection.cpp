@@ -277,3 +277,8 @@ void RoadIntersection::createPaths()
 {
 }
 
+bool RoadIntersection::canSwitchLanes() const
+{
+	return false;
+}
+

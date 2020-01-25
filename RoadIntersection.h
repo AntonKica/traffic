@@ -26,6 +26,7 @@ public:
 	virtual RoadType getRoadType() const override;
 	virtual Shape::AxisPoint getAxisPoint(Point pointOnRoad) const override;
 	virtual void createPaths() override;
+	virtual bool canSwitchLanes() const override;
 private:
 	float m_width = 0;
 	Point m_centre = {};

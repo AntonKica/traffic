@@ -181,3 +181,69 @@ Path BasicRoad::getClosestPath(Point pt) const
 
 	return *pPath;
 }
+
+std::vector<Path> BasicRoad::getSubsequentPathsFromConnectingPath(const Path& connectingPath) const
+{
+	std::vector<Path> subsequentPaths;
+	for (const auto& [side, paths] : m_paths)
+	{
+		for (const auto& path : paths)
+		{
+			// end from cp myst be approximately in begin in some of our paths
+			if (Path::pathLeadsToPath(connectingPath, path))
+				subsequentPaths.emplace_back(path);
+		}
+	}
+
+	return subsequentPaths;
+}
+
+std::vector<Path> BasicRoad::getAllPathsConnectingTo(const BasicRoad* const connectsToRoad) const
+{
+	std::vector<Path> connectingPaths;
+	for (const auto& [side, paths] : m_paths)
+	{
+		for (const auto& path : paths)
+		{
+			// end from cp myst be approximately in begin in some of our paths
+			if (path.connectsTo == connectsToRoad)
+				connectingPaths.emplace_back(path);
+		}
+	}
+
+	return connectingPaths;
+}
+
+std::vector<Path> BasicRoad::getAllPathsConnectingTwoRoads(
+	const BasicRoad* const connectsFromRoad,
+	const BasicRoad* const connectsToRoad) const
+{
+	std::vector<Path> subsequentPaths;
+	for (const auto& [side, paths] : m_paths)
+	{
+		for (const auto& path : paths)
+		{
+			// end from cp myst be approximately in begin in some of our paths
+			if (path.connectsFrom == connectsFromRoad && path.connectsTo == connectsToRoad)
+				subsequentPaths.emplace_back(path);
+		}
+	}
+
+	return subsequentPaths;
+}
+
+bool Path::pathLeadsToPath(const Path& path, const Path& leadsToPath)
+{
+	return approxSamePoints(path.points.back(), leadsToPath.points.front());
+}
+
+bool operator==(const Path& lhs, const Path& rhs)
+{
+	bool pointsEqual = lhs.points.size() == rhs.points.size() &&
+		std::memcmp(lhs.points.data(), rhs.points.data(), sizeof(lhs.points[0]) * lhs.points.size() == 0);
+
+	return 	pointsEqual &&
+		lhs.connectsFrom == rhs.connectsFrom &&
+		lhs.connectsTo == rhs.connectsTo &&
+		lhs.side == rhs.side;
+}

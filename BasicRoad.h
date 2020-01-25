@@ -28,8 +28,12 @@ struct Path
 {
 	Points points;
 	BasicRoad* connectsTo = nullptr;
+	BasicRoad* connectsFrom = nullptr;
 	enum class Side { LEFT, RIGHT };
-	Side side;
+	Side side = {};
+
+	static bool pathLeadsToPath(const Path& path, const Path& leadsToPath);
+	friend bool operator==(const Path& lhs, const Path& rhs);
 };
 
 class BasicRoad :
@@ -95,7 +99,11 @@ public:
 	virtual Shape::AxisPoint getAxisPoint(Point pointOnRoad) const = 0;
 
 	virtual void createPaths() = 0;
+	virtual bool canSwitchLanes() const = 0;
 	Path getClosestPath(Point pt) const;
+	std::vector<Path> getSubsequentPathsFromConnectingPath(const Path& connectingPath) const;
+	std::vector<Path> getAllPathsConnectingTo(const BasicRoad* const connectsToRoad) const;
+	std::vector<Path> getAllPathsConnectingTwoRoads(const BasicRoad* const connectsFromRoad, const BasicRoad* const connectsToRoad) const;
 protected:
 
 	//Connection& findConnection(BasicRoad* connectedRoad);
