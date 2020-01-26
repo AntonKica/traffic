@@ -4,6 +4,7 @@
 #include <utility>
 #include <optional>
 #include <stdexcept>
+#include <algorithm>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
@@ -37,6 +38,8 @@ namespace Utility
 		return c.size();
 	}
 }
+
+static Point vectorIntersection(Point s1, Point e1, Point s2, Point e2);
 
 static bool approxSamePoints(const Point& p1, const Point& p2)
 {
@@ -75,6 +78,120 @@ static bool polygonPointCollision(const Points& polygonPoints, Point point)
 	}
 
 	return collision;
+}
+
+/*
+* -1 = CCW
+*  0 = COLINEAR
+*  1 = CW
+*/
+static int triangleOrientation(const Triangle& triangle)
+{
+	auto slopeOne = (triangle[1].z - triangle[0].z) / (triangle[1].x - triangle[0].x);
+	auto slopeTwo = (triangle[2].z - triangle[1].z) / (triangle[2].x - triangle[1].x);
+
+	if (slopeOne > slopeTwo)
+		return 1;
+	else if (slopeOne < slopeTwo)
+		return -1;
+	else
+		return 0;
+}
+
+// Given three colinear points p1, p2, p3, the function checks if 
+// point p3 lies on line segment 'pr' 
+static bool onSegment(Point p1, Point p2, Point p3)
+{
+	return p3.x <= std::max(p1.x, p2.x) && p3.x >= std::min(p1.x, p2.x) &&
+		p3.z <= std::max(p1.z, p2.z) && p3.z >= std::min(p1.z, p2.z);
+}
+
+static bool lineLineCollision(const Line& lineOne, const Line& lineTwo)
+{
+	auto orientationOne = triangleOrientation(Triangle{ lineOne[0], lineTwo[0], lineOne[1] });
+	auto orientationTwo = triangleOrientation(Triangle{ lineOne[0], lineTwo[0], lineTwo[1] });
+	auto orientationThree = triangleOrientation(Triangle{ lineOne[1], lineTwo[1], lineOne[0] });
+	auto orientationFour = triangleOrientation(Triangle{ lineOne[1], lineTwo[1], lineTwo[0] });
+
+	if (orientationOne != orientationTwo &&
+		orientationThree != orientationFour)
+	{
+		return true;
+	}
+	else if (orientationOne == 0 && onSegment(lineOne[0], lineOne[1], lineTwo[0]))
+	{
+		return true;
+	}
+	else if (orientationTwo == 0 && onSegment(lineOne[0], lineTwo[1], lineTwo[0]))
+	{
+		return true;
+	}
+	else if (orientationThree == 0 && onSegment(lineOne[1], lineOne[0], lineTwo[1]))
+	{
+		return true;
+	}
+	else if (orientationFour == 0 && onSegment(lineOne[1], lineTwo[0], lineTwo[1]))
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+using Trail = Points;
+static bool trailTrailCollision(const Trail& trailOne, const Trail& trailTwo)
+{
+	if (trailOne.size() < 2 || trailTwo.size() < 2)
+		return false;
+
+	for (uint32_t indexOne = trailOne.size(); indexOne < trailOne.size() - 1; ++indexOne)
+	{
+		for (uint32_t indexTwo = trailTwo.size(); indexTwo < trailTwo.size() - 1; ++indexTwo)
+		{
+			Line one = { trailOne[indexOne], trailOne[indexOne + 1] };
+			Line two = { trailTwo[indexTwo], trailTwo[indexTwo + 1] };
+			if (lineLineCollision(one, two))
+				return true;
+		}
+	}
+
+	return false;
+}
+
+static std::pair<Trail, Trail> cutTwoTrailOnCollision(Trail& trailOne, Trail& trailTwo)
+{
+	if (trailOne.size() < 2 || trailTwo.size() < 2)
+		return {};
+
+	for (auto oneIt = trailOne.begin(); oneIt + 1 < trailOne.end(); ++oneIt)
+	{
+		for (auto twoIt = trailTwo.begin(); twoIt + 1 < trailTwo.end(); ++twoIt)
+		{
+			Line one = { *oneIt, *(oneIt + 1) };
+			Line two = { *twoIt, *(twoIt + 1) };
+			if (lineLineCollision(one, two))
+			{
+				// get that point
+				Point intersectionPoint = vectorIntersection(one[0], one[1], two[0], two[1]);
+				// add them
+				auto insertOne = trailOne.insert(oneIt, intersectionPoint);
+				auto insertTwo = trailTwo.insert(twoIt, intersectionPoint);
+
+				// construct new
+				Trail newTrailOne(insertOne, trailOne.end());
+				Trail newTrailTwo(insertTwo, trailTwo.end());
+
+				// remove from previous, withouyt inserted
+				trailOne.erase(insertOne + 1, trailOne.end());
+				trailTwo.erase(insertTwo + 1, trailTwo.end());
+				
+				return std::make_pair(newTrailOne, newTrailTwo);
+			}
+		}
+	}
+
+	return {};
 }
 
 template <class Type> 

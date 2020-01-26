@@ -148,6 +148,14 @@ void BasicRoad::disconnectAll()
 	}
 }
 
+void BasicRoad::newConnecionAction()
+{
+}
+
+void BasicRoad::lostConnectionAction()
+{
+}
+
 Path BasicRoad::getClosestPath(Point pt) const
 {
 	auto closestTraiPoint = [](const Trail& trail, Point pt)

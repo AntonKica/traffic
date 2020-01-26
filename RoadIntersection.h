@@ -1,5 +1,5 @@
 #pragma once
-#pragma once
+#include "SegmentedShape.h"
 #include "BasicRoad.h"
 #include "Utilities.h"
 #include <vector>
@@ -27,10 +27,15 @@ public:
 	virtual Shape::AxisPoint getAxisPoint(Point pointOnRoad) const override;
 	virtual void createPaths() override;
 	virtual bool canSwitchLanes() const override;
+
+protected:
+	virtual void newConnecionAction();
+	virtual void lostConnectionAction();
+
 private:
 	float m_width = 0;
 	Point m_centre = {};
-	std::vector<Point> m_connectionPoints;
+	std::vector<SegmentedShape> m_connectShapes;
 	std::vector<Point> m_outlinePoints;
 	std::vector<Point> m_shapePoints;
 };

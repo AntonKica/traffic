@@ -1,27 +1,10 @@
 #pragma once
 #include "SimulationObject.h"
+#include "SegmentedShape.h"
+
 #include "Utilities.h"
 #include <map>
 #include <glm/glm.hpp>
-
-namespace Shape
-{
-	struct AxisPoint : Point {
-		AxisPoint()										= default;
-		AxisPoint(const AxisPoint& other)				= default;
-		AxisPoint(AxisPoint&& other)					= default;
-		AxisPoint& operator=(const AxisPoint& other)	= default;
-		AxisPoint& operator=(AxisPoint&& other)			= default;
-
-		explicit AxisPoint(const Point& p)
-			: Point(p)
-		{}
-
-	};
-
-	using Axis = std::vector<AxisPoint>;
-	using AxisSegment = std::array<AxisPoint, 2>;
-}
 
 class BasicRoad;
 struct Path
@@ -122,6 +105,10 @@ protected:
 	void transferConnections(BasicRoad* destinationRoad);
 	void dismissConnection(Connection connection);
 	void disconnectAll();
+
+	// this two can be obsolete
+	virtual void newConnecionAction();
+	virtual void lostConnectionAction();
 
 	std::vector<Connection> m_connections;
 	std::unordered_map<Path::Side, std::vector<Path>> m_paths;

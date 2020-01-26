@@ -7,7 +7,7 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtx/string_cast.hpp>
-
+#include <glm/gtx/vector_angle.hpp>
 
 VD::Indices createPseudoTriangleFanIndices(const Points& points)
 {
@@ -47,6 +47,74 @@ Points createTriangleFanPointsFromPointsAndFanPoint(const Points& points, Point 
 	return triangleFanPoints;
 }
 
+Points triangulateShape(Points shapeOutline)
+{
+	if (shapeOutline.size() <= 3)
+		return shapeOutline;
+
+	Points shapePoints;
+
+	auto vertexOne = shapeOutline.begin();
+	auto vertexTwo = vertexOne + 1;
+	auto vertexThree = vertexTwo + 1;
+	
+	bool allTrianglesMade = false;
+	while (!allTrianglesMade)
+	{
+		// no more triuangles left
+		if (shapeOutline.size() < 2)
+		{
+			allTrianglesMade = true;
+		}
+		else
+		{
+			Triangle newTriangle = { *vertexOne, *vertexTwo, *vertexThree };
+			bool collapsesWithInnerWall = false;
+
+			// basicaly the same
+			Line innerTriangleLine = { newTriangle[0], newTriangle[1] };
+			for (auto linePointOne = vertexThree, linePointTwo = linePointOne + 1; linePointOne != vertexOne;
+				++linePointOne, ++linePointTwo)
+			{
+				if (linePointOne == shapeOutline.end())
+					linePointOne = shapeOutline.begin();
+				else if (linePointTwo == shapeOutline.end())
+					linePointTwo = shapeOutline.begin();
+
+				Line curLine = { *linePointOne, *linePointTwo };
+				if (lineLineCollision(innerTriangleLine, curLine))
+				{
+					collapsesWithInnerWall = true;
+					break;
+				}
+			}
+			if (!collapsesWithInnerWall)
+			{
+				// add current
+				shapePoints.insert(shapePoints.end(), newTriangle.begin(), newTriangle.end());
+				// remove edge, in this case second edge
+				shapeOutline.erase(vertexTwo);
+				// and reset points
+				vertexOne = shapeOutline.begin();
+				vertexTwo = vertexOne + 1;
+				vertexThree = vertexTwo + 1;
+			}
+		}
+		// step forward
+		++vertexOne; ++vertexTwo; ++vertexThree;
+
+		// make them go round
+		if (vertexOne == shapeOutline.end())
+			vertexOne = shapeOutline.begin();
+		else if (vertexTwo == shapeOutline.end())
+			vertexTwo = shapeOutline.begin();
+		else if (vertexThree == shapeOutline.end())
+			vertexThree = shapeOutline.begin();
+	}
+
+	return shapePoints;
+}
+
 bool lessPoint(Point a, Point b, Point center)
 {
 	if (a.x - center.x >= 0 && b.x - center.x < 0)
@@ -72,55 +140,55 @@ bool lessPoint(Point a, Point b, Point center)
 	return detA > detB;
 }
 
-Points getCircleSortedPoints(Points points, bool clockwise)
+/*
+* circle is on their head
+*
+*/
+void circleSortCenterOrientedSegmentedShapes(std::vector<SegmentedShape>& shapes, bool clockwise)
 {
-	auto cursor = points.begin();
-	while (cursor != points.end())
+	auto getSegmentedShapeAngle = [](const SegmentedShape& shape)
 	{
-		auto comparator = cursor + 1;
-		if (comparator == points.end())
-			break;
+		const auto forward = glm::vec3(0.0, 0.0, 1.0);
+		const auto up = glm::vec3(0.0, 1.0, 0.0);
+		auto tailDir = glm::normalize(shape.getHead() - shape.getTail());
 
-		auto smallest = comparator++;
-		while (comparator != points.end())
-		{
-			if (glm::length(*cursor - *comparator) < glm::length(*cursor - *smallest))
-				std::swap(*smallest, *comparator);
-			++comparator;
-		}
+		float angle = glm::orientedAngle(tailDir, forward, up);
+		if (angle < 0) angle += glm::two_pi<float>();
 
-		++cursor;
-	}
+		return angle;
+	};
+	auto angleSegmentShapeSort = [&getSegmentedShapeAngle](const SegmentedShape& lhs, const SegmentedShape& rhs)
+	{
+		return getSegmentedShapeAngle(lhs) < getSegmentedShapeAngle(rhs);
+	};
 
-	glm::vec3 avg{};
-	for (const auto& point : points)
-		avg += point;
-	avg /= float(points.size());
-
-	bool isClockwise = lessPoint(points[0], points[1], avg);
-
-	if (isClockwise && !clockwise || !isClockwise && clockwise)
-		std::reverse(std::begin(points), std::end(points));
-
-	return points;
+	if(clockwise)
+		std::sort(std::begin(shapes), std::end(shapes), angleSegmentShapeSort);
+	else
+		std::sort(std::rbegin(shapes), std::rend(shapes), angleSegmentShapeSort);
 }
 
 void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionPoint)
 {
 	m_centre = intersectionPoint;
 	m_width = roads[0]->getParameters().width;
-	m_connectionPoints.clear();
+	m_connectShapes.clear();
 
 	// adjust connectd roads
 	{
 		float requiredDistance = m_width / 2.0f + 0.25;
 		for (auto& road : roads)
 		{
-			auto parameters = road->getParameters();
-			auto shortPoint = road->shorten(Shape::AxisPoint(intersectionPoint), requiredDistance);
-			m_connectionPoints.push_back(shortPoint);
+			auto shortenShape = road->shorten(Shape::AxisPoint(intersectionPoint), requiredDistance).getShape();
 
-			connect(road, shortPoint);
+			// orient to centre
+			if (!shortenShape.sitsOnHead(intersectionPoint))
+				shortenShape.reverseBody();
+
+			m_connectShapes.push_back(shortenShape);
+
+			// connect with tail
+			connect(road, shortenShape.getTail());
 			road->reconstruct();
 		}
 	}
@@ -130,58 +198,50 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 
 void RoadIntersection::setUpShape()
 {
-	Points sidePoints;
-	Points commonPoints;
-
 	// sort them for easier manipulation
-	auto circleSortedPoints = getCircleSortedPoints(m_connectionPoints, false);
-	for (int i = 0; i < circleSortedPoints.size(); ++i)
+	std::vector<Points> sides;
+
+	// sort for easier manipulation
+	circleSortCenterOrientedSegmentedShapes(m_connectShapes, true);
+
+	// this shape will be cut
+	SegmentedShape mainShape = m_connectShapes[0];
+	mainShape.mergeWith(m_connectShapes[2]);
+
+	Points outlinePoints;
+	// test frow mich side we cut
 	{
-		auto cps = getCircleSortedPoints(m_connectionPoints, false);
-		//cps.size() == 3
-		// find neigbbour axes
-		auto first = circleSortedPoints[(i + 1) % circleSortedPoints.size()];
-		auto second = circleSortedPoints[(i + 2) % circleSortedPoints.size()];
+		auto leftSide = mainShape.getLeftSidePoints();
+		auto rigthSide = mainShape.getRightSidePoints();
 
-		auto& currentPoint = circleSortedPoints[i];
-		glm::vec3 dirCurrentToCentre = glm::normalize(m_centre - currentPoint);
-		glm::vec3 dirCentreToFirst = glm::normalize(first - m_centre);
-		glm::vec3 dirCentreToSecond = glm::normalize(second - m_centre);
+		const auto curShape = m_connectShapes[1];
+		auto curLeftSide = curShape.getLeftSidePoints();
+		auto curRightSide = curShape.getRightSidePoints();
 
+		if (trailTrailCollision(curShape.getAxisPoints(), leftSide))
 		{
-			// get point from connected road
-			auto connectionPoint = getConnection(currentPoint).connected->getDirectionPointFromConnectionPoint(currentPoint);
-			glm::vec3 dirConnectToCurrent = glm::normalize(currentPoint - connectionPoint);
+			auto [leftCut, _] = cutTwoTrailOnCollision(leftSide, curLeftSide);
+			auto [addLeftCut, _1] = cutTwoTrailOnCollision(leftCut, curRightSide);
 
-			const auto [left, right] = getSidePoints(dirConnectToCurrent, dirCurrentToCentre, connectionPoint, currentPoint, m_centre, m_width);
-
-			sidePoints.insert(sidePoints.end(), { left, right });
+			outlinePoints.insert(outlinePoints.end(), addLeftCut.begin(), addLeftCut.end());
+			outlinePoints.insert(outlinePoints.end(), curRightSide.rbegin(), curRightSide.rend());
+			outlinePoints.insert(outlinePoints.end(), curLeftSide.begin(), curLeftSide.end());
+			outlinePoints.insert(outlinePoints.end(), leftSide.begin(), leftSide.end());
 		}
-
+		else
 		{
-			const auto [_, right] = getSidePoints(dirCurrentToCentre, dirCentreToFirst, currentPoint, m_centre, first, m_width);
-			commonPoints.insert(commonPoints.end(), { right });
+			auto [rightCut, _] = cutTwoTrailOnCollision(rigthSide, curRightSide);
+			auto [addRightCut, _1] = cutTwoTrailOnCollision(rightCut, curLeftSide);
+
+			outlinePoints.insert(outlinePoints.end(), addRightCut.begin(), addRightCut.end());
+			outlinePoints.insert(outlinePoints.end(), curLeftSide.rbegin(), curLeftSide.rend());
+			outlinePoints.insert(outlinePoints.end(), curRightSide.begin(), curRightSide.end());
+			outlinePoints.insert(outlinePoints.end(), rigthSide.begin(), rigthSide.end());
 		}
 	}
 
-	// merge points 
-	const size_t totalPoints = sidePoints.size() + commonPoints.size();
-	m_outlinePoints.resize(totalPoints);
-	auto pointsIter = m_outlinePoints.begin();
-	for (int sideIndex = 1, commonIndex = 0; sideIndex < sidePoints.size(); sideIndex += 2, ++commonIndex)
-	{
-		// side, side, common
-		*(pointsIter) = sidePoints[sideIndex - 1];
-		*(pointsIter + 1) = sidePoints[sideIndex];
 
-		// in case there are odd common points
-		*(pointsIter + 2) = commonPoints[commonIndex];
-
-		// vertices added
-		std::advance(pointsIter, 3);
-	}
-
-	m_shapePoints = createTriangleFanPointsFromPointsAndFanPoint(m_outlinePoints, m_centre);
+	m_shapePoints = triangulateShape(outlinePoints);
 
 	// then setupDrawing
 	Mesh mesh;
@@ -255,7 +315,7 @@ void RoadIntersection::destroy()
 
 bool RoadIntersection::hasBody() const
 {
-	return m_connectionPoints.size();
+	return m_connectShapes.size();
 }
 
 bool RoadIntersection::sitsPointOn(Point point) const
@@ -280,5 +340,13 @@ void RoadIntersection::createPaths()
 bool RoadIntersection::canSwitchLanes() const
 {
 	return false;
+}
+
+void RoadIntersection::newConnecionAction()
+{
+}
+
+void RoadIntersection::lostConnectionAction()
+{
 }
 
