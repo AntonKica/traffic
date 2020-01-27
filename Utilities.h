@@ -40,6 +40,7 @@ namespace Utility
 }
 
 static Point vectorIntersection(Point s1, Point e1, Point s2, Point e2);
+template<class PointType1, class PointType2, class PointType3> bool pointSitsOnLine(PointType1 s, PointType2 e, PointType3 p);
 
 static bool approxSamePoints(const Point& p1, const Point& p2)
 {
@@ -87,15 +88,15 @@ static bool polygonPointCollision(const Points& polygonPoints, Point point)
 */
 static int triangleOrientation(const Triangle& triangle)
 {
-	auto slopeOne = (triangle[1].z - triangle[0].z) / (triangle[1].x - triangle[0].x);
-	auto slopeTwo = (triangle[2].z - triangle[1].z) / (triangle[2].x - triangle[1].x);
+	auto value = (triangle[1].z - triangle[0].z) * (triangle[2].x - triangle[1].x) -
+				(triangle[1].x - triangle[0].x) * (triangle[2].z - triangle[1].z);
 
-	if (slopeOne > slopeTwo)
-		return 1;
-	else if (slopeOne < slopeTwo)
-		return -1;
-	else
+	if(glm::epsilonEqual(value, 0.0f, 0.001f))
 		return 0;
+	if (value > 0.0f)
+		return 1;
+	else //if (slopeOne < slopeTwo)
+		return -1;
 }
 
 // Given three colinear points p1, p2, p3, the function checks if 
@@ -108,6 +109,7 @@ static bool onSegment(Point p1, Point p2, Point p3)
 
 static bool lineLineCollision(const Line& lineOne, const Line& lineTwo)
 {
+	
 	auto orientationOne = triangleOrientation(Triangle{ lineOne[0], lineTwo[0], lineOne[1] });
 	auto orientationTwo = triangleOrientation(Triangle{ lineOne[0], lineTwo[0], lineTwo[1] });
 	auto orientationThree = triangleOrientation(Triangle{ lineOne[1], lineTwo[1], lineOne[0] });
@@ -138,16 +140,36 @@ static bool lineLineCollision(const Line& lineOne, const Line& lineTwo)
 	{
 		return false;
 	}
+
+	auto intersectionPoint = vectorIntersection(lineOne[0], lineOne[1], lineTwo[0], lineTwo[1]);
+	return pointSitsOnLine(intersectionPoint, lineOne[0], lineOne[1]);
 }
+static bool innerLineLineCollision(const Line& lineOne, const Line& lineTwo)
+{
+	if (lineLineCollision(lineOne, lineTwo))
+	{
+		auto intersectionPoint = vectorIntersection(lineOne[0], lineOne[1], lineTwo[0], lineTwo[1]);
+		return !(approxSamePoints(intersectionPoint, lineOne[0]) ||
+			approxSamePoints(intersectionPoint, lineOne[1]) ||
+			approxSamePoints(intersectionPoint, lineTwo[0]) ||
+			approxSamePoints(intersectionPoint, lineTwo[1]));
+	}
+	else
+	{
+		return false;
+	}
+}
+
+
 using Trail = Points;
 static bool trailTrailCollision(const Trail& trailOne, const Trail& trailTwo)
 {
 	if (trailOne.size() < 2 || trailTwo.size() < 2)
 		return false;
 
-	for (uint32_t indexOne = trailOne.size(); indexOne < trailOne.size() - 1; ++indexOne)
+	for (uint32_t indexOne = 0; indexOne < trailOne.size() - 1; ++indexOne)
 	{
-		for (uint32_t indexTwo = trailTwo.size(); indexTwo < trailTwo.size() - 1; ++indexTwo)
+		for (uint32_t indexTwo = 0; indexTwo < trailTwo.size() - 1; ++indexTwo)
 		{
 			Line one = { trailOne[indexOne], trailOne[indexOne + 1] };
 			Line two = { trailTwo[indexTwo], trailTwo[indexTwo + 1] };

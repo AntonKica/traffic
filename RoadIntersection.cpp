@@ -61,8 +61,16 @@ Points triangulateShape(Points shapeOutline)
 	bool allTrianglesMade = false;
 	while (!allTrianglesMade)
 	{
-		// no more triuangles left
-		if (shapeOutline.size() < 2)
+		// make them go round
+		if (vertexOne == shapeOutline.end())
+			vertexOne = shapeOutline.begin();
+		else if (vertexTwo == shapeOutline.end())
+			vertexTwo = shapeOutline.begin();
+		else if (vertexThree == shapeOutline.end())
+			vertexThree = shapeOutline.begin();
+
+		// if no more triangles left
+		if (shapeOutline.size() <= 2)
 		{
 			allTrianglesMade = true;
 		}
@@ -72,20 +80,33 @@ Points triangulateShape(Points shapeOutline)
 			bool collapsesWithInnerWall = false;
 
 			// basicaly the same
-			Line innerTriangleLine = { newTriangle[0], newTriangle[1] };
-			for (auto linePointOne = vertexThree, linePointTwo = linePointOne + 1; linePointOne != vertexOne;
-				++linePointOne, ++linePointTwo)
+			Line innerTriangleLine = { newTriangle[0], newTriangle[2] };
+			auto linePointOne = vertexThree, linePointTwo = linePointOne + 1;
+
+			bool allChecked = shapeOutline.size() <= 3;
+			while (!allChecked)
 			{
+				// make them go round
 				if (linePointOne == shapeOutline.end())
 					linePointOne = shapeOutline.begin();
-				else if (linePointTwo == shapeOutline.end())
+				if (linePointTwo == shapeOutline.end())
 					linePointTwo = shapeOutline.begin();
 
-				Line curLine = { *linePointOne, *linePointTwo };
-				if (lineLineCollision(innerTriangleLine, curLine))
+				// check for end
+				if (linePointOne == vertexOne)
 				{
-					collapsesWithInnerWall = true;
-					break;
+					allChecked = true;
+				}
+				else
+				{
+					Line curLine = { *linePointOne, *linePointTwo };
+					if (innerLineLineCollision(innerTriangleLine, curLine))
+					{
+						collapsesWithInnerWall = true;
+						break;
+					}
+
+					++linePointTwo, ++linePointOne;
 				}
 			}
 			if (!collapsesWithInnerWall)
@@ -98,18 +119,13 @@ Points triangulateShape(Points shapeOutline)
 				vertexOne = shapeOutline.begin();
 				vertexTwo = vertexOne + 1;
 				vertexThree = vertexTwo + 1;
+
+				// dont increment
+				continue;
 			}
 		}
-		// step forward
-		++vertexOne; ++vertexTwo; ++vertexThree;
 
-		// make them go round
-		if (vertexOne == shapeOutline.end())
-			vertexOne = shapeOutline.begin();
-		else if (vertexTwo == shapeOutline.end())
-			vertexTwo = shapeOutline.begin();
-		else if (vertexThree == shapeOutline.end())
-			vertexThree = shapeOutline.begin();
+		++vertexOne; ++vertexTwo; ++vertexThree;
 	}
 
 	return shapePoints;
@@ -239,7 +255,6 @@ void RoadIntersection::setUpShape()
 			outlinePoints.insert(outlinePoints.end(), rigthSide.begin(), rigthSide.end());
 		}
 	}
-
 
 	m_shapePoints = triangulateShape(outlinePoints);
 
