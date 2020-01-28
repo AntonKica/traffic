@@ -109,7 +109,7 @@ static bool onSegment(Point p1, Point p2, Point p3)
 
 static bool lineLineCollision(const Line& lineOne, const Line& lineTwo)
 {
-	
+	/*
 	auto orientationOne = triangleOrientation(Triangle{ lineOne[0], lineTwo[0], lineOne[1] });
 	auto orientationTwo = triangleOrientation(Triangle{ lineOne[0], lineTwo[0], lineTwo[1] });
 	auto orientationThree = triangleOrientation(Triangle{ lineOne[1], lineTwo[1], lineOne[0] });
@@ -140,9 +140,9 @@ static bool lineLineCollision(const Line& lineOne, const Line& lineTwo)
 	{
 		return false;
 	}
-
+	*/
 	auto intersectionPoint = vectorIntersection(lineOne[0], lineOne[1], lineTwo[0], lineTwo[1]);
-	return pointSitsOnLine(intersectionPoint, lineOne[0], lineOne[1]);
+	return pointSitsOnLine(lineOne[0], lineOne[1], intersectionPoint);
 }
 static bool innerLineLineCollision(const Line& lineOne, const Line& lineTwo)
 {
@@ -181,7 +181,7 @@ static bool trailTrailCollision(const Trail& trailOne, const Trail& trailTwo)
 	return false;
 }
 
-static std::pair<Trail, Trail> cutTwoTrailOnCollision(Trail& trailOne, Trail& trailTwo)
+static std::pair<Trail, Trail> cutTwoTrailsOnCollision(Trail& trailOne, Trail& trailTwo)
 {
 	if (trailOne.size() < 2 || trailTwo.size() < 2)
 		return {};
@@ -196,9 +196,9 @@ static std::pair<Trail, Trail> cutTwoTrailOnCollision(Trail& trailOne, Trail& tr
 			{
 				// get that point
 				Point intersectionPoint = vectorIntersection(one[0], one[1], two[0], two[1]);
-				// add them
-				auto insertOne = trailOne.insert(oneIt, intersectionPoint);
-				auto insertTwo = trailTwo.insert(twoIt, intersectionPoint);
+				// add then insert before each line ed
+				auto insertOne = trailOne.insert(oneIt + 1, intersectionPoint);
+				auto insertTwo = trailTwo.insert(twoIt + 1, intersectionPoint);
 
 				// construct new
 				Trail newTrailOne(insertOne, trailOne.end());

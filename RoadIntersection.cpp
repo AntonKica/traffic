@@ -1,6 +1,7 @@
 #include "RoadIntersection.h"
 #include "Utilities.h"
-#include "Collisions.h"
+#include "polyPartition/earcut.hpp"
+
 #include "Road.h"
 
 #include <numeric>
@@ -212,6 +213,72 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 	setUpShape();
 }
 
+bool pointIsCloserToPointsStart(const Point& pointsPoint, const Points& points)
+{
+	if (points.size() < 2)
+		return true;
+
+	float lenghtFromStart = 0, lenghtFromEnd = 0;
+	bool passedPoint = false;
+	for (auto p1 = points.begin(), p2 = p1 + 1; p2 != points.end(); p1 = p2++)
+	{
+		if (approxSamePoints(*p1, pointsPoint))
+			passedPoint = true;
+
+		// add lenght from start
+		if (!passedPoint)
+			lenghtFromStart += glm::length(*p1 - *p2);
+		else
+			lenghtFromEnd += glm::length(*p1 - *p2);
+	}
+
+	return lenghtFromStart < lenghtFromEnd;
+}
+/*
+* Edge one should be closer to side start
+* from start of side to end of closerline
+* and second edge goes from start if closer line to end
+* to end if side
+*/
+std::pair<Points, Points> getCutSideByTwoLinesIntoTwoEdges(Points side, Points line1, Points line2)
+{
+	const auto originalSide = side;
+	auto [cuttedSideByLine1, _] = cutTwoTrailsOnCollision(side, line1);
+	
+	Points edgeOnePoints, edgeTwoPoints;
+	if (pointIsCloserToPointsStart(line1.back(), originalSide))
+	{
+		// we cut from cutted
+		auto [cuttedSideByLine2, _1] = cutTwoTrailsOnCollision(cuttedSideByLine1, line1);
+
+		// skip common points
+		// edge one
+		std::copy(std::begin(cuttedSideByLine1), std::end(cuttedSideByLine1), std::back_inserter(edgeTwoPoints));
+		std::copy(std::rbegin(line1) + 1, std::rend(line1), std::back_inserter(edgeTwoPoints));
+
+		// edge two
+		std::copy(std::begin(line2), std::end(line2), std::back_inserter(edgeOnePoints));
+		std::copy(std::begin(cuttedSideByLine2) + 1, std::end(cuttedSideByLine2), std::back_inserter(edgeOnePoints));
+	}
+	else
+	{
+		// continue to we cut from side
+		// ignore results
+		cutTwoTrailsOnCollision(side, line2);
+
+		// skip common points
+		// edge one
+		std::copy(std::begin(side), std::end(side), std::back_inserter(edgeOnePoints));
+		std::copy(std::rbegin(line2) + 1, std::rend(line2), std::back_inserter(edgeOnePoints));
+
+		// edge two
+		std::copy(std::begin(line1), std::end(line1), std::back_inserter(edgeTwoPoints));
+		std::copy(std::begin(cuttedSideByLine1) + 1, std::end(cuttedSideByLine1), std::back_inserter(edgeTwoPoints));
+	}
+
+	return std::make_pair(edgeOnePoints, edgeTwoPoints);
+}
+
 void RoadIntersection::setUpShape()
 {
 	// sort them for easier manipulation
@@ -228,7 +295,7 @@ void RoadIntersection::setUpShape()
 	// test frow mich side we cut
 	{
 		auto leftSide = mainShape.getLeftSidePoints();
-		auto rigthSide = mainShape.getRightSidePoints();
+		auto rightSide = mainShape.getRightSidePoints();
 
 		const auto curShape = m_connectShapes[1];
 		auto curLeftSide = curShape.getLeftSidePoints();
@@ -236,31 +303,41 @@ void RoadIntersection::setUpShape()
 
 		if (trailTrailCollision(curShape.getAxisPoints(), leftSide))
 		{
-			auto [leftCut, _] = cutTwoTrailOnCollision(leftSide, curLeftSide);
-			auto [addLeftCut, _1] = cutTwoTrailOnCollision(leftCut, curRightSide);
+			auto [edgeOne, edgeTwo] = getCutSideByTwoLinesIntoTwoEdges(leftSide, curLeftSide, curRightSide);
 
-			outlinePoints.insert(outlinePoints.end(), addLeftCut.begin(), addLeftCut.end());
-			outlinePoints.insert(outlinePoints.end(), curRightSide.rbegin(), curRightSide.rend());
-			outlinePoints.insert(outlinePoints.end(), curLeftSide.begin(), curLeftSide.end());
-			outlinePoints.insert(outlinePoints.end(), leftSide.begin(), leftSide.end());
+			// merge them
+			std::copy(std::rbegin(rightSide), std::rend(rightSide), std::back_inserter(outlinePoints));
+			std::copy(std::begin(edgeOne), std::end(edgeOne), std::back_inserter(outlinePoints));
+			std::copy(std::begin(edgeTwo), std::end(edgeTwo), std::back_inserter(outlinePoints));
 		}
 		else
 		{
-			auto [rightCut, _] = cutTwoTrailOnCollision(rigthSide, curRightSide);
-			auto [addRightCut, _1] = cutTwoTrailOnCollision(rightCut, curLeftSide);
+			auto [edgeOne, edgeTwo] = getCutSideByTwoLinesIntoTwoEdges(rightSide, curLeftSide, curRightSide);
 
-			outlinePoints.insert(outlinePoints.end(), addRightCut.begin(), addRightCut.end());
-			outlinePoints.insert(outlinePoints.end(), curLeftSide.rbegin(), curLeftSide.rend());
-			outlinePoints.insert(outlinePoints.end(), curRightSide.begin(), curRightSide.end());
-			outlinePoints.insert(outlinePoints.end(), rigthSide.begin(), rigthSide.end());
+			// merge them
+			std::copy(std::rbegin(leftSide), std::rend(leftSide), std::back_inserter(outlinePoints));
+			std::copy(std::begin(edgeOne), std::end(edgeOne), std::back_inserter(outlinePoints));
+			std::copy(std::begin(edgeTwo), std::end(edgeTwo), std::back_inserter(outlinePoints));
 		}
 	}
+	// triangulate
+	
+	using EarCutPoint = std::array<float, 2>;
+	std::vector<std::vector<EarCutPoint>> polygon(1);
+	polygon[0].resize(outlinePoints.size());
+	for (auto index = 0; index < outlinePoints.size(); ++index)
+	{
+		polygon[0][index] = { outlinePoints[index].x, outlinePoints[index].z };
+	}
 
-	m_shapePoints = triangulateShape(outlinePoints);
+	std::vector<uint32_t> indices = mapbox::earcut(polygon);
+
+	m_shapePoints = outlinePoints;
 
 	// then setupDrawing
 	Mesh mesh;
 	mesh.vertices.positions = m_shapePoints;
+	mesh.indices = indices;
 
 	const glm::vec4 grey(0.44, 0.44, 0.44, 1.0);
 	VD::ColorVertices colors(m_shapePoints.size(), grey);
