@@ -87,7 +87,7 @@ public:
 	glm::mat4 getProjection() const;
 	glm::mat4 getView() const;
 	glm::vec3 getPosition() const;
-	void updateMouse(int newX, int newY);
+	void updateMouse(double newX, double newY);
 	void updateMouse(glm::dvec2 newMousePos);
 	void update();
 

@@ -185,6 +185,7 @@ void circleSortCenterOrientedSegmentedShapes(std::vector<SegmentedShape>& shapes
 		std::sort(std::rbegin(shapes), std::rend(shapes), angleSegmentShapeSort);
 }
 
+
 void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionPoint)
 {
 	m_centre = intersectionPoint;
@@ -245,12 +246,15 @@ std::pair<Points, Points> getCutSideByTwoLinesIntoTwoEdges(Points side, Points l
 	const auto originalSide = side;
 	auto [cuttedSideByLine1, _] = cutTwoTrailsOnCollision(side, line1);
 	
+	if (cuttedSideByLine1.size() <= 1)
+		std::cout << "Wat\n";
 	Points edgeOnePoints, edgeTwoPoints;
 	if (pointIsCloserToPointsStart(line1.back(), originalSide))
 	{
 		// we cut from cutted
 		auto [cuttedSideByLine2, _1] = cutTwoTrailsOnCollision(cuttedSideByLine1, line1);
-
+		if (cuttedSideByLine2.size() <= 1)
+			std::cout << "Wat\n";
 		// skip common points
 		// edge one
 		std::copy(std::begin(cuttedSideByLine1), std::end(cuttedSideByLine1), std::back_inserter(edgeTwoPoints));
@@ -284,8 +288,45 @@ void RoadIntersection::setUpShape()
 	// sort them for easier manipulation
 	std::vector<Points> sides;
 
-	// sort for easier manipulation
-	circleSortCenterOrientedSegmentedShapes(m_connectShapes, true);
+	// sort shapes to opposite sides
+	circleSortCenterOrientedSegmentedShapes(m_connectShapes, false);
+	if(m_connectShapes.size() == 3)
+	{
+		auto firstIt = m_connectShapes.begin();
+		auto secondIt = firstIt;
+
+		float greatestAngle = -3.14;
+		for(auto shapeOne = m_connectShapes.begin(); shapeOne + 1 < m_connectShapes.end(); ++shapeOne)
+		{
+			auto shapeTwo = shapeOne + 1;
+			while (shapeTwo != m_connectShapes.end())
+			{
+				auto shapeOneDir = glm::normalize(shapeOne->getHead() - shapeOne->getTail());
+				auto shapeTwoDir = glm::normalize(shapeTwo->getHead() - shapeTwo->getTail());
+
+				float curAngle = glm::acos(glm::dot(shapeOneDir, shapeTwoDir));
+				if (curAngle > greatestAngle)
+				{
+					greatestAngle = curAngle;
+					firstIt = shapeOne;
+					secondIt = shapeTwo;
+				}
+				++shapeTwo;
+			}
+		}
+
+		auto relPos = secondIt - firstIt;
+		// their pos is odd
+		if (relPos % 2 == 1)
+		{
+			// keep it simple
+			if (firstIt != m_connectShapes.begin())
+				std::swap(*firstIt, *m_connectShapes.begin());
+			else
+				std::swap(*secondIt, *(secondIt + 1));
+		}
+	}
+	
 
 	// this shape will be cut
 	SegmentedShape mainShape = m_connectShapes[0];

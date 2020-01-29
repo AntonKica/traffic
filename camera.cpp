@@ -66,7 +66,7 @@ glm::vec3 Camera::getPosition() const
 	return m_position;
 }
 
-void Camera::updateMouse(int newX, int newY)
+void Camera::updateMouse(double newX, double newY)
 {
 	updateMouse(glm::ivec2(newX, newY));
 }
@@ -76,7 +76,7 @@ void Camera::updateMouse(glm::dvec2 newMousePos)
 	m_mouseOffset = glm::dvec2(m_mousePos) - newMousePos;
 	m_mousePos = newMousePos;
 
-	if (m_mouseOffset.x != 0.0 && m_mouseOffset.y != 0)
+	if (m_mouseOffset.x != 0.0 || m_mouseOffset.y != 0)
 	{
 		updateMouseRay();
 	}
@@ -86,6 +86,7 @@ void Camera::update()
 {
 	glm::dvec2 mousePosition;
 	glfwGetCursorPos(App::window.getWindow(), &mousePosition.x, &mousePosition.y);
+
 	// minimalized and null division precaution
 	updateViewSize();
 

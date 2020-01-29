@@ -597,6 +597,28 @@ SegmentedShape SegmentedShape::shorten(Shape::AxisPoint shapeEnd, float size)
 			std::reverse_copy(insertIt, std::end(reversedAxis), std::back_insert_iterator(newAxis));
 		}
 	}
+
+	try
+	{
+		auto isPointNan = [](const Point& p)
+		{
+			return std::isnan(p.x) || std::isnan(p.y) || std::isnan(p.z);
+		};
+		for (const auto& p : newAxis)
+		{
+			if (isPointNan(p))
+				throw std::runtime_error("err");
+		}
+		for (const auto& p : shortenAxis)
+		{
+			if (isPointNan(p))
+				throw std::runtime_error("err");
+		}
+	}
+	catch (const std::runtime_error & err)
+	{
+		std::cout << err.what();
+	}
 	// update current
 	construct(newAxis, m_width);
 
