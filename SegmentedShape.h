@@ -117,8 +117,8 @@ public:
 
 private:
 	void setNewCircularEndPoints(Shape::AxisPoint axisPoint);
-	void eraseCommonPoints();
-	void createShape(const Points& axis);
+	void purifyPoints(Points& axis);
+	void createShape(Points axis);
 
 	float m_width;
 	Joints m_joints;

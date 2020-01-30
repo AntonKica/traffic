@@ -40,7 +40,8 @@ namespace Utility
 }
 
 static Point vectorIntersection(Point s1, Point e1, Point s2, Point e2);
-template<class PointType1, class PointType2, class PointType3> bool pointSitsOnLine(PointType1 s, PointType2 e, PointType3 p);
+static bool pointSitsOnLine(const Line& line, const Point& point);
+template<class PointType1, class PointType2, class PointType3> bool pointSitsOnLine(const PointType1& s, const PointType2& e, const PointType3& p);
 
 static bool approxSamePoints(const Point& p1, const Point& p2)
 {
@@ -142,7 +143,8 @@ static bool lineLineCollision(const Line& lineOne, const Line& lineTwo)
 	}
 	*/
 	auto intersectionPoint = vectorIntersection(lineOne[0], lineOne[1], lineTwo[0], lineTwo[1]);
-	return pointSitsOnLine(lineOne[0], lineOne[1], intersectionPoint);
+
+	return pointSitsOnLine(lineOne, intersectionPoint) && pointSitsOnLine(lineTwo, intersectionPoint);
 }
 static bool innerLineLineCollision(const Line& lineOne, const Line& lineTwo)
 {
@@ -316,7 +318,12 @@ static bool polygonsCollide(const Points& polygonOne, const Points& polygonTwo)
 	return false;
 }
 
-template<class PointType1, class PointType2, class PointType3> bool pointSitsOnLine(PointType1 s, PointType2 e, PointType3 p)
+bool pointSitsOnLine(const Line& line, const Point& point)
+{
+	return pointSitsOnLine(line[0], line[1], point);
+}
+
+template<class PointType1, class PointType2, class PointType3> bool pointSitsOnLine(const PointType1& s, const PointType2& e, const PointType3& p)
 {
 	if (p == s || p == e)
 		return true;

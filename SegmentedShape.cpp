@@ -496,11 +496,15 @@ std::optional<SegmentedShape> SegmentedShape::split(Shape::AxisPoint splitPoint)
 		auto newAxis = getAxis();
 		const auto [firstPoint, secondPoint] = getEdgesOfAxisPoint(splitPoint);
 
-		auto newSplitIter = insertElemementBetween(newAxis, firstPoint, secondPoint, splitPoint);
+		Shape::Axis::iterator splitIter;
+		if (sitsOnAnySegmentCorner(splitPoint))
+			splitIter = std::find(std::begin(newAxis), std::end(newAxis), splitPoint);
+		else
+			splitIter = insertElemementBetween(newAxis, firstPoint, secondPoint, splitPoint);
 		//dont erase if same 
 		// recteate this worldAxis
-		Shape::Axis curSplitAxis(std::begin(newAxis), newSplitIter + 1);
-		Shape::Axis secondSplitAxis(newSplitIter, std::end(newAxis));
+		Shape::Axis curSplitAxis(std::begin(newAxis), splitIter + 1);
+		Shape::Axis secondSplitAxis(splitIter, std::end(newAxis));
 
 
 		SegmentedShape optShape;
@@ -532,10 +536,11 @@ std::optional<SegmentedShape> SegmentedShape::split(Shape::AxisPoint splitPoint)
 			setNewCircularEndPoints(secondPoint->centre);
 		else
 		{
-			insertElemementBetween(newAxis, firstPoint->centre, secondPoint->centre, splitPoint);
+			if (!sitsOnAnySegmentCorner(splitPoint))
+				insertElemementBetween(newAxis, firstPoint->centre, secondPoint->centre, splitPoint);
+
+			setNewCirclePointsStart(newAxis, splitPoint);
 			construct(newAxis, m_width);
-			setNewCircularEndPoints(splitPoint);
-			auto axis = getAxis();
 		}
 	}
 
@@ -596,28 +601,6 @@ SegmentedShape SegmentedShape::shorten(Shape::AxisPoint shapeEnd, float size)
 			// then rest
 			std::reverse_copy(insertIt, std::end(reversedAxis), std::back_insert_iterator(newAxis));
 		}
-	}
-
-	try
-	{
-		auto isPointNan = [](const Point& p)
-		{
-			return std::isnan(p.x) || std::isnan(p.y) || std::isnan(p.z);
-		};
-		for (const auto& p : newAxis)
-		{
-			if (isPointNan(p))
-				throw std::runtime_error("err");
-		}
-		for (const auto& p : shortenAxis)
-		{
-			if (isPointNan(p))
-				throw std::runtime_error("err");
-		}
-	}
-	catch (const std::runtime_error & err)
-	{
-		std::cout << err.what();
 	}
 	// update current
 	construct(newAxis, m_width);
@@ -775,6 +758,7 @@ void SegmentedShape::setNewCircularEndPoints(Shape::AxisPoint axisPoint)
 	construct(newAxis, m_width);
 }
 
+/*
 void SegmentedShape::eraseCommonPoints()
 {
 	auto current = m_joints.begin();
@@ -795,10 +779,71 @@ void SegmentedShape::eraseCommonPoints()
 
 		++current;
 	}
+}*/
+
+void SegmentedShape::purifyPoints(Points& axis)
+{
+	if (axis.size() < 3)
+		return;
+	// remove duplicates, but not end points, if theyre equal
+	auto cursor = axis.begin();
+	while (cursor + 1 != axis.end())
+	{
+		auto compare = cursor + 1;
+		while (compare != axis.end())
+		{
+			// comparing ends
+			if (cursor == axis.begin() && compare == axis.end() - 1)
+				break; //we can safely
+
+			if (approxSamePoints(*cursor, *compare))
+			{
+				compare = axis.erase(compare);
+			}
+			else
+			{
+				++compare;
+			}
+		}
+		++cursor;
+	}
+
+	// check for colinear lines
+	auto pointOne = axis.begin();
+	auto pointTwo = pointOne + 1;
+	auto pointThree = pointTwo + 1;
+
+	while (true)
+	{
+		const auto firstDir = glm::normalize(*pointTwo - *pointOne);
+		const auto secondDir = glm::normalize(*pointThree - *pointTwo);
+
+		const glm::vec3 front(0.0f, 0.0f, 1.0f);
+		auto firstAngle = glm::acos(glm::dot(firstDir, front));
+		auto secondAngle = glm::acos(glm::dot(secondDir, front));
+
+		// remove that poing
+		if (glm::epsilonEqual(firstAngle, secondAngle, 0.0001f))
+			axis.erase(pointTwo);
+
+		// move points
+		++pointOne;
+		pointTwo = pointOne + 1;
+		if (pointTwo != axis.end())
+			pointThree = pointTwo + 1;
+
+		// check if we exceded the rande
+		if (pointTwo == axis.end() || pointThree == axis.end())
+			break;
+	}
 }
 
-void SegmentedShape::createShape(const Points& axis)
+void SegmentedShape::createShape(Points axis)
 {
+	// remove duplicates and colinear lines
+	purifyPoints(axis);
+
+	// construct
 	const glm::vec3 vectorUp(0.0f, 1.0f, 0.0f);
 	// mke space
 	m_joints.resize(axis.size());

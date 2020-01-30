@@ -185,6 +185,59 @@ void circleSortCenterOrientedSegmentedShapes(std::vector<SegmentedShape>& shapes
 		std::sort(std::rbegin(shapes), std::rend(shapes), angleSegmentShapeSort);
 }
 
+std::pair<SegmentedShape, std::vector<SegmentedShape>> getMainShapeAndConnectingShapes(const std::vector<SegmentedShape>& shapes)
+{
+	auto firstShape = shapes.begin();
+	auto secondShape = firstShape;
+
+	float greatestAngle = -3.14;
+	bool foundColinearShapes = false;
+	for (auto shapeOne = shapes.begin(); shapeOne + 1 < shapes.end() && !foundColinearShapes; ++shapeOne)
+	{
+		auto shapeTwo = shapeOne + 1;
+		while (shapeTwo != shapes.end() && !foundColinearShapes)
+		{
+			auto shapeOneDir = glm::normalize(shapeOne->getHead() - shapeOne->getTail());
+			auto shapeTwoDir = glm::normalize(shapeTwo->getHead() - shapeTwo->getTail());
+
+			auto dot = glm::dot(shapeOneDir, shapeTwoDir);
+			// if we have found oposite vectors
+			if (glm::epsilonEqual(dot, 1.0f, 0.001f))
+			{
+				foundColinearShapes = true;
+
+				firstShape = shapeOne;
+				secondShape = shapeTwo;
+			}
+			else
+			{
+				// if we have found oposite vectors
+				float curAngle = glm::acos(glm::dot(shapeOneDir, shapeTwoDir));
+				if (curAngle > greatestAngle)
+				{
+					greatestAngle = curAngle;
+
+					firstShape = shapeOne;
+					secondShape = shapeTwo;
+				}
+			}
+			++shapeTwo;
+		}
+	}
+
+	SegmentedShape mainShape = *firstShape;
+	mainShape.mergeWith(*secondShape);
+
+	std::vector<SegmentedShape> connectingShapes;
+	for (auto begin = shapes.begin(); begin != shapes.end(); ++begin)
+	{
+		if (begin != firstShape && begin != secondShape)
+			connectingShapes.emplace_back(*begin);
+	}
+
+	return std::make_pair(mainShape, connectingShapes);
+}
+
 
 void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionPoint)
 {
@@ -194,7 +247,7 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 
 	// adjust connectd roads
 	{
-		float requiredDistance = m_width / 2.0f + 0.25;
+		float requiredDistance = m_width / 2.0 + m_width * 0.25;
 		for (auto& road : roads)
 		{
 			auto shortenShape = road->shorten(Shape::AxisPoint(intersectionPoint), requiredDistance).getShape();
@@ -214,24 +267,14 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 	setUpShape();
 }
 
-bool pointIsCloserToPointsStart(const Point& pointsPoint, const Points& points)
+bool pointIsCloserToPointsStart(const Point& point, const Points& points)
 {
 	if (points.size() < 2)
 		return true;
 
-	float lenghtFromStart = 0, lenghtFromEnd = 0;
-	bool passedPoint = false;
-	for (auto p1 = points.begin(), p2 = p1 + 1; p2 != points.end(); p1 = p2++)
-	{
-		if (approxSamePoints(*p1, pointsPoint))
-			passedPoint = true;
 
-		// add lenght from start
-		if (!passedPoint)
-			lenghtFromStart += glm::length(*p1 - *p2);
-		else
-			lenghtFromEnd += glm::length(*p1 - *p2);
-	}
+	float lenghtFromStart = glm::length(point - points.front());
+	float lenghtFromEnd = glm::length(point - points.back());
 
 	return lenghtFromStart < lenghtFromEnd;
 }
@@ -245,24 +288,22 @@ std::pair<Points, Points> getCutSideByTwoLinesIntoTwoEdges(Points side, Points l
 {
 	const auto originalSide = side;
 	auto [cuttedSideByLine1, _] = cutTwoTrailsOnCollision(side, line1);
-	
-	if (cuttedSideByLine1.size() <= 1)
-		std::cout << "Wat\n";
+	if (cuttedSideByLine1.empty())
+		std::cout << "Empty\n";
+
 	Points edgeOnePoints, edgeTwoPoints;
-	if (pointIsCloserToPointsStart(line1.back(), originalSide))
+	if (trailTrailCollision(line2, cuttedSideByLine1))
 	{
 		// we cut from cutted
-		auto [cuttedSideByLine2, _1] = cutTwoTrailsOnCollision(cuttedSideByLine1, line1);
-		if (cuttedSideByLine2.size() <= 1)
-			std::cout << "Wat\n";
+		auto [cuttedSideByLine2, _1] = cutTwoTrailsOnCollision(cuttedSideByLine1, line2);
 		// skip common points
-		// edge one
-		std::copy(std::begin(cuttedSideByLine1), std::end(cuttedSideByLine1), std::back_inserter(edgeTwoPoints));
-		std::copy(std::rbegin(line1) + 1, std::rend(line1), std::back_inserter(edgeTwoPoints));
-
 		// edge two
-		std::copy(std::begin(line2), std::end(line2), std::back_inserter(edgeOnePoints));
-		std::copy(std::begin(cuttedSideByLine2) + 1, std::end(cuttedSideByLine2), std::back_inserter(edgeOnePoints));
+		std::copy(std::begin(side), std::end(side), std::back_inserter(edgeOnePoints));
+		std::copy(std::rbegin(line1) + 1, std::rend(line1), std::back_inserter(edgeOnePoints));
+
+		// edge one
+		std::copy(std::begin(line2), std::end(line2), std::back_inserter(edgeTwoPoints));
+		std::copy(std::begin(cuttedSideByLine2) + 1, std::end(cuttedSideByLine2), std::back_inserter(edgeTwoPoints));
 	}
 	else
 	{
@@ -285,60 +326,18 @@ std::pair<Points, Points> getCutSideByTwoLinesIntoTwoEdges(Points side, Points l
 
 void RoadIntersection::setUpShape()
 {
-	// sort them for easier manipulation
-	std::vector<Points> sides;
-
 	// sort shapes to opposite sides
 	circleSortCenterOrientedSegmentedShapes(m_connectShapes, false);
-	if(m_connectShapes.size() == 3)
-	{
-		auto firstIt = m_connectShapes.begin();
-		auto secondIt = firstIt;
+	// main shape will be cut
+	auto [mainShape, connectingShapes] = getMainShapeAndConnectingShapes(m_connectShapes);
 
-		float greatestAngle = -3.14;
-		for(auto shapeOne = m_connectShapes.begin(); shapeOne + 1 < m_connectShapes.end(); ++shapeOne)
-		{
-			auto shapeTwo = shapeOne + 1;
-			while (shapeTwo != m_connectShapes.end())
-			{
-				auto shapeOneDir = glm::normalize(shapeOne->getHead() - shapeOne->getTail());
-				auto shapeTwoDir = glm::normalize(shapeTwo->getHead() - shapeTwo->getTail());
-
-				float curAngle = glm::acos(glm::dot(shapeOneDir, shapeTwoDir));
-				if (curAngle > greatestAngle)
-				{
-					greatestAngle = curAngle;
-					firstIt = shapeOne;
-					secondIt = shapeTwo;
-				}
-				++shapeTwo;
-			}
-		}
-
-		auto relPos = secondIt - firstIt;
-		// their pos is odd
-		if (relPos % 2 == 1)
-		{
-			// keep it simple
-			if (firstIt != m_connectShapes.begin())
-				std::swap(*firstIt, *m_connectShapes.begin());
-			else
-				std::swap(*secondIt, *(secondIt + 1));
-		}
-	}
-	
-
-	// this shape will be cut
-	SegmentedShape mainShape = m_connectShapes[0];
-	mainShape.mergeWith(m_connectShapes[2]);
-
-	Points outlinePoints;
+	m_outlinePoints.clear();
 	// test frow mich side we cut
 	{
 		auto leftSide = mainShape.getLeftSidePoints();
 		auto rightSide = mainShape.getRightSidePoints();
 
-		const auto curShape = m_connectShapes[1];
+		const auto curShape = connectingShapes.front();
 		auto curLeftSide = curShape.getLeftSidePoints();
 		auto curRightSide = curShape.getRightSidePoints();
 
@@ -347,33 +346,33 @@ void RoadIntersection::setUpShape()
 			auto [edgeOne, edgeTwo] = getCutSideByTwoLinesIntoTwoEdges(leftSide, curLeftSide, curRightSide);
 
 			// merge them
-			std::copy(std::rbegin(rightSide), std::rend(rightSide), std::back_inserter(outlinePoints));
-			std::copy(std::begin(edgeOne), std::end(edgeOne), std::back_inserter(outlinePoints));
-			std::copy(std::begin(edgeTwo), std::end(edgeTwo), std::back_inserter(outlinePoints));
+			std::copy(std::rbegin(rightSide), std::rend(rightSide), std::back_inserter(m_outlinePoints));
+			std::copy(std::begin(edgeOne), std::end(edgeOne), std::back_inserter(m_outlinePoints));
+			std::copy(std::begin(edgeTwo), std::end(edgeTwo), std::back_inserter(m_outlinePoints));
 		}
 		else
 		{
 			auto [edgeOne, edgeTwo] = getCutSideByTwoLinesIntoTwoEdges(rightSide, curLeftSide, curRightSide);
 
 			// merge them
-			std::copy(std::rbegin(leftSide), std::rend(leftSide), std::back_inserter(outlinePoints));
-			std::copy(std::begin(edgeOne), std::end(edgeOne), std::back_inserter(outlinePoints));
-			std::copy(std::begin(edgeTwo), std::end(edgeTwo), std::back_inserter(outlinePoints));
+			std::copy(std::rbegin(leftSide), std::rend(leftSide), std::back_inserter(m_outlinePoints));
+			std::copy(std::begin(edgeOne), std::end(edgeOne), std::back_inserter(m_outlinePoints));
+			std::copy(std::begin(edgeTwo), std::end(edgeTwo), std::back_inserter(m_outlinePoints));
 		}
 	}
+
 	// triangulate
-	
+
 	using EarCutPoint = std::array<float, 2>;
 	std::vector<std::vector<EarCutPoint>> polygon(1);
-	polygon[0].resize(outlinePoints.size());
-	for (auto index = 0; index < outlinePoints.size(); ++index)
+	polygon[0].resize(m_outlinePoints.size());
+	for (auto index = 0; index < m_outlinePoints.size(); ++index)
 	{
-		polygon[0][index] = { outlinePoints[index].x, outlinePoints[index].z };
+		polygon[0][index] = { m_outlinePoints[index].x, m_outlinePoints[index].z };
 	}
 
 	std::vector<uint32_t> indices = mapbox::earcut(polygon);
-
-	m_shapePoints = outlinePoints;
+	m_shapePoints = m_outlinePoints;
 
 	// then setupDrawing
 	Mesh mesh;
@@ -432,13 +431,29 @@ std::vector<Road*> RoadIntersection::disassemble()
 
 glm::vec3 RoadIntersection::getDirectionPointFromConnectionPoint(Point connectionPoint)
 {
+	for (const auto& connectShapes : m_connectShapes)
+	{
+		if (connectShapes.sitsOnTail(connectionPoint))
+			return *(connectShapes.getAxis().begin() + 1);
+	}
+
 	return m_centre;
 }
 
 BasicRoad::ConnectionPossibility RoadIntersection::getConnectionPossibility(Line connectionLine, Shape::AxisPoint connectionPoint) const
 {
 	ConnectionPossibility cp{};
-	cp.recomendedPoint = connectionPoint;
+	if (m_connectShapes.size() < 4)
+	{
+		cp.canConnect = true;
+		auto axis = m_connectShapes[2].getAxis();
+		cp.recomendedPoint = glm::normalize(axis[1] - axis[0]) + m_centre;
+	}
+	else
+	{
+		cp.canConnect = false;
+	}
+
 	return cp;
 }
 
