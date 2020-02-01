@@ -53,6 +53,9 @@ public:
 	std::vector<Segment> getJointSegments(Shape::AxisPoint jointPoint) const;
 	std::vector<Segment> getSegments(Shape::AxisPoint axisPoint) const;
 	std::optional<Shape::AxisPoint> getShapeAxisPoint(Point arbitraryPoint) const;
+	Point getCircumreferencePoint(Point shapePoint) const;
+	bool isHeadSegment(const Segment& segment) const;
+	bool isTailSegment(const Segment& segment) const;
 
 	static Mesh createMesh(const SegmentedShape& shape);
 	// getters
@@ -104,6 +107,7 @@ public:
 	void reconstruct();
 	void mergeWith(const SegmentedShape& otherShape);
 	std::optional<SegmentedShape> split(Shape::AxisPoint splitPoint);
+	SegmentedShape cutKnot();
 	SegmentedShape shorten(Shape::AxisPoint shapeEnd, float size);
 	void extend(Shape::AxisPoint shapeEnd, Point point);
 

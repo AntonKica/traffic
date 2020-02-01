@@ -2,6 +2,8 @@
 #include "BasicCreator.h"
 #include "BasicBuilding.h"
 #include "SimulationObject.h"
+#include "ParkingLotCreator.h"
+
 #include <map>
 #include <memory>
 
@@ -32,7 +34,8 @@ namespace BC
 
 	};
 }
-class BuildingCreator;
+class SimulationArea;
+//class BuildingCreator;
 class PlacementRectangle
 	: public SimulationObject
 {
@@ -80,5 +83,6 @@ private:
 
 	PlacementRectangle m_placementRectangle;
 	BC::Resource* m_currentResource;
+	ParkingLotCreator m_parkingLotCreator;
 };
 

@@ -39,6 +39,7 @@ public:
 	bool sitsOnEndPoints(const Point& point) const;
 	Shape::Axis getAxis() const;
 	Points getAxisPoints() const;
+	Point getCircumreferencePoint(Point roadPoint) const;
 	SegmentedShape getShape() const;
 
 	//
@@ -50,6 +51,7 @@ public:
 	void mergeWith(Road& otherRoad);
 	struct SplitProduct;
 	SplitProduct split(Shape::AxisPoint splitPoint);
+	Road cutKnot();
 	Road shorten(Shape::AxisPoint roadEnd, float size);
 	void extend(Shape::AxisPoint roadEnd, Point point);
 	SegmentedShape::ShapeCut getCut(Shape::AxisPoint roadAxisPoint) const;

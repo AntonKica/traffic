@@ -582,15 +582,18 @@ void RoadCreator::updateMousePoint()
 		RC::SittingPoint newSittingPoint;
 
 		//just for now this way of getting selected road
-		if (auto selectedRoad = m_pObjectManager->getSelectedRoad())
+		auto selectedObject = m_pObjectManager->m_pSimulationArea->getSelectedObject();
+		if (selectedObject)
 		{
-			const auto& road = selectedRoad.value();
-			newSittingPoint.road = selectedRoad.value();
-			if (road->getRoadType() == BasicRoad::RoadType::ROAD)
+			if (auto road = dynamic_cast<BasicRoad*>(selectedObject.value()))
 			{
-				auto roadPoint = selectedRoad.value()->getAxisPoint(mousePoint);
+				newSittingPoint.road = road;
+				if (road->getRoadType() == BasicRoad::RoadType::ROAD)
+				{
+					auto roadPoint = road->getAxisPoint(mousePoint);
 
-				newSittingPoint.point = roadPoint;
+					newSittingPoint.point = roadPoint;
+				}
 			}
 		}
 		else
@@ -749,7 +752,7 @@ RoadCreator::ConnectProducts RoadCreator::connectRoads(Road& road, Road& connect
 			mergeRoads(road, connectingRoad);
 			connectProducts.keepConnectingRoad = false;
 
-			auto cut = cutKnot(road);
+			auto cut = road.cutKnot();
 			const auto [newRoads, newInterSections] = buildToIntersection(road, cut);
 
 			connectProducts.newRoads = newRoads;
@@ -804,42 +807,6 @@ void RoadCreator::mergeRoads(Road& road, Road& mergingRoad)
 		road.mergeWith(mergingRoad);
 		road.reconstruct();
 	}
-}
-
-Road RoadCreator::cutKnot(Road& road)
-{
-	// find point which makes the knot
-	Shape::AxisPoint cp{};
-	auto axis = road.m_shape.getAxis();
-	// do not check for same eact point
-	for (int index = 0; index < axis.size(); ++index)
-	{
-		if (index + 2 < axis.size() &&
-			pointSitsOnLine(axis[index + 1], axis[index + 2], road.m_shape.getTail()))
-		{
-			cp = road.m_shape.getTail();
-			break;
-		}
-		else if (index - 1 >= 0 &&
-			pointSitsOnLine(axis[index - 1], axis[index], road.m_shape.getHead()))
-		{
-			cp = road.m_shape.getHead();
-			break;
-		}
-	}
-	//auto [optRoad, optConnection] = road.split(cp);
-	auto knot = road.split(cp).road.value();
-	// swap since cut is now in road shape
-	if (knot.m_shape.isCirculary())
-	{
-		std::swap(knot.m_shape, road.m_shape);
-		road.transferConnections(&knot);
-	}
-
-	road.reconstruct();
-	knot.reconstruct();
-
-	return knot;
 }
 
 RoadCreator::IntersectionProducts RoadCreator::buildToIntersection(Road& road, Road& connectingRoad)

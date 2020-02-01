@@ -1053,10 +1053,7 @@ void VulkanBase::createSyncObjects()
 
 void VulkanBase::prepareFrame()
 {
-	if (m_changedActiveComponentsSize)
-	{
-		updateUniformBufferOffsets();
-	}
+	updateUniformBufferOffsets();
 }
 
 void VulkanBase::drawFrame()

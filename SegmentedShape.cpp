@@ -170,6 +170,77 @@ std::optional<Shape::AxisPoint> SegmentedShape::getShapeAxisPoint(Point arbitrar
 	return axisPoint;
 }
 
+Point SegmentedShape::getCircumreferencePoint(Point shapePoint) const
+{
+	const auto segment = selectSegment(shapePoint).value();
+	const float quarterSegmentDiameter = glm::length(segment.start->left - segment.start->right) / 4.0f;
+	const float segmentLength = glm::length(segment.start->centre - segment.end->centre);
+
+	// this sholdng happen
+	const float distFromSegmentEnds = quarterSegmentDiameter > segmentLength ?
+		quarterSegmentDiameter : segmentLength / 4.0f;
+
+	// doesnt mean it is in that area...
+	if (!isCirculary)
+	{
+		if (isTailSegment(segment))
+		{
+			// we need to find triangle to check
+			auto startToEndDir = glm::normalize(segment.end->centre - segment.start->centre);
+			auto pointToTriangle = segment.start->centre + startToEndDir * distFromSegmentEnds;
+
+			Points vertices = { segment.start->left, segment.start->right, pointToTriangle
+			};
+
+			// if it is actualy in that area
+			if (polygonPointCollision(vertices, shapePoint))
+			{
+				auto closestPoint = getClosestPointToLine(segment.start->left, segment.start->right, shapePoint);
+
+				return closestPoint;
+			}
+		}
+
+		if (isHeadSegment(segment))
+		{
+			// we need to find triangle to check
+			auto endToStartDir = glm::normalize(segment.start->centre - segment.end->centre);
+			auto pointToTriangle = segment.end->centre + endToStartDir * distFromSegmentEnds;
+
+			Points vertices = { segment.end->left, segment.end->right, pointToTriangle
+			};
+
+			if (polygonPointCollision(vertices, shapePoint))
+			{
+				auto closestPoint = getClosestPointToLine(segment.end->left, segment.end->right, shapePoint);
+
+				return closestPoint;
+			}
+		}
+	}
+	// .. so we have to try even for non end situation
+	Line leftSide = { segment.start->left, segment.end->left };
+	Line rightSide = { segment.start->right, segment.end->right };
+
+	auto closestToLeft = getClosestPointToLine(segment.start->left, segment.end->left, shapePoint);
+	auto closestToRight = getClosestPointToLine(segment.start->right, segment.end->right, shapePoint);
+
+	auto distToLeft = glm::length(shapePoint - closestToLeft);
+	auto distToRight = glm::length(shapePoint - closestToRight);
+
+	return distToLeft < distToRight ? closestToLeft : closestToRight;
+}
+
+bool SegmentedShape::isHeadSegment(const Segment& segment) const
+{
+	return segment.end == &m_joints.back();
+}
+
+bool SegmentedShape::isTailSegment(const Segment& segment) const
+{
+	return segment.start == &m_joints.front();
+}
+
 Mesh SegmentedShape::createMesh(const SegmentedShape& shape)
 {
 	auto& joints = shape.getShape();
@@ -545,6 +616,37 @@ std::optional<SegmentedShape> SegmentedShape::split(Shape::AxisPoint splitPoint)
 	}
 
 	return optionalSplit;
+}
+
+SegmentedShape SegmentedShape::cutKnot()
+{
+	auto knotPoint = sitsOnAxis(getHead()) ? getHead() : getTail();
+
+	auto newAxis = getAxis();
+
+	const auto [firstPoint, secondPoint] = getEdgesOfAxisPoint(knotPoint);
+	auto knotIter = insertElemementBetween(newAxis, firstPoint, secondPoint, knotPoint);
+
+	// get the right points
+	Points knotPoints;
+	if (sitsOnHead(knotPoint))
+	{
+		std::copy(newAxis.begin(), knotIter + 1, std::back_inserter(knotPoints));
+		newAxis.erase(newAxis.begin(), knotIter);
+	}
+	else
+	{
+		std::copy(knotIter, newAxis.end(), std::back_inserter(knotPoints));
+		newAxis.erase(knotIter + 1, newAxis.end());
+	}
+
+	// construct them
+	construct(newAxis, m_width);
+
+	SegmentedShape knotShape;
+	knotShape.construct(knotPoints, m_width);
+
+	return knotShape;
 }
 
 SegmentedShape SegmentedShape::shorten(Shape::AxisPoint shapeEnd, float size)

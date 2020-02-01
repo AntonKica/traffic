@@ -164,6 +164,12 @@ void SimulationObject::setActive(bool active)
 
 	m_components.graphics.setActive(m_active && !m_disableGraphics);
 	m_components.physics.setActive(m_active && !m_disablePhysics);
+
+	setActiveAction();
+}
+
+void SimulationObject::setActiveAction()
+{
 }
 
 void SimulationObject::setupModel(const Info::ModelInfo& modelInfo, bool activateOnCreation)
@@ -171,6 +177,21 @@ void SimulationObject::setupModel(const Info::ModelInfo& modelInfo, bool activat
 	Info::DrawInfo dInfo{};
 	dInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	dInfo.polygon = VK_POLYGON_MODE_FILL;
+	dInfo.lineWidth = 1.0f;
+
+	Info::GraphicsComponentCreateInfo createInfo;
+	createInfo.drawInfo = &dInfo;
+	createInfo.modelInfo = &modelInfo;
+
+	m_components.graphics.updateGraphicsComponent(createInfo);
+	m_components.graphics.setActive(activateOnCreation);
+}
+
+void SimulationObject::setupModelWithLines(const Info::ModelInfo& modelInfo, bool activateOnCreation)
+{
+	Info::DrawInfo dInfo{};
+	dInfo.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+	dInfo.polygon = VK_POLYGON_MODE_LINE;
 	dInfo.lineWidth = 1.0f;
 
 	Info::GraphicsComponentCreateInfo createInfo;

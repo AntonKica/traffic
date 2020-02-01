@@ -383,7 +383,7 @@ Shape::AxisPoint Road::getAxisPoint(Point pointOnRoad) const
 	return m_shape.getShapeAxisPoint(pointOnRoad).value();
 }
 
-Points createSubLineFromAxis(const Points& axis, const Points& line, float percentageDistanceFromAxis)
+static Points createSubLineFromAxis(const Points& axis, const Points& line, float percentageDistanceFromAxis)
 {
 	Points newPoints(line);
 	for (uint32_t index = 0; index < axis.size(); ++index)
@@ -478,6 +478,11 @@ Shape::Axis Road::getAxis() const
 Points Road::getAxisPoints() const
 {
 	return m_shape.getAxisPoints();
+}
+
+Point Road::getCircumreferencePoint(Point roadPoint) const
+{
+	return m_shape.getCircumreferencePoint(roadPoint);
 }
 
 SegmentedShape Road::getShape() const
@@ -593,6 +598,21 @@ Road::SplitProduct Road::split(Shape::AxisPoint splitPoint)
 	reconstruct();
 
 	return product;
+}
+
+Road Road::cutKnot()
+{
+	auto knot = m_shape.cutKnot();
+
+	Road newRoad;
+	// transfer connections if any, we dont care atm
+	transferConnections(&newRoad);
+
+	// construct 'em
+	reconstruct();
+	newRoad.construct(knot.getAxisPoints(), m_parameters);
+
+	return newRoad;
 }
 
 

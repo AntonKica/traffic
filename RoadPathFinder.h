@@ -220,6 +220,7 @@ void reverseSegmentsUntilAllPathsAreConnected(
 			{
 				// take first one
 				prevSegment->alternativeExitPath = possiblePaths.front();
+				pathsCanConnect = true;
 			}
 			else // this is path we need to go back
 			{

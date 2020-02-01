@@ -102,6 +102,9 @@ public:
 	std::optional<glm::vec3> getSelectedPointPos() const;
 	std::optional<glm::vec3> getMousePosition() const;
 
+	void updateSelecteObject();
+	std::optional<SimulationObject*> getSelectedObject() const;
+
 	//[Obsolete("Should be refactored")]
 
 	ObjectManager m_objectManager;
@@ -118,6 +121,7 @@ private:
 	
 	std::optional<glm::vec3> m_mousePosition;
 	bool m_enableMouse = false;
+	std::optional<SimulationObject*> m_selectedObject;
 
 	// new
 	TopMenu m_topMenu;

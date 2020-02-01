@@ -149,7 +149,6 @@ private:
 	std::vector<Shape::AxisPoint> connectPoints(const Road& road, const Road& connectingRoad) const;
 
 	void mergeRoads(Road& road, Road& mergingRoad);
-	Road cutKnot(Road& road);
 	struct IntersectionProducts
 	{
 		std::vector<Road> newRoads;

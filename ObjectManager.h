@@ -71,8 +71,6 @@ public:
 	void initialize();
 	void update();
 
-	void updateSelectedRoad();
-	std::optional<BasicRoad*> getSelectedRoad() const;
 	void setCreatorsModes(Creator::CreatorMode mode);
 
 	void clickEvent();
@@ -83,7 +81,6 @@ private:
 
 	//
 	friend class UI;
-	std::optional<BasicRoad*> m_selectedRoad;
 	Container<Road> m_roads;
 	Container<RoadIntersection> m_intersections;
 	Container<House> m_houses;

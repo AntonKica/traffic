@@ -258,7 +258,9 @@ BC::Resource::Resource(std::string modelPath, std::string name, BasicBuilding::B
 }
 
 BuildingCreator::BuildingCreator(ObjectManager* objManager)
-	:BasicCreator(objManager), m_placementRectangle(m_pObjectManager->m_pSimulationArea)
+	:BasicCreator(objManager), 
+	m_placementRectangle(m_pObjectManager->m_pSimulationArea),
+	m_parkingLotCreator(this, objManager->m_pSimulationArea)
 {
 }
 
@@ -344,5 +346,7 @@ void BuildingCreator::setActiveAction()
 {
 	m_placementRectangle.setActive(m_active);
 	m_currentResource->prototype->setActive(m_active);
+
+	m_parkingLotCreator.setActive(m_active);
 }
 

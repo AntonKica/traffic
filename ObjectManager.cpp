@@ -121,12 +121,7 @@ void ObjectManager::initialize()
 
 void ObjectManager::update()
 {
-	if (m_disabledCreators)
-	{
-		m_selectedRoad.reset();
-		return;
-	}
-	else 
+	if (!m_disabledCreators)
 	{
 		if (m_ui.getCurrentCreator() == ObjectManagerUI::CreatorType::ROAD)
 		{
@@ -139,53 +134,11 @@ void ObjectManager::update()
 			m_buildingCreator.setActive(true);
 		}
 
-		updateSelectedRoad();
-
 		m_roadCreator.update();
 		m_buildingCreator.update();
 	}
 }
 
-void ObjectManager::updateSelectedRoad()
-{
-	auto cursor = m_pSimulationArea->getMousePosition();
-	m_selectedRoad.reset();
-
-	const glm::vec4 green = glm::vec4(0.47, 0.98, 0.0, 1.0);
-	if (cursor)
-	{
-		for (auto& road : m_roads.data)
-		{
-			if (road.sitsPointOn(cursor.value()) && !m_selectedRoad)
-			{
-				m_selectedRoad = &road;
-				road.getGraphicsComponent().setTint(green);
-			}
-			else
-			{
-				road.getGraphicsComponent().setTint(glm::vec4());
-			}
-		}
-
-		for (auto& intersection : m_intersections.data)
-		{
-			if (intersection.sitsPointOn(cursor.value()) && !m_selectedRoad)
-			{
-				m_selectedRoad = &intersection;
-				intersection.getGraphicsComponent().setTint(green);
-			}
-			else
-			{
-				intersection.getGraphicsComponent().setTint(glm::vec4());
-			}
-		}
-	}
-}
-
-std::optional<BasicRoad*> ObjectManager::getSelectedRoad() const
-{
-	return m_selectedRoad;
-}
 
 void ObjectManager::setCreatorsModes(Creator::CreatorMode mode)
 {

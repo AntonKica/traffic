@@ -36,6 +36,11 @@ public:
 	void setActive(bool active);
 
 	void setupModel(const Info::ModelInfo& modelInfo, bool activateOnCreation);
+	void setupModelWithLines(const Info::ModelInfo& modelInfo, bool activateOnCreation);
+
+protected:
+	virtual void setActiveAction();
+
 private:
 	struct
 	{

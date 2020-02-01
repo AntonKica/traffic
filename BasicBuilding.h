@@ -10,12 +10,11 @@ public:
 	enum class BuildingType
 	{
 		HOUSE,
+		PARKING_LOT,
 		MAX_BUILDING_TYPE
 	};
 
 	BasicBuilding();
-
-	virtual void create(glm::vec3 position, std::string modelPath) = 0;
 
 	Road* getNearbyRoad() const;
 	void resetNearbyRoad();

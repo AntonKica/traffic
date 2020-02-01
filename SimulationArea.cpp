@@ -166,16 +166,17 @@ void SimulationArea::loadData()
 
 void SimulationArea::update()
 {
-	updateMousePosition();
-
 	m_visuals.update();
 	if (m_editMode)
 	{
 		m_objectManager.update();
+
+		updateMousePosition();
+		updateSelecteObject();
 	}
 	else
 	{
-
+		updateMousePosition();
 	}
 }
 
@@ -218,6 +219,49 @@ std::optional<glm::vec3> SimulationArea::getSelectedPointPos() const
 std::optional<glm::vec3> SimulationArea::getMousePosition() const
 {
 	return m_mousePosition;
+}
+
+void SimulationArea::updateSelecteObject()
+{
+	// lets fake it for now
+	m_selectedObject.reset();
+	if (!m_editMode)
+		return;
+
+	const glm::vec4 green = glm::vec4(0.47, 0.98, 0.0, 1.0);
+	if (m_mousePosition)
+	{
+		for (auto& road : m_objectManager.m_roads.data)
+		{
+			if (road.sitsPointOn(m_mousePosition.value()) && !m_selectedObject)
+			{
+				m_selectedObject = &road;
+				road.getGraphicsComponent().setTint(green);
+			}
+			else
+			{
+				road.getGraphicsComponent().setTint(glm::vec4());
+			}
+		}
+
+		for (auto& intersection : m_objectManager.m_intersections.data)
+		{
+			if (intersection.sitsPointOn(m_mousePosition.value()) && !m_selectedObject)
+			{
+				m_selectedObject = &intersection;
+				intersection.getGraphicsComponent().setTint(green);
+			}
+			else
+			{
+				intersection.getGraphicsComponent().setTint(glm::vec4());
+			}
+		}
+	}
+}
+
+std::optional<SimulationObject*> SimulationArea::getSelectedObject() const
+{
+	return m_selectedObject;
 }
 
 void SimulationArea::initTraits()
@@ -364,6 +408,8 @@ void SimulationArea::play()
 
 	// reset and setup
 	{
+		// first setup roads then inrersections since intersection rely on 
+		// road paths being setup
 		for (auto& road : m_objectManager.m_roads.data)
 		{
 			road.createPaths();
