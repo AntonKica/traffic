@@ -1,6 +1,12 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+struct ShaderDrawInfo
+{
+	float transparency;
+	vec4 tint;
+};
+
 layout(push_constant) uniform pushConstants 
 {
     	mat4 view;
@@ -10,22 +16,19 @@ layout(push_constant) uniform pushConstants
 layout(binding = 0) buffer UniformBufferObject
 {
 	mat4 model;
-	float transparency;
-	vec4 tint;
+	ShaderDrawInfo shaderDrawInfo;
 } ubo;
 
 layout(location = 0) in vec3 inPos;
 layout(location = 1) in vec2 inTexCoord;
 
-layout(location = 0) out float transparency;
-layout(location = 1) out vec4 tint;
+layout(location = 0) out ShaderDrawInfo shaderDrawInfo;
 layout(location = 2) out vec2 fragPos;
 
 void main()
 {
 	gl_Position = pushConstant.projection * pushConstant.view * ubo.model  * vec4(inPos, 1.0);
-	transparency = ubo.transparency;
-	tint = ubo.tint;
+	shaderDrawInfo = ubo.shaderDrawInfo;
 	fragPos = inTexCoord;
 }
 

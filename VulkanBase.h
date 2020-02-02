@@ -71,9 +71,14 @@ namespace
 
 	struct UniformBufferObject
 	{
+		struct ShaderDrawInfo
+		{
+			float transparency = 0;
+			glm::vec4 tint = {};
+		};
+
 		glm::mat4 model;
-		glm::vec4 tint;
-		float transparency;
+		ShaderDrawInfo shaderDrawInfo;
 	};
 }
 

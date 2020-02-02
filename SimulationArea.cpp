@@ -140,14 +140,16 @@ void SimulationAreaVisualizer::update()
 
 
 SimulationArea::SimulationArea()
-	: m_visuals(this), m_objectManager(this), m_topMenu(this)
+	: m_visuals(this), m_objectManager(this), m_topMenu(this), m_bottomMenu(this), m_roadInspector(this)
 {
 	m_enableMouse = true;
+
+	setSimualtionMode(SimulationMode::EDIT);
 }
 
 SimulationArea::~SimulationArea()
 {
-
+	m_currentMode = Mode::CREATE;
 }
 
 void SimulationArea::initArea()
@@ -167,18 +169,23 @@ void SimulationArea::loadData()
 void SimulationArea::update()
 {
 	m_visuals.update();
-	if (m_editMode)
-	{
-		m_objectManager.update();
+	
+	handleCurrentMode();
+}
 
+void SimulationArea::handleCurrentMode()
+{
+	switch (m_currentMode)
+	{
+	case SimulationArea::Mode::CREATE:
+	case SimulationArea::Mode::INSPECT:
+	case SimulationArea::Mode::DESTROY:
+		m_objectManager.update();
 		updateMousePosition();
 		updateSelecteObject();
 	}
-	else
-	{
-		updateMousePosition();
-	}
 }
+
 
 bool SimulationArea::placeObject()
 {
@@ -197,6 +204,71 @@ bool SimulationArea::isInArea(const glm::vec3& position) const
 void SimulationArea::setEnableMouse(bool value)
 {
 	m_enableMouse = value;
+}
+
+void SimulationArea::setMode(Mode mode)
+{
+	m_currentMode = mode;
+
+	switch (m_currentMode)
+	{
+	case SimulationArea::Mode::CREATE:
+		m_objectManager.enableCreators();
+		m_objectManager.setCreatorsModes(Creator::CreatorMode::CREATE);
+
+		m_roadInspector.setActive(false);
+		break;
+	case SimulationArea::Mode::INSPECT:
+		m_objectManager.disableCreators();
+
+		m_roadInspector.setActive(true);
+		break;
+	case SimulationArea::Mode::DESTROY:
+		m_objectManager.enableCreators();
+		m_objectManager.setCreatorsModes(Creator::CreatorMode::DESTROY);
+
+		m_roadInspector.setActive(false);
+		break;
+	}
+}
+
+void SimulationArea::setSimualtionMode(SimulationMode simulationMode)
+{
+	m_currentSimulationMode = simulationMode;
+
+	switch (m_currentSimulationMode)
+	{
+	case SimulationArea::SimulationMode::RUN:
+		m_objectManager.disableCreators();
+		m_bottomMenu.setActive(false);
+
+
+		// force mode
+		setMode(Mode::INSPECT);
+
+		m_roadInspector.setInspectorMode(Inspector::InspectorMode::INSPECT);
+		runSimulation();
+		break;
+
+	case SimulationArea::SimulationMode::EDIT:
+		stopSimulation();
+
+		m_bottomMenu.setActive(true);
+
+		m_roadInspector.setInspectorMode(Inspector::InspectorMode::EDIT);
+		m_objectManager.enableCreators();
+		break;
+	}
+}
+
+SimulationArea::Mode SimulationArea::getMode() const
+{
+	return m_currentMode;
+}
+
+SimulationArea::SimulationMode SimulationArea::getSimualtionMode() const
+{
+	return m_currentSimulationMode;
 }
 
 std::pair<size_t, size_t> SimulationArea::getPointsCount() const
@@ -225,37 +297,34 @@ void SimulationArea::updateSelecteObject()
 {
 	// lets fake it for now
 	m_selectedObject.reset();
-	if (!m_editMode)
-		return;
 
-	const glm::vec4 green = glm::vec4(0.47, 0.98, 0.0, 1.0);
+	const glm::vec4 green = glm::vec4(0.1, 0.98, 0.25, 1.0);
 	if (m_mousePosition)
 	{
-		for (auto& road : m_objectManager.m_roads.data)
+		auto adjustTransparencyIfPointSitsOn = [&](BasicRoad& basicRoad)
 		{
-			if (road.sitsPointOn(m_mousePosition.value()) && !m_selectedObject)
+			if (basicRoad.sitsPointOn(m_mousePosition.value()))
 			{
-				m_selectedObject = &road;
-				road.getGraphicsComponent().setTint(green);
+				m_selectedObject = &basicRoad;
+				basicRoad.getGraphicsComponent().setTransparency(0.5);
 			}
 			else
 			{
-				road.getGraphicsComponent().setTint(glm::vec4());
+				//road.getGraphicsComponent().setTint(glm::vec4());
+				basicRoad.getGraphicsComponent().setTransparency(0);
 			}
-		}
+		};
+
+		for (auto& road : m_objectManager.m_roads.data)
+			adjustTransparencyIfPointSitsOn(road);
+	
 
 		for (auto& intersection : m_objectManager.m_intersections.data)
-		{
-			if (intersection.sitsPointOn(m_mousePosition.value()) && !m_selectedObject)
-			{
-				m_selectedObject = &intersection;
-				intersection.getGraphicsComponent().setTint(green);
-			}
-			else
-			{
-				intersection.getGraphicsComponent().setTint(glm::vec4());
-			}
-		}
+			adjustTransparencyIfPointSitsOn(intersection);
+		
+
+		for (auto& roadSpawner : m_objectManager.m_carSpawners.data)
+			adjustTransparencyIfPointSitsOn(roadSpawner);
 	}
 }
 
@@ -401,11 +470,8 @@ void SimulationArea::connectBuildingToClosestRoad(BasicBuilding& building)
 	}
 }
 
-
-void SimulationArea::play()
+void SimulationArea::runSimulation()
 {
-	m_objectManager.disableCreators();
-
 	// reset and setup
 	{
 		// first setup roads then inrersections since intersection rely on 
@@ -427,7 +493,7 @@ void SimulationArea::play()
 	}
 
 	// EXPERIMENT
-	{
+	/*{
 		auto& roads = m_objectManager.m_roads.data;
 		auto& r1 = roads.front();
 		auto& r2 = roads.back();
@@ -443,7 +509,7 @@ void SimulationArea::play()
 				auto path = findPathOnRoute(firstRoute, r1.getNearbyBuildings()[0].entryPoint, r2.getNearbyBuildings()[0].entryPoint);
 			}
 		}
-	}
+	}*/
 	// cars last
 	{
 		exampleCars.clear();
@@ -462,25 +528,9 @@ void SimulationArea::play()
 	}
 }
 
-void SimulationArea::edit()
+void SimulationArea::stopSimulation()
 {
 	exampleCars.clear();
-
-	m_objectManager.enableCreators();
-}
-
-void SimulationArea::setEditMode(bool editMode)
-{
-	if (m_editMode != editMode)
-	{
-		m_editMode = editMode;
-
-		if (m_editMode)
-			edit();
-		else
-			play();
-	}
-
 }
 
 TopMenu::TopMenu(SimulationArea* pSimulationArea)
@@ -524,7 +574,7 @@ void TopMenu::draw()
 	if (ImGui::Button("Play", buttonSize))
 	{
 		m_pressedPlay = true;
-		m_pSimulationArea->setEditMode(false);
+		m_pSimulationArea->setSimualtionMode(SimulationArea::SimulationMode::RUN);
 	}
 
 	if (!m_pressedPlay)
@@ -537,7 +587,7 @@ void TopMenu::draw()
 	if (ImGui::Button("Stop", buttonSize))
 	{
 		m_pressedPlay = false;
-		m_pSimulationArea->setEditMode(true);
+		m_pSimulationArea->setSimualtionMode(SimulationArea::SimulationMode::EDIT);
 	}
 
 	ImGui::PopStyleColor(2);
@@ -550,3 +600,91 @@ bool TopMenu::pressedPlay() const
 	return m_pressedPlay;
 }
 
+BottomMenu::BottomMenu(SimulationArea* pSimulationArea)
+	:m_pSimulationArea(pSimulationArea)
+{
+}
+
+void BottomMenu::draw()
+{
+	auto& io = ImGui::GetIO();
+
+	ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+		ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar;
+	ImGui::Begin("Bottom menu", 0, windowFlags);
+
+
+	auto dispaySize = io.DisplaySize;
+	auto windowWidth = ImGui::GetWindowWidth();
+
+	auto height = 200.0f;
+	ImGui::SetWindowSize(ImVec2(dispaySize.x, height));
+	ImGui::SetWindowPos(ImVec2(0, dispaySize.y - height));
+
+	ImGui::Columns(2, 0, false);
+	float columnWidth = 80.0f;
+	ImGui::SetColumnWidth(0, columnWidth);
+
+	uint32_t pushCount = 0;
+	auto setButtonStyleIfCompatibleModels = [&pushCount](SimulationArea::Mode modeOne, SimulationArea::Mode modeTwo)
+	{
+		const ImVec4 greyColor(130 / 255.0, 130 / 255.0, 130 / 255.0, 255 / 255.0);
+		const ImVec4 greenColor(125 / 255.0, 202 / 255.0, 24 / 255.0, 255 / 255.0);
+		const ImVec4 greenishColor(125 / 255.0, 125 / 250.0, 125 / 250.0, 125 / 255.0);
+
+		ImVec4 hoverColor;
+		ImVec4 curColor;
+
+		if (modeOne == modeTwo)
+		{
+			hoverColor = curColor = greenColor;
+		}
+		else
+		{
+			hoverColor = greenishColor;
+			curColor = greyColor;
+		}
+
+		ImGui::PushStyleColor(ImGuiCol_Button, curColor);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hoverColor);
+
+		pushCount += 2;
+	};
+	auto popButtonStyles = [&pushCount]()
+	{
+		ImGui::PopStyleColor(pushCount);
+	};
+
+	// buttons for such things
+	{
+		const ImVec2 buttonSize(columnWidth - 0.2f * columnWidth, columnWidth - 0.2f * columnWidth);
+
+		setButtonStyleIfCompatibleModels(SimulationArea::Mode::CREATE, m_pSimulationArea->getMode());
+		if (ImGui::Button("Create", buttonSize))
+			m_pSimulationArea->setMode(SimulationArea::Mode::CREATE);
+
+		setButtonStyleIfCompatibleModels(SimulationArea::Mode::DESTROY, m_pSimulationArea->getMode());
+		if (ImGui::Button("Destroy", buttonSize))
+			m_pSimulationArea->setMode(SimulationArea::Mode::DESTROY);
+
+		setButtonStyleIfCompatibleModels(SimulationArea::Mode::INSPECT, m_pSimulationArea->getMode());
+		if (ImGui::Button("Inspect", buttonSize))
+			m_pSimulationArea->setMode(SimulationArea::Mode::INSPECT);
+
+		popButtonStyles();
+	}
+
+	// adjust size so it wont show that much
+	if (m_pSimulationArea->getMode() == SimulationArea::Mode::INSPECT)
+		ImGui::SetWindowSize(ImVec2(columnWidth, height));
+
+	ImGui::NextColumn();
+	if (m_pSimulationArea->getSimualtionMode() == SimulationArea::SimulationMode::EDIT)
+	{
+		ImGui::BeginChild("ObjectManager");
+		m_pSimulationArea->m_objectManager.drawUI();
+		ImGui::EndChild();
+	}
+
+	ImGui::End();
+}

@@ -236,5 +236,11 @@ bool UIElement::active() const
 void UIElement::setActive(bool active)
 {
 	m_active = active;
+
+	setActiveAction();
+}
+
+void UIElement::setActiveAction()
+{
 }
 

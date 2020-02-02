@@ -2,6 +2,8 @@
 #include "BuildingCreator.h"
 #include "RoadCreator.h"
 #include "House.h"
+#include "CarSpawner.h"
+
 #include "UI.h"
 #include <list>
 
@@ -34,37 +36,23 @@ public:
 	std::vector<Type> data;
 };
 
-class ObjectManager;
-class ObjectManagerUI :
-	public UIElement
-{
-public:
-	enum class CreatorType
-	{
-		ROAD,
-		BUILDING,
-		MAX
-	};
-	ObjectManagerUI(ObjectManager* objectManager, CreatorType activeCreator);
-
-	virtual void draw() override;
-
-	CreatorType getCurrentCreator() const;
-private:
-	bool m_shouldCreate = true;
-	CreatorType m_currentCreator;
-	ObjectManager* m_pObjectManager;
-};
-
 class SimulationArea;
 class ObjectManager
 {
+public:
 	// temporary
 	friend class SimulationArea;
 	friend class RoadCreator;
 	friend class BuildingCreator;
 	friend class ObjectManagerUI;
-public:
+
+	enum class CreatorType
+	{
+		ROAD,
+		//BUILDING,
+		MAX
+	};
+
 	ObjectManager(SimulationArea* pSimulationArea);
 	~ObjectManager();
 
@@ -72,21 +60,23 @@ public:
 	void update();
 
 	void setCreatorsModes(Creator::CreatorMode mode);
+	void setCurrentCreator(CreatorType creatorType);
 
-	void clickEvent();
+	void drawUI();
 //
 private:
 	SimulationArea* m_pSimulationArea;
-	ObjectManagerUI m_ui;
+	CreatorType m_currentCreator;
+	Creator::CreatorMode m_currentCreatorMode;
 
 	//
-	friend class UI;
 	Container<Road> m_roads;
 	Container<RoadIntersection> m_intersections;
+	Container<CarSpawner> m_carSpawners;
 	Container<House> m_houses;
 
 	RoadCreator m_roadCreator;
-	BuildingCreator m_buildingCreator;
+	//BuildingCreator m_buildingCreator;
 
 
 public:

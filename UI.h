@@ -21,6 +21,7 @@ public:
 
 	bool active() const;
 	void setActive(bool active);
+	virtual void setActiveAction();
 private:
 	bool m_active = false;
 };

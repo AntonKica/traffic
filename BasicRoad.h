@@ -23,6 +23,8 @@ class BasicRoad :
 	public SimulationObject
 {
 public:
+	friend class RoadInspectorUI;
+
 	struct Connection
 	{
 		BasicRoad* connected = nullptr;
@@ -52,12 +54,13 @@ public:
 
 	uint32_t getConnectedCount() const;
 	const std::vector<Connection>& getConnections() const;
+	bool canConnect(Point point) const;
 
 	virtual glm::vec3 getDirectionPointFromConnectionPoint(Point connectionPoint) = 0;
 	struct ConnectionPossibility 
 	{
 		bool canConnect = false;
-		Point recomendedPoint;
+		Point recomendedPoint = {};
 
 		inline operator bool() const
 		{
@@ -70,6 +73,7 @@ public:
 	{
 		ROAD,
 		INTERSECTION,
+		CAR_SPAWNER,
 		MAX_ROAD_TYPE
 	};
 
@@ -105,10 +109,6 @@ protected:
 	void transferConnections(BasicRoad* destinationRoad);
 	void dismissConnection(Connection connection);
 	void disconnectAll();
-
-	// this two can be obsolete
-	virtual void newConnecionAction();
-	virtual void lostConnectionAction();
 
 	std::vector<Connection> m_connections;
 	std::unordered_map<Path::Side, std::vector<Path>> m_paths;

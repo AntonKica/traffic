@@ -51,7 +51,10 @@ std::optional<SegmentedShape::Segment> SegmentedShape::selectSegment(Point arbit
 			m_joints[index].left, m_joints[index + 1].left,
 			m_joints[index + 1].right, m_joints[index].right };
 
-		if (polygonPointCollision(vertices, arbitraryPoint))
+		// can help
+		if (approxSamePoints(m_joints[index].centre, arbitraryPoint) || 
+			approxSamePoints(m_joints[index + 1].centre, arbitraryPoint)  ||
+			polygonPointCollision(vertices, arbitraryPoint))
 		{
 			Segment segment;
 			segment.start = &m_joints[index];
@@ -181,7 +184,7 @@ Point SegmentedShape::getCircumreferencePoint(Point shapePoint) const
 		quarterSegmentDiameter : segmentLength / 4.0f;
 
 	// doesnt mean it is in that area...
-	if (!isCirculary)
+	if (!isCirculary())
 	{
 		if (isTailSegment(segment))
 		{

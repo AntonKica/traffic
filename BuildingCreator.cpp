@@ -213,7 +213,7 @@ void PlacementRectangle::updatePaddings()
 					bool useHeight = glm::epsilonEqual(angle, glm::half_pi<float>(), 0.01f);
 
 					const float sideWidth = useHeight ? m_rectangleSize.y : m_rectangleSize.x;
-					const float roadWidth = collisionRoad->getParameters().width;
+					const float roadWidth = collisionRoad->getWidth();
 
 					const auto roadAxisPoint = getClosestPointToLine(p1, p2, getPosition());
 					auto dir = glm::normalize(getPosition() - roadAxisPoint);

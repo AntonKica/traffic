@@ -12,9 +12,12 @@ class RoadIntersection
 	: public BasicRoad
 {
 public:
+	friend class RoadInspectorUI;
+
 	void construct(std::array<Road*, 3> roads, Point intersectionPoint);
+	void connectNewRoad(Road* newRoad);
 	void setUpShape();
-	bool validIntersection();
+	void checkShapesAndRebuildIfNeeded();
 	std::vector<Road*> disassemble();
 
 	glm::vec3 getDirectionPointFromConnectionPoint(Point point) override;
@@ -28,11 +31,10 @@ public:
 	virtual void createPaths() override;
 	virtual bool canSwitchLanes() const override;
 
-protected:
-	virtual void newConnecionAction();
-	virtual void lostConnectionAction();
+	uint32_t directionCount() const;
 
 private:
+
 	float m_width = 0;
 	Point m_centre = {};
 	std::vector<SegmentedShape> m_connectShapes;

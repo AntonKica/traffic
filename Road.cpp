@@ -11,6 +11,7 @@
 #include <chrono>
 #include <array>
 
+constexpr const char* asphaltTexturePath = "resources/materials/road1.jpg";
 
 float calculateLength(const Points& points)
 {
@@ -316,12 +317,12 @@ BasicRoad::ConnectionPossibility Road::getConnectionPossibility(Line connectionL
 		if (!m_shape.sitsOnTailOrHead(connectionPoint))
 		{
 			connectionPossibility.recomendedPoint =
-				getRectangleLineouchPoint(Line{ start->centre, end->centre }, m_parameters.width, connectionLine, true);
+				getRectangleLineouchPoint(Line{ start->centre, end->centre }, m_width, connectionLine, true);
 		}
 		else if (connectionAngle > glm::half_pi<float>())
 		{
 			connectionPossibility.recomendedPoint =
-				getRectangleLineouchPoint(Line{ start->centre, end->centre }, m_parameters.width, connectionLine, false);
+				getRectangleLineouchPoint(Line{ start->centre, end->centre }, m_width, connectionLine, false);
 		}
 	}
 	else if (segments.size() == 2)// sits between corners/ joints
@@ -380,7 +381,11 @@ BasicRoad::RoadType Road::getRoadType() const
 
 Shape::AxisPoint Road::getAxisPoint(Point pointOnRoad) const
 {
-	return m_shape.getShapeAxisPoint(pointOnRoad).value();
+	auto optPoint = m_shape.getShapeAxisPoint(pointOnRoad);
+	if (!optPoint)
+		throw std::runtime_error("Wrong point on road!");
+
+	return optPoint.value();
 }
 
 static Points createSubLineFromAxis(const Points& axis, const Points& line, float percentageDistanceFromAxis)
@@ -460,9 +465,19 @@ bool Road::canSwitchLanes() const
 	return true;
 }
 
-Road::RoadParameters Road::getParameters() const
+RoadParameters::Parameters Road::getParameters() const
 {
 	return m_parameters;
+}
+
+float Road::getWidth() const
+{
+	return m_width;
+}
+
+float Road::getLength() const
+{
+	return m_length;
 }
 
 bool Road::sitsOnEndPoints(const Point& point) const
@@ -490,32 +505,71 @@ SegmentedShape Road::getShape() const
 	return m_shape;
 }
 
-void Road::construct(Shape::Axis axisPoints, uint32_t laneCount, float width, std::string texture)
+Shape::AxisPoint Road::getClosestEndPoint(Shape::AxisPoint axisPoint) const
 {
-	Points points(std::begin(axisPoints), std::end(axisPoints));
+	auto axisPoints = m_shape.getAxisPoints();
+	
+	float lengthFromStart = 0;
+	float totalLength = 0;
+	float passedPoint = false;
+	for (uint32_t firstIndex = 0, secondIndex = 1; secondIndex < axisPoints.size(); ++firstIndex, ++secondIndex)
+	{
+		const Line curLine = { axisPoints[firstIndex], axisPoints[secondIndex] };
+		if (pointSitsOnLine(curLine, axisPoint) && !passedPoint)
+		{
+			passedPoint = true;
 
-	construct(points, laneCount, width, texture);
+			lengthFromStart += glm::length(curLine[0] - axisPoint);
+			totalLength += glm::length(curLine[0] - curLine[1]);
+		}
+		else
+		{
+			if (!passedPoint)
+				lengthFromStart += glm::length(curLine[0] - curLine[1]);
+
+			totalLength += glm::length(curLine[0] - curLine[1]);
+		}
+	}
+	auto lengthFromEnd = totalLength - lengthFromStart;
+
+	return lengthFromStart < lengthFromEnd ? m_shape.getTail() : m_shape.getHead();
 }
 
-void Road::construct(Points creationPoints, uint32_t laneCount, float width, std::string texture)
+glm::vec3 Road::getDirectionFromEndPoint(Shape::AxisPoint endPoint) const
 {
-	RoadParameters parameters;
-	parameters.laneCount = laneCount;
-	parameters.width = width;
-	parameters.texture = texture;
+	auto axis = m_shape.getAxisPoints();
 
-	construct(creationPoints, parameters);
+	if (m_shape.sitsOnTail(endPoint))
+	{
+		return glm::normalize(m_shape.getTail() - *(axis.begin() - 1));
+	}
+	else
+	{
+		return glm::normalize(m_shape.getHead() - *(axis.end() - 2));
+	}
 }
 
-void Road::construct(Points creationPoints, const RoadParameters& parameters)
+
+void Road::construct(Shape::Axis axisPoints, const RoadParameters::Parameters& parameters)
+{
+	Points points(axisPoints.begin(), axisPoints.end());
+
+	construct(points, parameters);
+}
+
+void Road::construct(Points creationPoints, const RoadParameters::Parameters& parameters)
 {
 	if (creationPoints.empty())
 	{
 		m_shape = SegmentedShape();
+		m_parameters = {};
+		m_width = 0;
+		m_length = 0;
 	}
 	else
 	{
 		m_parameters = parameters;
+		updateWidthFromParameters();
 
 		SegmentedShape::OrientedConstructionPoints cps;
 		cps.points = creationPoints;
@@ -526,12 +580,12 @@ void Road::construct(Points creationPoints, const RoadParameters& parameters)
 			else
 				cps.headDirectionPoint = cp.connected->getDirectionPointFromConnectionPoint(creationPoints.back());
 		}
-		m_shape.construct(cps, m_parameters.width);
+		m_shape.construct(cps, m_width);
 
 		// graphics model
 		{
 			auto mesh = SegmentedShape::createMesh(m_shape);
-			mesh.textures[VD::TextureType::DIFFUSE] = m_parameters.texture;
+			mesh.textures[VD::TextureType::DIFFUSE] = asphaltTexturePath;
 
 			Model model;
 			model.meshes.push_back(mesh);
@@ -555,6 +609,8 @@ void Road::construct(Points creationPoints, const RoadParameters& parameters)
 			updateTags.newOtherTags = {};
 			physicComponent.updateCollisionTags(updateTags);
 		}
+
+		updateLength();
 	}
 }
 
@@ -590,7 +646,7 @@ Road::SplitProduct Road::split(Shape::AxisPoint splitPoint)
 			}
 		}
 		// then construct
-		road.construct(optSplit.value().getAxis(), m_parameters.laneCount, m_parameters.width, m_parameters.texture);
+		road.construct(optSplit.value().getAxis(), m_parameters);
 
 		product.road = road;
 	}
@@ -634,7 +690,7 @@ void Road::extend(Shape::AxisPoint roadEnd, Point point)
 
 SegmentedShape::ShapeCut Road::getCut(Shape::AxisPoint roadAxisPoint) const
 {
-	return m_shape.getShapeCut(roadAxisPoint, m_parameters.width);
+	return m_shape.getShapeCut(roadAxisPoint, m_width);
 }
 
 Road::CutProduct Road::cut(SegmentedShape::ShapeCut cutPoints)
@@ -653,7 +709,7 @@ Road::CutProduct Road::cut(SegmentedShape::ShapeCut cutPoints)
 			}
 		}
 		// then construct
-		road.construct(optSplit.value().getAxis(), m_parameters.laneCount, m_parameters.width, m_parameters.texture);
+		road.construct(optSplit.value().getAxis(), m_parameters);
 		reconstruct();
 
 		product.road = road;
@@ -693,12 +749,29 @@ const std::vector<Road::NearbyBuildingPlacement>& Road::getNearbyBuildings() con
 	return m_nearbyBuildings;
 }
 
-void Road::newConnecionAction()
+void Road::updateWidthFromParameters()
 {
-	reconstruct();
+	//float newWidth = 0.0f;
+	// side offset
+	float sideOffset = 2 * m_parameters.distanceFromSide + 2 * m_parameters.sideLineWidth;
+	float totalLaneWidth = m_parameters.laneCount * m_parameters.laneWidth;
+	float totalLineWidth = (m_parameters.laneCount - 1) * m_parameters.lineWidth;
+
+	m_width = sideOffset + totalLaneWidth + totalLineWidth;
 }
 
-void Road::lostConnectionAction()
+void Road::updateLength()
 {
-	reconstruct();
+	m_length = 0.0f;
+	auto axisPoints = m_shape.getAxisPoints();
+
+	if (axisPoints.size() >= 2)
+	{
+		for (auto pointOne = axisPoints.begin(), pointTwo = axisPoints.begin() + 1;
+			pointTwo != axisPoints.end(); ++pointOne, ++pointTwo)
+		{
+			m_length += glm::length(*pointOne - *pointTwo);
+		}
+
+	}
 }

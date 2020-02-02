@@ -138,9 +138,9 @@ std::vector<Point> generateCurveFromThreePoints(const std::array<Point, 3>& poin
 
 RoadCreatorUI::RoadCreatorUI()
 {
-	m_prototypes = { 
-	{ "Basic 2-lane road", 2, 6.0f, "resources/materials/road1.jpg" },
-	{ "Basic 4-lane road", 4, 12.0f, "resources/materials/road2.jpg" }
+	m_prototypes = {
+		RC::Prototype("Basic 2-lane road", 2, 3.0f, 0.25, 0.1, 0.25, 0.0f, false, false),
+		RC::Prototype("Basic 4-lane road", 4, 3.0f, 0.25, 0.1, 0.25, 0.0f, false, false),
 	};
 
 	m_selectedPrototype = &m_prototypes[0];
@@ -152,6 +152,57 @@ void RoadCreatorUI::draw()
 	ImGui::Columns(2, 0, false);
 	ImGui::SetColumnWidth(0, 120.f);
 	ImGui::Checkbox("Curved lines", &m_doCurves);
+	//
+	
+
+	const ImVec4 greyColor(130 / 255.0, 130 / 255.0, 130 / 255.0, 230 / 255.0);
+	const ImVec4 greenColor(125 / 255.0, 202 / 255.0, 24 / 255.0, 230 / 255.0);
+	const ImVec4 greenishColor(125 / 255.0, 125 / 250.0, 125 / 250.0, 125 / 255.0);
+
+	{
+		const auto constructButtonColor = !m_makeSpawners ? greenColor : greyColor;
+		const auto hoverColor = !m_makeSpawners ? greenColor : greenishColor;
+		ImGui::PushStyleColor(ImGuiCol_Button, constructButtonColor);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hoverColor);
+
+		if (ImGui::Button("Construct Roads"))
+		{
+			m_makeSpawners = false;
+			m_constructRoads = true;
+		}
+
+		ImGui::PopStyleColor(2);
+	}
+	{
+		const auto makeSpawnerButtonColor = m_makeSpawners ? greenColor : greyColor;
+		const auto hoverColor = m_makeSpawners ? greenColor : greenishColor;
+		ImGui::PushStyleColor(ImGuiCol_Button, makeSpawnerButtonColor);
+		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hoverColor);
+
+		if (ImGui::Button("Make spawners"))
+		{
+			m_makeSpawners = true;
+			m_constructRoads = false;
+		}
+
+		ImGui::PopStyleColor(2);
+	}
+
+	// disable for now
+	/*if (m_currentCreator == CreatorType::BUILDING)
+	{
+		hoverColor = curColor = greenColor;
+	}
+	else
+	{
+		hoverColor = greenishColor;
+		curColor = greyColor;
+	}
+	ImGui::PushStyleColor(ImGuiCol_Button, curColor);
+	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hoverColor);
+	if (ImGui::Button("Building", buttonSize))
+		m_currentCreator = CreatorType::BUILDING;*/
+
 	ImGui::NextColumn();
 
 	ImGui::BeginChild(" roads ");
@@ -188,7 +239,17 @@ bool RoadCreatorUI::doCurves() const
 	return m_doCurves;
 }
 
-const RC::Prototypes* RoadCreatorUI::getSelectedPrototype() const
+bool RoadCreatorUI::makeSpawners() const
+{
+	return m_makeSpawners;
+}
+
+bool RoadCreatorUI::constructRoads() const
+{
+	return m_constructRoads;
+}
+
+const RC::Prototype* RoadCreatorUI::getSelectedPrototype() const
 {
 	return m_selectedPrototype;
 }
@@ -205,17 +266,62 @@ void RoadCreator::update()
 {
 	if (!m_active)
 		return;
-	
-	updatePoints();
-	//visualizer.update();
 
-	if (!UI::getInstance().mouseOverlap())
+	updateMousePoint();
+
+	// input
+	if (!UI::getInstance().mouseOverlap() && m_processedCurrentPoints.validPoints)
 	{
 		if (App::input.mouse.pressedButton(GLFW_MOUSE_BUTTON_LEFT))
 			setPoint();
-		if(App::input.keyboard.pressedKey(GLFW_KEY_ESCAPE))
+		if (App::input.keyboard.pressedKey(GLFW_KEY_ESCAPE))
 			rollBackEvent();
 	}
+
+	handleCurrentMode();
+}
+
+void RoadCreator::handleCurrentMode()
+{
+	switch (m_currentMode)
+	{
+	case Creator::CreatorMode::CREATE:
+		handleCreating();
+		break;
+	case Creator::CreatorMode::DESTROY:
+		handleDestroying();
+		break;
+	}
+}
+
+void RoadCreator::handleCreating()
+{
+	if (!m_ui.makeSpawners())
+		handleRoadCreating();
+	else
+		handleSpawnCreating();
+}
+
+void RoadCreator::handleRoadCreating()
+{
+	// first try constructing road from prevvious frame
+	tryToConstructRoad();
+
+	updateProcessedPoints();
+	updateCreationPoints();
+
+	// create prototype
+	constructRoadPrototype();
+}
+
+void RoadCreator::handleSpawnCreating()
+{
+	tryToConstructSpawner();
+}
+
+void RoadCreator::handleDestroying()
+{
+	tryToDestroyRoad();
 }
 
 void RoadCreator::rollBackEvent()
@@ -267,7 +373,7 @@ RC::ProcSitPts RoadCreator::processSittingPoints(const std::vector<RC::SittingPo
 			Line connectingLine = { front.point, (sittingPoints.begin() + 1)->point };
 			auto conPossibiliy = front.road.value()->getConnectionPossibility(connectingLine, Shape::AxisPoint(front.point));
 
-			processed.validPoints = conPossibiliy.canConnect;
+			processed.validPoints = conPossibiliy.canConnect && processed.validPoints;
 			processed.axisPoints.insert(processed.axisPoints.begin() + 1, conPossibiliy.recomendedPoint);
 		}
 		if (back.road)
@@ -277,7 +383,7 @@ RC::ProcSitPts RoadCreator::processSittingPoints(const std::vector<RC::SittingPo
 			Line connectingLine = { back.point, (sittingPoints.end() - 2)->point };
 			auto conPossibiliy = back.road.value()->getConnectionPossibility(connectingLine, Shape::AxisPoint(back.point));
 
-			processed.validPoints = conPossibiliy.canConnect;
+			processed.validPoints = conPossibiliy.canConnect && processed.validPoints;
 			processed.axisPoints.insert(processed.axisPoints.end() - 1, conPossibiliy.recomendedPoint);
 		}
 	}
@@ -288,11 +394,7 @@ RC::ProcSitPts RoadCreator::processSittingPoints(const std::vector<RC::SittingPo
 void RoadCreator::setPoint()
 {
 	if (m_mousePoint)//&& !m_roadPrototype.getPhysicsComponent().inCollision())
-	{
 		m_setPoints.push_back(m_mousePoint.value());
-
-		handleCurrentPoints();
-	}
 }
 
 /*/
@@ -388,37 +490,57 @@ void RoadCreator::constructRoadPrototype()
 	{
 		const auto& currentPrototype = *m_ui.getSelectedPrototype();
 
-		m_roadPrototype.construct(m_creationPoints.points, currentPrototype.laneCount, currentPrototype.width, currentPrototype.texture);
+		m_roadPrototype.construct(m_creationPoints.points, currentPrototype);
 		m_roadPrototype.getGraphicsComponent().setActive(true);
 
 		m_roadPrototype.getPhysicsComponent().setActive(true);
 	}
 	else
 	{
-		m_roadPrototype.construct({}, Road::RoadParameters());
+		m_roadPrototype.construct(Points(), RoadParameters::Parameters{});
 		m_roadPrototype.getGraphicsComponent().setActive(false);
 		m_roadPrototype.getPhysicsComponent().setActive(false);
 	}
-}
-
-void RoadCreator::handleCurrentPoints()
-{
-	if (m_currentMode == Creator::CreatorMode::CREATE)
-		tryToConstructRoad();
-	else
-		tryToDestroyRoad();
 }
 
 void RoadCreator::tryToConstructRoad()
 {
 	if (!m_processedCurrentPoints.validPoints)
 		return;
-	if (m_setPoints.size() <= 1)
+	else if (m_setPoints.size() <= 1)
 		return;
-	if (m_setPoints.size() <= 2 && m_ui.doCurves())
+	else if (m_setPoints.size() <= 2 && m_ui.doCurves())
 		return;
 
 	createRoadFromCurrent();
+}
+
+void RoadCreator::tryToConstructSpawner()
+{
+	// just to make sure
+	m_setPoints.clear();
+
+	if (m_mousePoint)
+	{
+		// we create only on road end
+		if (m_mousePoint->road && App::input.mouse.pressedButton(GLFW_MOUSE_BUTTON_LEFT))
+		{
+			if (auto road = dynamic_cast<Road*>(m_mousePoint->road.value()))
+			{
+				auto axisPoint = road->getAxisPoint(m_mousePoint.value().point);
+				auto endPoint = road->getClosestEndPoint(axisPoint);
+
+				if (road->canConnect(endPoint))
+				{
+					CarSpawner cSpawner;
+					cSpawner.setActive(true);
+					cSpawner.construct(road, endPoint);
+
+					m_pObjectManager->m_carSpawners.add(cSpawner);
+				}
+			}
+		}
+	}
 }
 
 void RoadCreator::tryToDestroyRoad()
@@ -449,12 +571,31 @@ void RoadCreator::tryToDestroyRoad()
 					addedRoad->addConnection(product.connection.value());*/
 			}
 
-			tidyIntersections();
+			checkIntersections();
+			tidySpawners();
 		}
-		else
+		else if(curRoad->getRoadType() == BasicRoad::RoadType::INTERSECTION)
 		{
 			auto intersection = dynamic_cast<RoadIntersection*>(curRoad);
+			// rebuild roads formery connected to
+			std::vector<Road*> connectedRoads;
+			for (auto& connection : intersection->getConnections())
+			{
+				if(auto road = dynamic_cast<Road*>(connection.connected))
+					connectedRoads.emplace_back(road);
+			}
+
+			//remove intersection
 			m_pObjectManager->m_intersections.remove(intersection);
+
+			//rebuild connected
+			for (auto& connectedRoad : connectedRoads)
+				connectedRoad->reconstruct();
+		}
+		else if (curRoad->getRoadType() == BasicRoad::RoadType::CAR_SPAWNER)
+		{
+			auto carSpawner = dynamic_cast<CarSpawner*>(curRoad);
+			m_pObjectManager->m_carSpawners.remove(carSpawner);
 		}
 
 	}
@@ -462,26 +603,39 @@ void RoadCreator::tryToDestroyRoad()
 	m_setPoints.clear();
 }
 
-void RoadCreator::tidyIntersections()
+void RoadCreator::checkIntersections()
 {
 	auto& intersections = m_pObjectManager->m_intersections.data;
-	for (auto intiter = intersections.begin(); intiter != intersections.end();)
+	for (auto intIter = intersections.begin(); intIter != intersections.end();)
 	{
-		if (!intiter->validIntersection())
+		intIter->checkShapesAndRebuildIfNeeded();
+		if (!intIter->hasBody())
 		{
-			auto dissassembledRoads = intiter->disassemble();
+			auto dissassembledRoads = intIter->disassemble();
 			if (dissassembledRoads.size() == 2)
 			{
 				dissassembledRoads[0]->mergeWith(*dissassembledRoads[1]);
 				m_pObjectManager->m_roads.remove(dissassembledRoads[1]);
 			}
 
-			intiter = m_pObjectManager->m_intersections.remove(&*intiter);
+			intIter = m_pObjectManager->m_intersections.remove(&*intIter);
 		}
 		else
 		{
-			++intiter;
+			++intIter;
 		}
+	}
+}
+
+void RoadCreator::tidySpawners()
+{
+	auto& spawners = m_pObjectManager->m_carSpawners.data;
+	for (auto spawnIter = spawners.begin(); spawnIter != spawners.end();)
+	{
+		if (!spawnIter->hasBody())
+			spawnIter = m_pObjectManager->m_carSpawners.remove(&*spawnIter);
+		else
+			++spawnIter;
 	}
 }
 
@@ -543,6 +697,11 @@ void RoadCreator::handleConstruction(Road newRoad, std::vector<RC::PointRoadPair
 				useRoad = nullptr;
 			}
 		}
+		else if(bRoad->getRoadType() == BasicRoad::RoadType::INTERSECTION)
+		{
+			RoadIntersection* intersection = static_cast<RoadIntersection*>(bRoad);
+			connectRoadToIntersection(*useRoad, *intersection);
+		}
 	}
 
 	if (addNewRoad)
@@ -550,23 +709,10 @@ void RoadCreator::handleConstruction(Road newRoad, std::vector<RC::PointRoadPair
 	// add to map or wherever
 	m_pObjectManager->m_roads.add(newRoads);
 	m_pObjectManager->m_intersections.add(newIntersections);
-
 }
 /*
 *	Updates evry point creator has
 */
-void RoadCreator::updatePoints()
-{
-	updateMousePoint();
-	updateCurrentPoints();
-	updateCreationPoints();
-
-	// befpre set
-	//validateCurrentShape();
-	constructRoadPrototype();
-
-	setVisualizerDraw();
-}
 
 void RoadCreator::updateMousePoint()
 {
@@ -580,7 +726,7 @@ void RoadCreator::updateMousePoint()
 			mousePoint = mousePosition.value();
 
 		RC::SittingPoint newSittingPoint;
-
+		newSittingPoint.point = mousePoint;
 		//just for now this way of getting selected road
 		auto selectedObject = m_pObjectManager->m_pSimulationArea->getSelectedObject();
 		if (selectedObject)
@@ -588,17 +734,10 @@ void RoadCreator::updateMousePoint()
 			if (auto road = dynamic_cast<BasicRoad*>(selectedObject.value()))
 			{
 				newSittingPoint.road = road;
-				if (road->getRoadType() == BasicRoad::RoadType::ROAD)
-				{
-					auto roadPoint = road->getAxisPoint(mousePoint);
 
-					newSittingPoint.point = roadPoint;
-				}
+				auto roadPoint = road->getAxisPoint(mousePoint);
+				newSittingPoint.point = roadPoint;
 			}
-		}
-		else
-		{
-			newSittingPoint.point = mousePoint;
 		}
 
 		// and asign
@@ -610,45 +749,38 @@ void RoadCreator::updateMousePoint()
 	}
 }
 
-void RoadCreator::updateCurrentPoints()
+void RoadCreator::updateProcessedPoints()
 {
-	if (m_currentMode == Creator::CreatorMode::CREATE)
-	{
-		RC::SittingPoints spts = m_setPoints;
-		if (m_mousePoint)
-			spts.push_back(m_mousePoint.value());
+	RC::SittingPoints spts = m_setPoints;
+	if (m_mousePoint)
+		spts.push_back(m_mousePoint.value());
 
-		m_processedCurrentPoints = processSittingPoints(spts);
+
+	m_processedCurrentPoints = processSittingPoints(spts);
+}
+
+void RoadCreator::updateDestroyPoints()
+{
+	if (m_mousePoint)
+	{
+		const auto& mp = m_mousePoint.value();
+		if (mp.road)
+		{
+			const auto& bRoad = mp.road.value();
+			if (bRoad->getRoadType() == BasicRoad::RoadType::ROAD)
+			{
+				auto road = dynamic_cast<Road*>(bRoad);
+				// get cut
+				auto cutPts = road->getCut(Shape::AxisPoint(mp.point)).axis;
+
+				// and transfer to pCPts
+				m_destroyPoints = Points(cutPts.begin(), cutPts.end());
+			}
+		}
 	}
 	else
 	{
-		m_processedCurrentPoints = {};
-		if (m_mousePoint)
-		{
-			const auto& mp = m_mousePoint.value();
-			if (mp.road)
-			{
-				const auto& bRoad = mp.road.value();
-				if (bRoad->getRoadType() == BasicRoad::RoadType::ROAD)
-				{
-					auto road = dynamic_cast<Road*>(bRoad);
-					// get cut
-					auto cutPts = road->getCut(Shape::AxisPoint(mp.point)).axis;
-
-					// and transfer to pCPts
-					m_processedCurrentPoints.axisPoints.resize(cutPts.size());
-					auto cpIt = m_processedCurrentPoints.axisPoints.begin();
-					for (const auto& pt : cutPts)
-						*(cpIt++) = pt;
-				}
-				else
-				{
-					auto road = dynamic_cast<RoadIntersection*>(bRoad);
-
-					m_processedCurrentPoints.axisPoints = { road->getAxisPoint(mp.point) };
-				}
-			}
-		}
+		m_destroyPoints.clear();
 	}
 }
 
@@ -706,8 +838,8 @@ void RoadCreator::updateCreationPoints()
 
 void RoadCreator::setVisualizerDraw()
 {
-	visualizer.setDraw(m_creationPoints.points, m_processedCurrentPoints.axisPoints,
-		m_ui.getSelectedPrototype()->width, m_processedCurrentPoints.validPoints && m_currentShapeValid);
+	//visualizer.setDraw(m_creationPoints.points, m_processedCurrentPoints.axisPoints,
+	//	m_ui.getSelectedPrototype()->, m_processedCurrentPoints.validPoints && m_currentShapeValid);
 }
 
 /*
@@ -770,6 +902,12 @@ RoadCreator::ConnectProducts RoadCreator::connectRoads(Road& road, Road& connect
 	return connectProducts;
 }
 
+void RoadCreator::connectRoadToIntersection(Road& road, RoadIntersection& connectIntersection)
+{
+	connectIntersection.connectNewRoad(&road);
+}
+
+
 uint32_t RoadCreator::connectCount(const Road& road, const Road& connectingRoad) const
 {
 	uint32_t count = 0;
@@ -802,7 +940,7 @@ std::vector<Shape::AxisPoint> RoadCreator::connectPoints(const Road& road, const
 
 void RoadCreator::mergeRoads(Road& road, Road& mergingRoad)
 {
-	if (road.m_parameters.width == mergingRoad.m_parameters.width)
+	if (road.getWidth() == mergingRoad.getWidth())
 	{
 		road.mergeWith(mergingRoad);
 		road.reconstruct();

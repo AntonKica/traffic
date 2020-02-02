@@ -65,6 +65,17 @@ const std::vector<BasicRoad::Connection>& BasicRoad::getConnections() const
 	return m_connections;
 }
 
+bool BasicRoad::canConnect(Point point) const
+{
+	for (const auto& connection : m_connections)
+	{
+		if (approxSamePoints(connection.point, point))
+			return false;
+	}
+
+	return true;
+}
+
 const BasicRoad::Connection& BasicRoad::getConnection(Connection connection) const
 {
 	return *std::find(std::begin(m_connections), std::end(m_connections), connection);
@@ -146,14 +157,6 @@ void BasicRoad::disconnectAll()
 	{
 		dismissConnection(*m_connections.begin());
 	}
-}
-
-void BasicRoad::newConnecionAction()
-{
-}
-
-void BasicRoad::lostConnectionAction()
-{
 }
 
 Path BasicRoad::getClosestPath(Point pt) const

@@ -8,6 +8,7 @@
 #include <map>
 #include <set>
 #include <optional>
+#include <string>
 
 /*
 using Point = glm::vec3;
@@ -56,14 +57,35 @@ private:
 
 namespace RC
 {
-	struct Prototypes
+	struct Prototype : public RoadParameters::Parameters
 	{
-		std::string name;
-		uint32_t laneCount;
-		float width;
-		std::string texture;
-	};
+		Prototype(std::string name,
+			float laneCount,
+			float laneWidth,
+			float lineWidth,
+			float distanceFromSide,
+			float sideLineWidth,
+			float separatorWidth,
+			bool isOneWay,
+			bool forceOneWay)
+		{
+			this->name			= name;
 
+			this->laneCount		= laneCount;
+			this->laneWidth		= laneWidth;
+			this->lineWidth		= lineWidth;
+			this->distanceFromSide	= distanceFromSide;
+			this->sideLineWidth		= sideLineWidth;
+
+			if(separatorWidth != 0.0f) 
+				this->separatorWidth = separatorWidth;
+
+			this->isOneWay		= isOneWay;
+			this->forceOneWay	= forceOneWay;
+		}
+
+		std::string name;
+	};
 	struct SittingPoint
 	{
 		Point point;
@@ -90,12 +112,17 @@ public:
 	virtual void draw() override;
 
 	bool doCurves() const;
-	const RC::Prototypes* getSelectedPrototype() const;
+	bool makeSpawners() const;
+	bool constructRoads() const;
+	const RC::Prototype* getSelectedPrototype() const;
 
 private:
 	bool m_doCurves = false;
-	const RC::Prototypes* m_selectedPrototype;
-	std::vector<RC::Prototypes> m_prototypes;
+	bool m_constructRoads = true;
+	bool m_makeSpawners = false;
+
+	const RC::Prototype* m_selectedPrototype;
+	std::vector<RC::Prototype> m_prototypes;
 };
 
 class ObjectManager;
@@ -106,6 +133,13 @@ public:
 	RoadCreator(ObjectManager* objectManager);
 
 	void update();
+	void handleCurrentMode();
+
+	void handleCreating();
+	void handleRoadCreating();
+	void handleSpawnCreating();
+
+	void handleDestroying();
 	void rollBackEvent();
 
 protected:
@@ -113,11 +147,12 @@ protected:
 	virtual void setActiveAction() override;
 
 private:
-	void updatePoints();
 	void updateMousePoint();
-	void updateCurrentPoints();
+	void updateProcessedPoints();
 	void updateCreationPoints();
+	void updateDestroyPoints();
 	void setVisualizerDraw();
+
 	struct ProcessedSittingPoints
 	{
 		std::optional<Point> roadBeginAxisPoint;
@@ -127,10 +162,12 @@ private:
 	RC::ProcSitPts processSittingPoints(const std::vector<RC::SittingPoint> sittingPoints) const;
 	void setPoint();
 	void constructRoadPrototype();
-	void handleCurrentPoints();
 	void tryToConstructRoad();
+	void tryToConstructSpawner();
+
 	void tryToDestroyRoad();
-	void tidyIntersections();
+	void checkIntersections();
+	void tidySpawners();
 	void createRoadFromCurrent();
 	void handleConstruction(Road road, std::vector<RC::PointRoadPair> connectPoints);
 
@@ -144,6 +181,7 @@ private:
 		bool keepConnectingRoad = true;
 	};
 	ConnectProducts connectRoads(Road& road, Road& connectingRoad);
+	void connectRoadToIntersection(Road& road, RoadIntersection& connectIntersection);
 	// helper functions
 	uint32_t connectCount(const Road& road, const Road& connectingRoad) const;
 	std::vector<Shape::AxisPoint> connectPoints(const Road& road, const Road& connectingRoad) const;
@@ -160,14 +198,17 @@ private:
 
 	std::optional<RC::SittingPoint> m_mousePoint;
 	std::vector<RC::SittingPoint> m_setPoints;
+
+	RC::ProcSitPts m_processedCurrentPoints;
 	struct
 	{
 		bool frontOnRoad = false;
 		bool backOnRoad = false;
 		Points points;
 	} m_creationPoints;
+	Points m_destroyPoints;
 
-	RC::ProcSitPts m_processedCurrentPoints;
+
 	bool m_currentShapeValid = false;
 	Road m_roadPrototype;
 	//bool m_handleCurrentPointsNextUpdate = false;

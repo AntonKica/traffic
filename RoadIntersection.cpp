@@ -242,7 +242,7 @@ std::pair<SegmentedShape, std::vector<SegmentedShape>> getMainShapeAndConnecting
 void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionPoint)
 {
 	m_centre = intersectionPoint;
-	m_width = roads[0]->getParameters().width;
+	m_width = roads[0]->getWidth();
 	m_connectShapes.clear();
 
 	// adjust connectd roads
@@ -263,6 +263,24 @@ void RoadIntersection::construct(std::array<Road*, 3> roads, Point intersectionP
 			road->reconstruct();
 		}
 	}
+
+	setUpShape();
+}
+
+void RoadIntersection::connectNewRoad(Road* newRoad)
+{
+	float requiredDistance = m_width / 2.0 + m_width * 0.25;
+	auto shortenShape = newRoad->shorten(Shape::AxisPoint(m_centre), requiredDistance).getShape();
+
+	// orient to centre
+	if (!shortenShape.sitsOnHead(m_centre))
+		shortenShape.reverseBody();
+
+	m_connectShapes.push_back(shortenShape);
+
+	// connect with tail
+	connect(newRoad, shortenShape.getTail());
+	newRoad->reconstruct();
 
 	setUpShape();
 }
@@ -414,9 +432,40 @@ void RoadIntersection::setUpShape()
 	getPhysicsComponent().collider().setBoundaries(m_shapePoints);
 }
 
-bool RoadIntersection::validIntersection()
+void RoadIntersection::checkShapesAndRebuildIfNeeded()
 {
-	return m_connections.size() >= 3;
+	// dont wipe connetions since we will needthem
+	// for rebuilding former road
+	// have we lost need ed connections for intersection?
+
+	// nothing to check
+	if (m_connectShapes.size() <= 2 || m_connections.size() == m_connectShapes.size())
+		return;
+
+	// check connections, which we have lost
+	auto shapeIt = m_connectShapes.begin();
+	while (shapeIt != m_connectShapes.end())
+	{
+		bool isValidShape = false;
+		for (const auto& currentConnections : m_connections)
+		{
+			if (approxSamePoints(currentConnections.point, shapeIt->getTail()))
+			{
+				isValidShape = true;
+				break;
+			}
+		}
+
+		if (!isValidShape)
+			shapeIt = m_connectShapes.erase(shapeIt);
+		else
+			++shapeIt;
+	}
+
+	if (m_connectShapes.size() >= 3)
+	{
+		setUpShape();
+	}
 }
 
 std::vector<Road*> RoadIntersection::disassemble()
@@ -465,9 +514,38 @@ BasicRoad::ConnectionPossibility RoadIntersection::getConnectionPossibility(Line
 	ConnectionPossibility cp{};
 	if (m_connectShapes.size() < 4)
 	{
+		// find point which has the lowest total angle
+		glm::vec3 direction;
+		{
+			auto dirOne = glm::normalize(*(m_connectShapes[0].getAxis().end() - 2) - m_centre);
+			auto dirTwo = glm::normalize(*(m_connectShapes[1].getAxis().end() - 2) - m_centre);
+			auto dirThree = glm::normalize(*(m_connectShapes[2].getAxis().end() - 2) - m_centre);
+
+			auto angleBetweenTwoDirections = [](glm::vec3 dirOne, glm::vec3 dirTwo)
+			{
+				return glm::acos(glm::dot(dirOne, dirTwo));
+			};
+
+			float totalOneAngle = angleBetweenTwoDirections(dirOne, dirTwo) +
+				angleBetweenTwoDirections(dirOne, dirThree);
+			float totalTwoAngle = angleBetweenTwoDirections(dirTwo, dirOne) +
+				angleBetweenTwoDirections(dirTwo, dirThree);
+			float totalThreeAngle = angleBetweenTwoDirections(dirThree, dirOne) +
+				angleBetweenTwoDirections(dirThree, dirTwo);
+
+			float lowestAngle = std::min({ totalOneAngle, totalTwoAngle, totalThreeAngle });
+
+			// keep in mind we nned to reverse direction
+			if (totalOneAngle == lowestAngle)
+				direction = -dirOne;
+			else if (totalTwoAngle == lowestAngle)
+				direction = -dirTwo;
+			else
+				direction = -dirThree;
+		}
+
 		cp.canConnect = true;
-		auto axis = m_connectShapes[2].getAxis();
-		cp.recomendedPoint = glm::normalize(axis[1] - axis[0]) + m_centre;
+		cp.recomendedPoint = m_centre + direction * m_width / 2.0f;
 	}
 	else
 	{
@@ -483,7 +561,7 @@ void RoadIntersection::destroy()
 
 bool RoadIntersection::hasBody() const
 {
-	return m_connectShapes.size();
+	return m_connectShapes.size() >= 3;
 }
 
 bool RoadIntersection::sitsPointOn(Point point) const
@@ -588,11 +666,7 @@ bool RoadIntersection::canSwitchLanes() const
 	return false;
 }
 
-void RoadIntersection::newConnecionAction()
+uint32_t RoadIntersection::directionCount() const
 {
+	return m_connections.size();
 }
-
-void RoadIntersection::lostConnectionAction()
-{
-}
-

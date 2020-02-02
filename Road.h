@@ -6,19 +6,42 @@
 #include "RoadIntersection.h"
 #include <vector>
 
+namespace RoadParameters
+{
+	namespace Defaults
+	{
+		constexpr uint32_t laneCount = 1;
+		constexpr float laneWidth = 3.0f;
+		constexpr float lineWidth = 0.25f;
+
+		constexpr float distanceFromSide = 0.1f;
+		constexpr float sideLineWidth = 0.3f;
+		const std::optional<float> separatorWidth;
+
+		constexpr bool isOneWay = false;
+		constexpr bool forceOneWay = false;
+	}
+	struct Parameters
+	{
+		uint32_t laneCount	= Defaults::laneCount;
+		float laneWidth		= Defaults::laneWidth;
+		float lineWidth		= Defaults::lineWidth;
+
+		float distanceFromSide				= Defaults::distanceFromSide;
+		float sideLineWidth					= Defaults::sideLineWidth;
+		std::optional<float> separatorWidth	= Defaults::separatorWidth;
+		bool isOneWay = Defaults::isOneWay;
+		bool forceOneWay = Defaults::forceOneWay;
+	};
+}
 class BasicBuilding;
 class Road :
 	public BasicRoad
 {
 public:
+	friend class RoadInspectorUI;
 	friend class RoadCreator;
 
-	struct RoadParameters
-	{
-		uint32_t laneCount = 0;
-		float width = 0;
-		std::string texture;
-	};
 public:
 	// overrided
 	ConnectionPossibility getConnectionPossibility(Line connectionLine, Shape::AxisPoint connectionPoint) const override;
@@ -35,17 +58,20 @@ public:
 	virtual bool canSwitchLanes() const override;
 
 	// Getters
-	RoadParameters getParameters() const;
+	RoadParameters::Parameters getParameters() const;
+	float getWidth() const;
+	float getLength() const;
 	bool sitsOnEndPoints(const Point& point) const;
 	Shape::Axis getAxis() const;
 	Points getAxisPoints() const;
 	Point getCircumreferencePoint(Point roadPoint) const;
 	SegmentedShape getShape() const;
+	Shape::AxisPoint getClosestEndPoint(Shape::AxisPoint roadPoint) const;
+	glm::vec3 getDirectionFromEndPoint(Shape::AxisPoint endPoint) const;
 
 	//
-	void construct(Shape::Axis axisPoints, uint32_t laneCount, float width, std::string texture);
-	void construct(Points creationPoints, uint32_t laneCount, float width, std::string texture);
-	void construct(Points creationPoints, const RoadParameters& parameters);
+	void construct(Shape::Axis axisPoints, const RoadParameters::Parameters& parameters);
+	void construct(Points creationPoints, const RoadParameters::Parameters& parameters);
 	void reconstruct();
 
 	void mergeWith(Road& otherRoad);
@@ -64,13 +90,14 @@ public:
 	struct NearbyBuildingPlacement;
 	const std::vector<NearbyBuildingPlacement>& getNearbyBuildings() const;
 
-protected:
-	virtual void newConnecionAction() override;
-	virtual void lostConnectionAction() override;
-
 private:
+	void updateWidthFromParameters();
+	void updateLength();
+
 	SegmentedShape m_shape;
-	RoadParameters m_parameters;
+	RoadParameters::Parameters m_parameters;
+	float m_width = 0.0f;
+	float m_length = 0.0f;
 
 	struct NearbyBuildingPlacement
 	{

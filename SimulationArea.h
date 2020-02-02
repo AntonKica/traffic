@@ -9,6 +9,7 @@
 #include "SimulationObject.h"
 #include "SimpleCar.h"
 #include "ObjectManager.h"
+#include "RoadInspector.h"
 
 namespace Settings
 {
@@ -81,22 +82,54 @@ private:
 	bool m_pressedPlay = false;
 };
 
+class BottomMenu :
+	public UIElement
+{
+public:
+	BottomMenu(SimulationArea* pSimulationArea);
+
+	virtual void draw() override;
+
+private:
+	SimulationArea* m_pSimulationArea;
+};
+
 class SimulationArea final
 {
 	friend class SimulationAreaVisualizer;
 public:
+	enum class Mode
+	{
+		CREATE,
+		DESTROY,
+		INSPECT
+	};
+
+	enum class SimulationMode
+	{
+		RUN,
+		EDIT
+	};
+
 	// with default values
 	SimulationArea();
 	~SimulationArea();
+
 	void initArea();
 
 	void loadData();
 
 	void update();
+	void handleCurrentMode();
 	bool placeObject();
 	bool isInArea(const glm::vec3& position) const;
 
 	void setEnableMouse(bool value);
+	void setMode(Mode mode);
+	void setSimualtionMode(SimulationMode simulationMode);
+
+	Mode getMode() const;
+	SimulationMode getSimualtionMode() const;
 
 	std::pair<size_t, size_t> getPointsCount() const;
 	std::optional<glm::vec3> getSelectedPointPos() const;
@@ -122,18 +155,18 @@ private:
 	std::optional<glm::vec3> m_mousePosition;
 	bool m_enableMouse = false;
 	std::optional<SimulationObject*> m_selectedObject;
-
+	RoadInspector m_roadInspector;
 	// new
 	TopMenu m_topMenu;
-	bool m_editMode = true;
+	BottomMenu m_bottomMenu;
+	Mode m_currentMode = {};
+	SimulationMode m_currentSimulationMode;
 
 	std::vector<SimpleCar> exampleCars;
 	const Road* findClosestRoadFromBuilding(const BasicBuilding& building) const;
 	void connectBuildingsAndRoads();
 	void connectBuildingToClosestRoad(BasicBuilding& building);
-	void play();
-	void edit();
-public:
-	void setEditMode(bool editMode);
+	void runSimulation();
+	void stopSimulation();
 };
 

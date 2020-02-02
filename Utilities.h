@@ -190,11 +190,11 @@ static std::optional<std::pair<Trail, Trail>> cutTwoTrailsOnCollision(Trail& tra
 {
 	std::optional<std::pair<Trail, Trail>> optionalCut;
 
-	if (trailOne.size() < 2 || trailTwo.size() < 2)
+	if (trailOne.size() >= 2 && trailTwo.size() >= 2)
 	{
-		for (auto oneIt = trailOne.begin(); oneIt + 1 < trailOne.end() && !optionalCut; ++oneIt)
+		for (auto oneIt = trailOne.begin(); oneIt + 1 < trailOne.end(); ++oneIt)
 		{
-			for (auto twoIt = trailTwo.begin(); twoIt + 1 < trailTwo.end() && !optionalCut; ++twoIt)
+			for (auto twoIt = trailTwo.begin(); twoIt + 1 < trailTwo.end(); ++twoIt)
 			{
 				Line one = { *oneIt, *(oneIt + 1) };
 				Line two = { *twoIt, *(twoIt + 1) };
@@ -203,18 +203,18 @@ static std::optional<std::pair<Trail, Trail>> cutTwoTrailsOnCollision(Trail& tra
 					// get that point
 					Point intersectionPoint = vectorIntersection(one[0], one[1], two[0], two[1]);
 					// add then insert before each line ed
-					auto insertOne = trailOne.insert(oneIt + 1, intersectionPoint);
-					auto insertTwo = trailTwo.insert(twoIt + 1, intersectionPoint);
+					auto insertOneIt = trailOne.insert(oneIt + 1, intersectionPoint);
+					auto insertTwoIt = trailTwo.insert(twoIt + 1, intersectionPoint);
 					
 					// construct new
-					Trail newTrailOne(insertOne, trailOne.end());
-					Trail newTrailTwo(insertTwo, trailTwo.end());
+					Trail newTrailOne(insertOneIt, trailOne.end());
+					Trail newTrailTwo(insertTwoIt, trailTwo.end());
 					
 					// remove from previous, withouyt inserted
-					trailOne.erase(insertOne + 1, trailOne.end());
-					trailTwo.erase(insertTwo + 1, trailTwo.end());
+					trailOne.erase(insertOneIt + 1, trailOne.end());
+					trailTwo.erase(insertTwoIt + 1, trailTwo.end());
 					
-					optionalCut = std::make_pair(newTrailOne, newTrailTwo);
+					return optionalCut = std::make_pair(newTrailOne, newTrailTwo);
 				}
 			}
 		}
