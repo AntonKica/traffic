@@ -7,7 +7,7 @@
 #include <glm/glm.hpp>
 
 class BasicRoad;
-struct Path
+struct Lane
 {
 	Points points;
 	BasicRoad* connectsTo = nullptr;
@@ -15,8 +15,9 @@ struct Path
 	enum class Side { LEFT, RIGHT };
 	Side side = {};
 
-	static bool pathLeadsToPath(const Path& path, const Path& leadsToPath);
-	friend bool operator==(const Path& lhs, const Path& rhs);
+	bool leadsToLane(const Lane& leadsToLane) const;
+	bool empty() const;
+	friend bool operator==(const Lane& lhs, const Lane& rhs);
 };
 
 class BasicRoad :
@@ -85,12 +86,15 @@ public:
 
 	virtual Shape::AxisPoint getAxisPoint(Point pointOnRoad) const = 0;
 
-	virtual void createPaths() = 0;
+	virtual void createLanes() = 0;
 	virtual bool canSwitchLanes() const = 0;
-	Path getClosestPath(Point pt) const;
-	std::vector<Path> getSubsequentPathsFromConnectingPath(const Path& connectingPath) const;
-	std::vector<Path> getAllPathsConnectingTo(const BasicRoad* const connectsToRoad) const;
-	std::vector<Path> getAllPathsConnectingTwoRoads(const BasicRoad* const connectsFromRoad, const BasicRoad* const connectsToRoad) const;
+	Lane getClosestLane(Point pt) const;
+	std::unordered_map<Lane::Side, std::vector<Lane>> getAllLanes()const;
+	std::vector<Lane> getSubsequentLanesConnectingFromLane(const Lane& connectingLane) const;
+	std::vector<Lane> getSubsequentLanesConnectingToLane(const Lane& connectingLane) const;
+	std::vector<Lane> getAllLanesConnectingTo(const BasicRoad* const connectsToRoad) const;
+	std::vector<Lane> getAllLanesConnectingFrom(const BasicRoad* const connectsFromRoad) const;
+	std::vector<Lane> getAllLanesConnectingTwoRoads(const BasicRoad* const connectsFromRoad, const BasicRoad* const connectsToRoad) const;
 protected:
 
 	//Connection& findConnection(BasicRoad* connectedRoad);
@@ -111,7 +115,7 @@ protected:
 	void disconnectAll();
 
 	std::vector<Connection> m_connections;
-	std::unordered_map<Path::Side, std::vector<Path>> m_paths;
+	std::unordered_map<Lane::Side, std::vector<Lane>> m_lanes;
 private:
 };
 

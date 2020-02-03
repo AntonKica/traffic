@@ -194,8 +194,6 @@ private:
 	};
 	IntersectionProducts buildToIntersection(Road& road, Road& connectingRoad);
 
-	CreatorVisualizer visualizer;
-
 	std::optional<RC::SittingPoint> m_mousePoint;
 	std::vector<RC::SittingPoint> m_setPoints;
 

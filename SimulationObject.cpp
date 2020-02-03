@@ -192,7 +192,7 @@ void SimulationObject::setupModelWithLines(const Info::ModelInfo& modelInfo, boo
 	Info::DrawInfo dInfo{};
 	dInfo.topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
 	dInfo.polygon = VK_POLYGON_MODE_LINE;
-	dInfo.lineWidth = 1.0f;
+	dInfo.lineWidth = 2.0f;
 
 	Info::GraphicsComponentCreateInfo createInfo;
 	createInfo.drawInfo = &dInfo;

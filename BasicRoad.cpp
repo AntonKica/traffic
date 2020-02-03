@@ -159,7 +159,7 @@ void BasicRoad::disconnectAll()
 	}
 }
 
-Path BasicRoad::getClosestPath(Point pt) const
+Lane BasicRoad::getClosestLane(Point pt) const
 {
 	auto closestTraiPoint = [](const Trail& trail, Point pt)
 	{
@@ -168,90 +168,132 @@ Path BasicRoad::getClosestPath(Point pt) const
 		return getClosestPointToLine(p1, p2, pt);
 	};
 
-	const Path* pPath = nullptr;
+	const Lane* pLane = nullptr;
 	Point minPt = {};
 
-	for (auto& [side, paths] : m_paths)
+	for (auto& [side, paths] : m_lanes)
 	{
 		for (auto& path : paths)
 		{
-			if (!pPath)
+			if (!pLane)
 			{
-				pPath = &path;
-				minPt = closestTraiPoint(pPath->points, pt);
+				pLane = &path;
+				minPt = closestTraiPoint(pLane->points, pt);
 			}
 			else
 			{
 				auto curPt = closestTraiPoint(path.points, pt);
 
 				if (glm::length(pt - curPt) < glm::length(pt - minPt))
-					pPath = &path;
+					pLane = &path;
 			}
 		}
 	}
 
-	return *pPath;
+	return *pLane;
 }
 
-std::vector<Path> BasicRoad::getSubsequentPathsFromConnectingPath(const Path& connectingPath) const
+std::unordered_map<Lane::Side, std::vector<Lane>> BasicRoad::getAllLanes() const
 {
-	std::vector<Path> subsequentPaths;
-	for (const auto& [side, paths] : m_paths)
+	return m_lanes;
+}
+
+std::vector<Lane> BasicRoad::getSubsequentLanesConnectingFromLane(const Lane& connectingLane) const
+{
+	std::vector<Lane> subsequentLanes;
+	for (const auto& [side, lanes] : m_lanes)
 	{
-		for (const auto& path : paths)
+		for (const auto& lane : lanes)
 		{
 			// end from cp myst be approximately in begin in some of our paths
-			if (Path::pathLeadsToPath(connectingPath, path))
-				subsequentPaths.emplace_back(path);
+			if (connectingLane.leadsToLane(lane))
+				subsequentLanes.emplace_back(lane);
 		}
 	}
 
-	return subsequentPaths;
+	return subsequentLanes;
 }
 
-std::vector<Path> BasicRoad::getAllPathsConnectingTo(const BasicRoad* const connectsToRoad) const
+std::vector<Lane> BasicRoad::getSubsequentLanesConnectingToLane(const Lane& connectingLane) const
 {
-	std::vector<Path> connectingPaths;
-	for (const auto& [side, paths] : m_paths)
+	std::vector<Lane> subsequentLanes;
+	for (const auto& [side, lanes] : m_lanes)
+	{
+		for (const auto& lane : lanes)
+		{
+			// end from cp myst be approximately in begin in some of our paths
+			if (lane.leadsToLane(connectingLane))
+				subsequentLanes.emplace_back(lane);
+		}
+	}
+
+	return subsequentLanes;
+}
+
+std::vector<Lane> BasicRoad::getAllLanesConnectingTo(const BasicRoad* const connectsToRoad) const
+{
+	std::vector<Lane> connectingLanes;
+	for (const auto& [side, paths] : m_lanes)
 	{
 		for (const auto& path : paths)
 		{
 			// end from cp myst be approximately in begin in some of our paths
 			if (path.connectsTo == connectsToRoad)
-				connectingPaths.emplace_back(path);
+				connectingLanes.emplace_back(path);
 		}
 	}
 
-	return connectingPaths;
+	return connectingLanes;
 }
 
-std::vector<Path> BasicRoad::getAllPathsConnectingTwoRoads(
+std::vector<Lane> BasicRoad::getAllLanesConnectingFrom(const BasicRoad* const connectsFromRoad) const
+{
+	std::vector<Lane> connectingLanes;
+	for (const auto& [side, paths] : m_lanes)
+	{
+		for (const auto& path : paths)
+		{
+			// end from cp myst be approximately in begin in some of our paths
+			if (path.connectsFrom == connectsFromRoad)
+				connectingLanes.emplace_back(path);
+		}
+	}
+
+	return connectingLanes;
+}
+
+std::vector<Lane> BasicRoad::getAllLanesConnectingTwoRoads(
 	const BasicRoad* const connectsFromRoad,
 	const BasicRoad* const connectsToRoad) const
 {
-	std::vector<Path> subsequentPaths;
-	for (const auto& [side, paths] : m_paths)
+	std::vector<Lane> subsequentLanes;
+	for (const auto& [side, paths] : m_lanes)
 	{
 		for (const auto& path : paths)
 		{
 			// end from cp myst be approximately in begin in some of our paths
 			if (path.connectsFrom == connectsFromRoad && path.connectsTo == connectsToRoad)
-				subsequentPaths.emplace_back(path);
+				subsequentLanes.emplace_back(path);
 		}
 	}
 
-	return subsequentPaths;
+	return subsequentLanes;
 }
 
-bool Path::pathLeadsToPath(const Path& path, const Path& leadsToPath)
+bool Lane::leadsToLane(const Lane& leadsToLane) const
 {
-	return approxSamePoints(path.points.back(), leadsToPath.points.front());
+	return approxSamePoints(points.back(), leadsToLane.points.front());
 }
 
-bool operator==(const Path& lhs, const Path& rhs)
+bool Lane::empty() const
+{
+	return points.empty();
+}
+
+bool operator==(const Lane& lhs, const Lane& rhs)
 {
 	bool pointsEqual = lhs.points.size() == rhs.points.size() &&
-		std::memcmp(lhs.points.data(), rhs.points.data(), sizeof(lhs.points[0]) * lhs.points.size() == 0);
+		std::memcmp(lhs.points.data(), rhs.points.data(), sizeof(lhs.points[0]) * lhs.points.size()) == 0;
 
 	return 	pointsEqual &&
 		lhs.connectsFrom == rhs.connectsFrom &&

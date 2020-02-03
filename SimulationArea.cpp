@@ -232,6 +232,7 @@ void SimulationArea::setMode(Mode mode)
 	}
 }
 
+
 void SimulationArea::setSimualtionMode(SimulationMode simulationMode)
 {
 	m_currentSimulationMode = simulationMode;
@@ -252,8 +253,10 @@ void SimulationArea::setSimualtionMode(SimulationMode simulationMode)
 
 	case SimulationArea::SimulationMode::EDIT:
 		stopSimulation();
-
 		m_bottomMenu.setActive(true);
+
+		// force mode
+		setMode(Mode::CREATE);
 
 		m_roadInspector.setInspectorMode(Inspector::InspectorMode::EDIT);
 		m_objectManager.enableCreators();
@@ -470,30 +473,110 @@ void SimulationArea::connectBuildingToClosestRoad(BasicBuilding& building)
 	}
 }
 
+class PathVisualizer : public SimulationObject
+{
+public:
+	void addPoints(Points pts)
+	{
+		m_pts.push_back(pts);
+	}
+
+	void setupDraws()
+	{
+		Model model;
+
+		uint32_t count = 0;
+		for (const auto& points : m_pts)
+		{
+			glm::vec4 color;
+			if (count == 0)
+				color = glm::vec4(1.0, 0.0, 0.0,1.0);
+			else if (count == 1)
+				color = glm::vec4(0.0, 1.0, 0.0, 1.0);
+			else if (count == 2)
+				color = glm::vec4(0.0, 0.0, 1.0, 1.0);
+			else if (count == 3)
+				color = glm::vec4(1.0, 1.0, 0.0, 1.0);
+			else if (count == 4)
+				color = glm::vec4(0.0, 1.0, 1.0, 1.0);
+			else if (count == 5)
+				color = glm::vec4(1.0, 1.0, 1.0, 1.0);
+			++count;
+			Mesh newMesh;
+			newMesh.vertices.positions = points;
+			newMesh.vertices.colors = VD::ColorVertices(points.size(), color);
+			for (uint32_t indexOne = 0, indexTwo = 1; indexTwo < points.size(); ++indexOne, ++indexTwo)
+			{
+				newMesh.indices.emplace_back(indexOne);
+				newMesh.indices.emplace_back(indexTwo);
+			}
+
+			model.meshes.push_back(newMesh);
+		}
+
+		Info::ModelInfo minfo;
+		minfo.model = &model;
+
+		setupModelWithLines(minfo, true);
+		setActive(true);
+	}
+
+	std::vector<Points> m_pts;
+};
+
 void SimulationArea::runSimulation()
 {
 	// reset and setup
 	{
 		// first setup roads then inrersections since intersection rely on 
-		// road paths being setup
+		// road paths being setup and spawners as well
 		for (auto& road : m_objectManager.m_roads.data)
 		{
-			road.createPaths();
-			road.resetNearbyBuildings();
+			road.createLanes();
+			//road.resetNearbyBuildings();
 		}
+
+		static PathVisualizer visualizer;
 		for (auto& intersection : m_objectManager.m_intersections.data)
 		{
-			intersection.createPaths();
+			intersection.createLanes();
+
+			for (const auto [side, lanes] : intersection.getAllLanes())
+			{
+				for(const auto& lane : lanes)
+					visualizer.addPoints(lane.points);
+			}
+		}
+		visualizer.setupDraws();
+		for (auto& spawner : m_objectManager.m_carSpawners.data)
+		{
+			spawner.createLanes();
 		}
 	}
 
-	// then connect
+	// init spawners
+	{
+		for(auto & spawner : m_objectManager.m_carSpawners.data)
+		{
+			spawner.initializePossiblePaths(m_objectManager.m_carSpawners.data);
+		}
+	}
+	{
+		for (auto& spawner : m_objectManager.m_carSpawners.data)
+		{
+			spawner.enable();
+			spawner.spawnCar();
+		}
+	}
+	// EXPERIMENT
+	/*
+
+		// then connect
 	{
 		connectBuildingsAndRoads();
 	}
 
-	// EXPERIMENT
-	/*{
+	{
 		auto& roads = m_objectManager.m_roads.data;
 		auto& r1 = roads.front();
 		auto& r2 = roads.back();
@@ -511,7 +594,7 @@ void SimulationArea::runSimulation()
 		}
 	}*/
 	// cars last
-	{
+	/*{
 		exampleCars.clear();
 		for (auto& house : m_objectManager.m_houses.data)
 		{
@@ -525,12 +608,15 @@ void SimulationArea::runSimulation()
 				exampleCars.push_back(car);
 			}
 		}
-	}
+	}*/
 }
 
 void SimulationArea::stopSimulation()
 {
-	exampleCars.clear();
+	for (auto& spawner : m_objectManager.m_carSpawners.data)
+	{
+		spawner.disable();
+	}
 }
 
 TopMenu::TopMenu(SimulationArea* pSimulationArea)
@@ -674,8 +760,8 @@ void BottomMenu::draw()
 		popButtonStyles();
 	}
 
-	// adjust size so it wont show that much
-	if (m_pSimulationArea->getMode() == SimulationArea::Mode::INSPECT)
+	// adjust size so it wont show that much if we dont create
+	if (m_pSimulationArea->getMode() != SimulationArea::Mode::CREATE)
 		ImGui::SetWindowSize(ImVec2(columnWidth, height));
 
 	ImGui::NextColumn();

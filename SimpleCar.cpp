@@ -31,9 +31,25 @@ void SimpleCar::update()
 	}
 }
 
-void SimpleCar::drive(const BasicRoad& road)
+void SimpleCar::drive(PathFinding::TravellSegments travellSegments)
 {
-	pathToTake = road.getClosestPath(getPosition()).points;
+	Points ptsToDrive;
+	for (const auto& travellSegment : travellSegments)
+	{
+		if (travellSegment.switchLane)
+		{
+			auto lane = travellSegment.switchLane.value();
+			ptsToDrive.insert(ptsToDrive.end(), lane.points.begin(), lane.points.end());
+		}
+		else
+		{
+			auto lane = travellSegment.lane;
+			ptsToDrive.insert(ptsToDrive.end(), lane.points.begin(), lane.points.end());
+		}
+	}
+	removeDuplicates(ptsToDrive);
+
+	pathToTake = ptsToDrive;
 	speed = 7.0f;
 
 	Info::ModelInfo mInfo;

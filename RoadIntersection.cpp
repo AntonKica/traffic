@@ -358,18 +358,23 @@ void RoadIntersection::setUpShape()
 
 		// get sides
 		auto rightSideOne = shapeOne->getRightSidePoints();
-		auto leftSideTwo = shapeTwo->getLeftSidePoints();
+
+		shapeTwo->reverseBody();
+		auto rightSideTwo = shapeTwo->getRightSidePoints();
+		shapeTwo->reverseBody();
 
 		// cut them
-		bool cutted = cutTwoTrailsOnCollision(rightSideOne, leftSideTwo).has_value();
+		auto cutted = cutTwoTrailsOnCollision(rightSideOne, rightSideTwo);
 
 		if (cutted)
 		{
+			// we need cut
+			rightSideTwo = cutted.value().second;
 			// - 1 because they share one common point
-			Points edge(rightSideOne.size() + leftSideTwo.size() - 1);
+			Points edge(rightSideOne.size() + rightSideTwo.size() - 1);
 			// copy them without that one common point
 			auto copyIt = std::copy(rightSideOne.begin(), rightSideOne.end() - 1, edge.begin());
-			std::reverse_copy(leftSideTwo.begin(), leftSideTwo.end(), copyIt);
+			std::copy(rightSideTwo.begin(), rightSideTwo.end(), copyIt);
 
 			// add to edges
 			edges.emplace_back(edge);
@@ -377,15 +382,15 @@ void RoadIntersection::setUpShape()
 		else
 		{
 			// get that point where they should intersect
-			auto trailIntersectPoint = getTrailEndsIntersectionPoint(rightSideOne, leftSideTwo);
+			auto trailIntersectPoint = getTrailEndsIntersectionPoint(rightSideOne, rightSideTwo);
 
 			// + 1 because we add their intersect point
-			Points edge(rightSideOne.size() + leftSideTwo.size() + 1);
+			Points edge(rightSideOne.size() + rightSideTwo.size() + 1);
 
 			// copy them with that one common point
 			auto copyIt = std::copy(rightSideOne.begin(), rightSideOne.end(), edge.begin());
 			*copyIt++ = trailIntersectPoint;
-			std::reverse_copy(leftSideTwo.begin(), leftSideTwo.end(), copyIt);
+			std::copy(rightSideTwo.begin(), rightSideTwo.end(), copyIt);
 
 
 			// add to edges
@@ -592,70 +597,75 @@ static Points createSubLineFromAxis(const Points& axis, const Points& line, floa
 	return newPoints;
 }
 
-void RoadIntersection::createPaths()
+void RoadIntersection::createLanes()
 {
 	// associate road with shape
-	std::map<Road*, SegmentedShape*> associatedRoads;
+	std::unordered_map<SegmentedShape*, Road*> associatedShapes;
 	for (auto& shape : m_connectShapes)
 	{
 		auto connection = getConnection(shape.getTail());
 
 		Road* connectedRoad = static_cast<Road*>(connection.connected);
-		associatedRoads[connectedRoad] = &shape;
+		associatedShapes[&shape] = connectedRoad;
 	}
 
-	for (const auto& [roadOne, shapeOne] : associatedRoads)
+	m_lanes.clear();
+	for (const auto& [shapeOne, roadOne] : associatedShapes)
 	{
-		auto pathsFromRoadRoadOne = roadOne->getAllPathsConnectingTo(this);
+		auto pathsFromRoadRoadOne = roadOne->getAllLanesConnectingTo(this);
 
-		for (const auto& [roadTwo, shapeTwo] : associatedRoads)
+		for (const auto& [shapeTwo, roadTwo] : associatedShapes)
 		{
+			auto pathsFromRoadRoadTwo = roadTwo->getAllLanesConnectingTo(this);
 			// dont make road with self
 			if (shapeOne == shapeTwo)
 				continue;
 
 			// create common axis and edge
 			Points shapeOneAxis = shapeOne->getAxisPoints();
-			Points shapeTwoAxis = shapeTwo->getAxisPoints();
-			std::reverse(shapeTwoAxis.begin(), shapeTwoAxis.end());
+			Points shapeOneRightSide = shapeOne->getRightSidePoints();
 
-			Points shapeOneSide = shapeOne->getRightSidePoints();
-			Points shapeTwoSide = shapeTwo->getLeftSidePoints();
-			std::reverse(shapeTwoSide.begin(), shapeTwoSide.end());
+			shapeTwo->reverseBody();
+			Points shapeTwoAxis = shapeTwo->getAxisPoints();
+			Points shapeTwoRightSide = shapeTwo->getLeftSidePoints();
+			shapeTwo->reverseBody();
 
 			for (const auto& path : pathsFromRoadRoadOne)
 			{
-				Point intersectionPathStart = path.points.back();
-				auto shapeOneDiameter = glm::length(shapeOneAxis.front() - shapeOneSide.front());
-				auto distFomAxisToPoint = glm::length(shapeOneAxis.front() - intersectionPathStart);
+				Point intersectionLaneStart = path.points.back();
+				auto shapeOneDiameter = glm::length(shapeOneAxis.front() - shapeOneRightSide.front());
+				auto distFomAxisToPoint = glm::length(shapeOneAxis.front() - intersectionLaneStart);
 
-				auto shapeOnePath = createSubLineFromAxis(shapeOneAxis, shapeOneSide, shapeOneDiameter / distFomAxisToPoint);
-				auto shapeTwoPath = createSubLineFromAxis(shapeTwoAxis, shapeTwoSide, shapeOneDiameter / distFomAxisToPoint);
+				auto shapeTwoDiameter = glm::length(shapeTwoAxis.back() - shapeTwoRightSide.back());
+				auto distFomAxisTwoToPoint = glm::length(shapeTwoAxis.back() - pathsFromRoadRoadTwo[0].points.back());
+
+				auto shapeOneLane = createSubLineFromAxis(shapeOneAxis, shapeOneRightSide, distFomAxisToPoint / shapeOneDiameter);
+				auto shapeTwoLane = createSubLineFromAxis(shapeTwoAxis, shapeTwoRightSide, distFomAxisToPoint / shapeOneDiameter);
 
 				// make them interserct, but they may not intersect 
-				auto optCut = cutTwoTrailsOnCollision(shapeOnePath, shapeTwoPath);
+				auto optCut = cutTwoTrailsOnCollision(shapeOneLane, shapeTwoLane);
 				if (optCut)
-					shapeTwoPath = optCut.value().second;
+					shapeTwoLane = optCut.value().second;
 				else
-					shapeTwoPath.emplace_back(getTrailEndsIntersectionPoint(shapeOnePath, shapeTwoPath));
+					shapeTwoLane.emplace_back(getTrailEndsIntersectionPoint(shapeOneLane, shapeTwoLane));
 
 				// get the cut since that we need
 
 				// make that path
-				Path newPath;
-				newPath.connectsFrom = roadOne;
-				newPath.connectsTo = roadTwo;
+				Lane newLane;
+				newLane.connectsFrom = roadOne;
+				newLane.connectsTo = roadTwo;
 
 				Points pathPoints;
-				std::copy(std::begin(shapeOnePath), std::end(shapeOnePath), std::back_inserter(pathPoints));
+				std::copy(std::begin(shapeOneLane), std::end(shapeOneLane), std::back_inserter(pathPoints));
 				// omit that one common point
-				std::copy(std::begin(shapeTwoPath) + 1, std::end(shapeTwoPath), std::back_inserter(pathPoints));
-				newPath.points = pathPoints;
+				std::copy(std::begin(shapeTwoLane) + 1, std::end(shapeTwoLane), std::back_inserter(pathPoints));
+				newLane.points = pathPoints;
 
-				newPath.side = Path::Side::RIGHT;
+				newLane.side = Lane::Side::RIGHT;
 
 				// add that path
-				m_paths[Path::Side::RIGHT].emplace_back(newPath);
+				m_lanes[Lane::Side::RIGHT].emplace_back(newLane);
 			}
 		}
 	}

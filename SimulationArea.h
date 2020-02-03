@@ -162,7 +162,6 @@ private:
 	Mode m_currentMode = {};
 	SimulationMode m_currentSimulationMode;
 
-	std::vector<SimpleCar> exampleCars;
 	const Road* findClosestRoadFromBuilding(const BasicBuilding& building) const;
 	void connectBuildingsAndRoads();
 	void connectBuildingToClosestRoad(BasicBuilding& building);

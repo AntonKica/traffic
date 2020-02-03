@@ -1002,6 +1002,8 @@ void SegmentedShape::createShape(Points axis)
 			}
 
 			const auto [left, right] = getSidePoints(previousDirection, currentDirection, previousPoint, curPoint, nextPoint, m_width);
+
+
 			Joint newJoint(left, Shape::AxisPoint(curPoint), right);
 
 			currentJoint = newJoint;

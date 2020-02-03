@@ -28,7 +28,7 @@ public:
 	bool sitsPointOn(Point point) const override;
 	virtual RoadType getRoadType() const override;
 	virtual Shape::AxisPoint getAxisPoint(Point pointOnRoad) const override;
-	virtual void createPaths() override;
+	virtual void createLanes() override;
 	virtual bool canSwitchLanes() const override;
 
 	uint32_t directionCount() const;

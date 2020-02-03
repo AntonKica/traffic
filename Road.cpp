@@ -11,7 +11,7 @@
 #include <chrono>
 #include <array>
 
-constexpr const char* asphaltTexturePath = "resources/materials/road1.jpg";
+constexpr const char* asphaltTextureLane = "resources/materials/road1.jpg";
 
 float calculateLength(const Points& points)
 {
@@ -401,7 +401,7 @@ static Points createSubLineFromAxis(const Points& axis, const Points& line, floa
 	return newPoints;
 }
 
-void Road::createPaths()
+void Road::createLanes()
 {
 	// half width
 	float offsetPerLane = 1.0 / m_parameters.laneCount;
@@ -430,31 +430,31 @@ void Road::createPaths()
 	Points axis = m_shape.getAxisPoints();
 
 	// supposse we have two lanes
-	m_paths.clear();
+	m_lanes.clear();
 	for (int i = 0; i < m_parameters.laneCount / 2; ++i)
 	{
 		{
 			auto leftLine = createSubLineFromAxis(leftLanePts, axis, startOffset + offsetPerLane * i);
 
-			Path leftPath;
-			leftPath.side = Path::Side::LEFT;
-			leftPath.points = Points(leftLine.rbegin(), leftLine.rend());
-			leftPath.connectsTo = findConnectedRoad(axis.front());
-			leftPath.connectsFrom = findConnectedRoad(axis.back());
+			Lane leftLane;
+			leftLane.side = Lane::Side::LEFT;
+			leftLane.points = Points(leftLine.rbegin(), leftLine.rend());
+			leftLane.connectsTo = findConnectedRoad(axis.front());
+			leftLane.connectsFrom = findConnectedRoad(axis.back());
 
-			m_paths[Path::Side::LEFT].push_back(leftPath);
+			m_lanes[Lane::Side::LEFT].push_back(leftLane);
 		}
 
 		{
 			auto rightLine = createSubLineFromAxis(rightLanePts, axis, startOffset + offsetPerLane * i);
 
-			Path rightPath;
-			rightPath.side = Path::Side::RIGHT;
-			rightPath.points = Points(rightLine.begin(), rightLine.end());
-			rightPath.connectsTo = findConnectedRoad(axis.back());
-			rightPath.connectsFrom = findConnectedRoad(axis.front());
+			Lane rightLane;
+			rightLane.side = Lane::Side::RIGHT;
+			rightLane.points = Points(rightLine.begin(), rightLine.end());
+			rightLane.connectsTo = findConnectedRoad(axis.back());
+			rightLane.connectsFrom = findConnectedRoad(axis.front());
 
-			m_paths[Path::Side::RIGHT].push_back(rightPath);
+			m_lanes[Lane::Side::RIGHT].push_back(rightLane);
 		}
 	}
 }
@@ -500,7 +500,7 @@ Point Road::getCircumreferencePoint(Point roadPoint) const
 	return m_shape.getCircumreferencePoint(roadPoint);
 }
 
-SegmentedShape Road::getShape() const
+const SegmentedShape& Road::getShape() const
 {
 	return m_shape;
 }
@@ -585,7 +585,7 @@ void Road::construct(Points creationPoints, const RoadParameters::Parameters& pa
 		// graphics model
 		{
 			auto mesh = SegmentedShape::createMesh(m_shape);
-			mesh.textures[VD::TextureType::DIFFUSE] = asphaltTexturePath;
+			mesh.textures[VD::TextureType::DIFFUSE] = asphaltTextureLane;
 
 			Model model;
 			model.meshes.push_back(mesh);
@@ -595,7 +595,7 @@ void Road::construct(Points creationPoints, const RoadParameters::Parameters& pa
 
 			setupModel(modelInfo, true);
 		}
-		//createPaths();
+		//createLanes();
 
 		// physics
 		{

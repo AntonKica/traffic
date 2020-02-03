@@ -676,6 +676,11 @@ static std::pair<Point, Point> getSidePoints(glm::vec3 firstDirection, glm::vec3
 	glm::vec3 previousRightVec = glm::normalize(glm::cross(firstDirection, vectorUp)) * width / 2.0f;
 	glm::vec3 currentRightVec = glm::normalize(glm::cross(secondDirection, vectorUp)) * width / 2.0f;
 
+	if (glm::acos(glm::dot(glm::normalize(previousRightVec), firstDirection)) > 0.0f)
+		previousRightVec = -previousRightVec;
+	if (glm::acos(glm::dot(glm::normalize(currentRightVec), secondDirection)) > 0.0f)
+		currentRightVec = -currentRightVec;
+
 	Point left = vectorIntersection(p1 - previousRightVec, p2 - previousRightVec,
 		p2 - currentRightVec, p3 - currentRightVec);
 

@@ -54,7 +54,7 @@ public:
 	virtual RoadType getRoadType() const override;
 	virtual Shape::AxisPoint getAxisPoint(Point pointOnRoad) const override;
 
-	virtual void createPaths() override;
+	virtual void createLanes() override;
 	virtual bool canSwitchLanes() const override;
 
 	// Getters
@@ -65,7 +65,7 @@ public:
 	Shape::Axis getAxis() const;
 	Points getAxisPoints() const;
 	Point getCircumreferencePoint(Point roadPoint) const;
-	SegmentedShape getShape() const;
+	const SegmentedShape& getShape() const;
 	Shape::AxisPoint getClosestEndPoint(Shape::AxisPoint roadPoint) const;
 	glm::vec3 getDirectionFromEndPoint(Shape::AxisPoint endPoint) const;
 

@@ -150,87 +150,120 @@ void RoadCreatorUI::draw()
 {
 	// ImVec2(150, 200))
 	ImGui::Columns(2, 0, false);
-	ImGui::SetColumnWidth(0, 120.f);
-	ImGui::Checkbox("Curved lines", &m_doCurves);
-	//
-	
+	const float columnWidth = 120.0f;
+	ImGui::SetColumnWidth(0, columnWidth);
 
-	const ImVec4 greyColor(130 / 255.0, 130 / 255.0, 130 / 255.0, 230 / 255.0);
-	const ImVec4 greenColor(125 / 255.0, 202 / 255.0, 24 / 255.0, 230 / 255.0);
-	const ImVec4 greenishColor(125 / 255.0, 125 / 250.0, 125 / 250.0, 125 / 255.0);
-
+	uint32_t pushCount = 0;
+	auto setButtonStyleIfTrue = [&pushCount](bool value)
 	{
-		const auto constructButtonColor = !m_makeSpawners ? greenColor : greyColor;
-		const auto hoverColor = !m_makeSpawners ? greenColor : greenishColor;
-		ImGui::PushStyleColor(ImGuiCol_Button, constructButtonColor);
-		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hoverColor);
+		const ImVec4 greyColor(130 / 255.0, 130 / 255.0, 130 / 255.0, 255 / 255.0);
+		const ImVec4 greenColor(125 / 255.0, 202 / 255.0, 24 / 255.0, 255 / 255.0);
+		const ImVec4 greenishColor(125 / 255.0, 125 / 250.0, 125 / 250.0, 125 / 255.0);
 
-		if (ImGui::Button("Construct Roads"))
+		ImVec4 hoverColor;
+		ImVec4 curColor;
+
+		if (value)
 		{
-			m_makeSpawners = false;
-			m_constructRoads = true;
+			hoverColor = curColor = greenColor;
+		}
+		else
+		{
+			hoverColor = greenishColor;
+			curColor = greyColor;
 		}
 
-		ImGui::PopStyleColor(2);
-	}
-	{
-		const auto makeSpawnerButtonColor = m_makeSpawners ? greenColor : greyColor;
-		const auto hoverColor = m_makeSpawners ? greenColor : greenishColor;
-		ImGui::PushStyleColor(ImGuiCol_Button, makeSpawnerButtonColor);
+		ImGui::PushStyleColor(ImGuiCol_Button, curColor);
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hoverColor);
 
-		if (ImGui::Button("Make spawners"))
+		pushCount += 2;
+	};
+	auto popButtonStyles = [&pushCount]()
+	{
+		ImGui::PopStyleColor(pushCount);
+		pushCount = 0;
+	};
+	// select menu
+	{
+		ImVec2 buttonSize = ImVec2(columnWidth, 30.0f);
+		if (m_constructRoads)
 		{
-			m_makeSpawners = true;
-			m_constructRoads = false;
+			setButtonStyleIfTrue(m_doCurves);
+			if (ImGui::Button("Curved lines", buttonSize))
+				m_doCurves = !m_doCurves;
+			popButtonStyles();
+		}
+		else
+		{
+			ImGui::Dummy(ImVec2(buttonSize));
+		}
+		//
+		// separate
+		ImGui::Dummy(ImVec2(0, 25.0f));
+		{
+			setButtonStyleIfTrue(m_constructRoads);
+			if (ImGui::Button("Construct Roads", buttonSize))
+			{
+				m_makeSpawners = false;
+				m_constructRoads = true;
+			}
+		}
+		{
+			setButtonStyleIfTrue(m_makeSpawners);
+			if (ImGui::Button("Make spawners", buttonSize))
+			{
+				m_makeSpawners = true;
+				m_constructRoads = false;
+			}
 		}
 
-		ImGui::PopStyleColor(2);
+		popButtonStyles();
 	}
-
-	// disable for now
-	/*if (m_currentCreator == CreatorType::BUILDING)
-	{
-		hoverColor = curColor = greenColor;
-	}
-	else
-	{
-		hoverColor = greenishColor;
-		curColor = greyColor;
-	}
-	ImGui::PushStyleColor(ImGuiCol_Button, curColor);
-	ImGui::PushStyleColor(ImGuiCol_ButtonHovered, hoverColor);
-	if (ImGui::Button("Building", buttonSize))
-		m_currentCreator = CreatorType::BUILDING;*/
 
 	ImGui::NextColumn();
 
-	ImGui::BeginChild(" roads ");
-	//
-	constexpr const uint32_t maxColumnsPerLine = 4;
-	const uint32_t nOfRows = m_prototypes.size() / maxColumnsPerLine + 1;
-	
-	for (uint32_t row = 0; row < nOfRows; ++row)
+	// hide if make spawners
+	if (m_makeSpawners)
 	{
-		ImGui::Columns(maxColumnsPerLine, 0, false);
-		const uint32_t totalIterations = m_prototypes.size();
-		const uint32_t nOfColumns = (row + 1) * maxColumnsPerLine <= totalIterations ?
-			maxColumnsPerLine : totalIterations - row * maxColumnsPerLine;
-		for (uint32_t column = 0; column < nOfColumns; ++column)
-		{
-			const uint32_t currentIndex = row * maxColumnsPerLine + column;
-			const ImVec2 buttonSize(ImGui::GetColumnWidth() * 0.9f, 40.0f);
+		auto offset = ImGui::GetColumnOffset();
 
-			const auto& currentPrototype = m_prototypes[currentIndex];
-
-			if (ImGui::Button(currentPrototype.name.c_str(), buttonSize))
-				m_selectedPrototype = &currentPrototype;
-
-			ImGui::NextColumn();
-		}
+		auto currentSize = ImGui::GetWindowSize();
+		ImGui::SetWindowSize(ImVec2(currentSize.y, offset));
+		auto currentPos = ImGui::GetWindowPos();
+		ImGui::SetWindowPos(ImVec2(currentPos.y, offset / 2.0f));
 	}
+	else
+	{
+		ImGui::BeginChild(" roads ");
+		//
+		constexpr const uint32_t maxColumnsPerLine = 4;
+		const uint32_t nOfRows = m_prototypes.size() / maxColumnsPerLine + 1;
 
-	ImGui::EndChild();
+		for (uint32_t row = 0; row < nOfRows; ++row)
+		{
+			ImGui::Columns(maxColumnsPerLine, 0, false);
+			const uint32_t totalIterations = m_prototypes.size();
+			const uint32_t nOfColumns = (row + 1) * maxColumnsPerLine <= totalIterations ?
+				maxColumnsPerLine : totalIterations - row * maxColumnsPerLine;
+			for (uint32_t column = 0; column < nOfColumns; ++column)
+			{
+				const uint32_t currentIndex = row * maxColumnsPerLine + column;
+				const ImVec2 buttonSize(ImGui::GetColumnWidth() * 0.9f, 40.0f);
+
+				const auto& currentPrototype = m_prototypes[currentIndex];
+
+				/// adjust color
+				setButtonStyleIfTrue(m_selectedPrototype == &currentPrototype);
+				if (ImGui::Button(currentPrototype.name.c_str(), buttonSize))
+					m_selectedPrototype = &currentPrototype;
+				popButtonStyles();
+
+				ImGui::NextColumn();
+			}
+		}
+
+		ImGui::EndChild();
+	}
 	ImGui::NextColumn();
 }
 
@@ -336,8 +369,6 @@ void RoadCreator::setCreatorModeAction()
 	m_setPoints.clear();
 	m_creationPoints = {};
 	constructRoadPrototype();
-
-	visualizer.setActive(m_active);
 }
 
 void RoadCreator::setActiveAction()
@@ -345,8 +376,6 @@ void RoadCreator::setActiveAction()
 	m_setPoints.clear();
 	m_creationPoints = {};
 	constructRoadPrototype();
-
-	visualizer.setActive(m_active);
 }
 
 RC::ProcSitPts RoadCreator::processSittingPoints(const std::vector<RC::SittingPoint> sittingPoints) const

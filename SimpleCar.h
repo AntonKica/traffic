@@ -1,7 +1,8 @@
 #pragma once
 #include "SimulationObject.h"
-#include "BasicRoad.h"
+#include "RoadPathFinder.h"
 #include "Utilities.h"
+
 
 class SimpleCar
 	: public SimulationObject
@@ -15,6 +16,7 @@ private:
 public:
 	void update() override;
 
-	void drive(const BasicRoad& road);
+	void drive(PathFinding::TravellSegments travellSegments);
+	PathFinding::TravellSegments m_travellSegments;
 };
 
