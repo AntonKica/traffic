@@ -81,7 +81,7 @@ Points triangulateShape(Points shapeOutline)
 			bool collapsesWithInnerWall = false;
 
 			// basicaly the same
-			Line innerTriangleLine = { newTriangle[0], newTriangle[2] };
+			LineSegment innerTriangleLine = { newTriangle[0], newTriangle[2] };
 			auto linePointOne = vertexThree, linePointTwo = linePointOne + 1;
 
 			bool allChecked = shapeOutline.size() <= 3;
@@ -100,8 +100,8 @@ Points triangulateShape(Points shapeOutline)
 				}
 				else
 				{
-					Line curLine = { *linePointOne, *linePointTwo };
-					if (innerLineLineCollision(innerTriangleLine, curLine))
+					LineSegment curLine = { *linePointOne, *linePointTwo };
+					if (innerLineSegmentCollision(innerTriangleLine, curLine))
 					{
 						collapsesWithInnerWall = true;
 						break;
@@ -176,7 +176,7 @@ void circleSortCenterOrientedSegmentedShapes(std::vector<SegmentedShape>& shapes
 	};
 	auto angleSegmentShapeSort = [&getSegmentedShapeAngle](const SegmentedShape& lhs, const SegmentedShape& rhs)
 	{
-		return getSegmentedShapeAngle(lhs) < getSegmentedShapeAngle(rhs);
+		return getSegmentedShapeAngle(lhs) > getSegmentedShapeAngle(rhs);
 	};
 
 	if(clockwise)
@@ -398,11 +398,13 @@ void RoadIntersection::setUpShape()
 		}
 	}
 
-	m_outlinePoints.clear();
 	// copy edges to outline
 	{
+		m_outlinePoints.clear();
 		for (const auto& edge : edges)
 			m_outlinePoints.insert(m_outlinePoints.end(), edge.begin(), edge.end());
+		// reverse since we need thme to be in clockwise order
+		std::reverse(std::begin(m_outlinePoints), std::end(m_outlinePoints));
 	}
 
 	// and then triangulate
@@ -514,7 +516,7 @@ glm::vec3 RoadIntersection::getDirectionPointFromConnectionPoint(Point connectio
 	return m_centre;
 }
 
-BasicRoad::ConnectionPossibility RoadIntersection::getConnectionPossibility(Line connectionLine, Shape::AxisPoint connectionPoint) const
+BasicRoad::ConnectionPossibility RoadIntersection::getConnectionPossibility(LineSegment connectionLine, Shape::AxisPoint connectionPoint) const
 {
 	ConnectionPossibility cp{};
 	if (m_connectShapes.size() < 4)
@@ -571,7 +573,7 @@ bool RoadIntersection::hasBody() const
 
 bool RoadIntersection::sitsPointOn(Point point) const
 {
-	return polygonPointCollision(m_outlinePoints, point);
+	return Collision::XZPointPoints(point, m_outlinePoints);
 }
 
 BasicRoad::RoadType RoadIntersection::getRoadType() const
@@ -600,13 +602,13 @@ static Points createSubLineFromAxis(const Points& axis, const Points& line, floa
 void RoadIntersection::createLanes()
 {
 	// associate road with shape
-	std::unordered_map<SegmentedShape*, Road*> associatedShapes;
+	std::vector<std::pair<SegmentedShape*, Road*>> associatedShapes;
 	for (auto& shape : m_connectShapes)
 	{
 		auto connection = getConnection(shape.getTail());
 
 		Road* connectedRoad = static_cast<Road*>(connection.connected);
-		associatedShapes[&shape] = connectedRoad;
+		associatedShapes.emplace_back(std::make_pair(&shape, connectedRoad));
 	}
 
 	m_lanes.clear();
@@ -616,7 +618,7 @@ void RoadIntersection::createLanes()
 
 		for (const auto& [shapeTwo, roadTwo] : associatedShapes)
 		{
-			auto pathsFromRoadRoadTwo = roadTwo->getAllLanesConnectingTo(this);
+			auto pathsFromRoadRoadTwo = roadTwo->getAllLanesConnectingFrom(this);
 			// dont make road with self
 			if (shapeOne == shapeTwo)
 				continue;
@@ -625,10 +627,9 @@ void RoadIntersection::createLanes()
 			Points shapeOneAxis = shapeOne->getAxisPoints();
 			Points shapeOneRightSide = shapeOne->getRightSidePoints();
 
-			shapeTwo->reverseBody();
+			// we choose this approach since lines are cut from certain direction
 			Points shapeTwoAxis = shapeTwo->getAxisPoints();
-			Points shapeTwoRightSide = shapeTwo->getLeftSidePoints();
-			shapeTwo->reverseBody();
+			Points shapeTwoLeftSide = shapeTwo->getLeftSidePoints();
 
 			for (const auto& path : pathsFromRoadRoadOne)
 			{
@@ -636,20 +637,16 @@ void RoadIntersection::createLanes()
 				auto shapeOneDiameter = glm::length(shapeOneAxis.front() - shapeOneRightSide.front());
 				auto distFomAxisToPoint = glm::length(shapeOneAxis.front() - intersectionLaneStart);
 
-				auto shapeTwoDiameter = glm::length(shapeTwoAxis.back() - shapeTwoRightSide.back());
-				auto distFomAxisTwoToPoint = glm::length(shapeTwoAxis.back() - pathsFromRoadRoadTwo[0].points.back());
-
 				auto shapeOneLane = createSubLineFromAxis(shapeOneAxis, shapeOneRightSide, distFomAxisToPoint / shapeOneDiameter);
-				auto shapeTwoLane = createSubLineFromAxis(shapeTwoAxis, shapeTwoRightSide, distFomAxisToPoint / shapeOneDiameter);
+				auto shapeTwoLane = createSubLineFromAxis(shapeTwoAxis, shapeTwoLeftSide, distFomAxisToPoint / shapeOneDiameter);
 
 				// make them interserct, but they may not intersect 
 				auto optCut = cutTwoTrailsOnCollision(shapeOneLane, shapeTwoLane);
-				if (optCut)
-					shapeTwoLane = optCut.value().second;
-				else
-					shapeTwoLane.emplace_back(getTrailEndsIntersectionPoint(shapeOneLane, shapeTwoLane));
+				if (!optCut)
+					shapeOneLane.emplace_back(getTrailEndsIntersectionPoint(shapeOneLane, shapeTwoLane));
 
-				// get the cut since that we need
+				// reverse second
+				std::reverse(std::begin(shapeTwoLane), std::end(shapeTwoLane));	
 
 				// make that path
 				Lane newLane;

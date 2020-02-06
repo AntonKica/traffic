@@ -20,9 +20,10 @@ public:
 	pPhysicsComponentCore copyCreatePhysicsComponentCore(const pPhysicsComponentCore& copyPhysicsCore);
 	void deactivatePhysicsComponentCore(pPhysicsComponentCore& physicsComponent);
 
-	void updatePhysicsComponentCollisionTags(pPhysicsComponentCore physicsCore, const Info::PhysicsComponentUpdateTags& updateInfo);
+	void setPhysicsComponentCollisionTags(pPhysicsComponentCore physicsCore, const Info::PhysicsComponentUpdateTags& updateInfo);
 
 	uint32_t getTagFlag(std::string tagName);
+	bool compatibleTags(uint32_t firstFlags, uint32_t secondFlags) const;
 private:
 	pPhysicsComponentCore getPhysicsComponentCore();
 
@@ -32,7 +33,6 @@ private:
 	void updateCollisions();
 
 	uint32_t createTagFlag(std::string tagName);
-	bool compatibleTags(uint32_t firstFlags, uint32_t secondFlags) const;
 
 	void registerPhysicsCoreTags(pPhysicsComponentCore& physicsCore, const std::vector<std::string>& tags);
 	void registerPhysicsCoreTags(pPhysicsComponentCore& physicsCore, uint32_t newTag);

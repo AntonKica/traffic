@@ -332,7 +332,7 @@ void VulkanBase::mainLoop()
 	{
 		std::lock_guard updateWaitLock(GlobalSynchronizaion::graphics.notifyMutex);
 
-		GlobalSynchronizaion::graphics.initialized = true;
+		GlobalSynchronizaion::graphics.initialized.store(true);
 		GlobalSynchronizaion::main_cv.notify_one();
 	}
 
@@ -342,11 +342,11 @@ void VulkanBase::mainLoop()
 			//std::cout << "G wait\n";
 			std::unique_lock updateWaitLock(GlobalSynchronizaion::graphics.updateWaitMutex);
 
-			auto waitPred = [] { return GlobalSynchronizaion::graphics.update; };
+			auto waitPred = [] { return GlobalSynchronizaion::graphics.update.load(); };
 			while(!waitPred())
 				GlobalSynchronizaion::thread_cv.wait(updateWaitLock);
 
-			GlobalSynchronizaion::graphics.update = false;
+			GlobalSynchronizaion::graphics.update.store(false);
 		}
 		//std::cout << "Started graphics loop\n";
 
@@ -358,7 +358,7 @@ void VulkanBase::mainLoop()
 			std::lock_guard updateWaitLock(GlobalSynchronizaion::graphics.notifyMutex);
 			//std::cout << "Graphics about to notify\n";
 
-			GlobalSynchronizaion::graphics.updated = true;
+			GlobalSynchronizaion::graphics.updated.store(true);
 			GlobalSynchronizaion::main_cv.notify_one();
 		}
 	}
@@ -1173,8 +1173,8 @@ void VulkanBase::cleanUp()
 	{
 		std::unique_lock cleanUpWaitLock(GlobalSynchronizaion::graphics.cleanupWaitMutex);
 
-		GlobalSynchronizaion::thread_cv.wait(cleanUpWaitLock, [] { return GlobalSynchronizaion::graphics.cleanUp; });
-		GlobalSynchronizaion::graphics.cleanUp = false;
+		GlobalSynchronizaion::thread_cv.wait(cleanUpWaitLock, [] { return GlobalSynchronizaion::graphics.cleanUp.load(); });
+		GlobalSynchronizaion::graphics.cleanUp.store(false);
 	}
 
 	UI::getInstance().destroyUI();
@@ -1204,7 +1204,7 @@ void VulkanBase::cleanUp()
 	{
 		std::lock_guard notifyLock(GlobalSynchronizaion::graphics.cleanupWaitMutex);
 
-		GlobalSynchronizaion::graphics.cleanedUp = true;
+		GlobalSynchronizaion::graphics.cleanedUp.store(true);
 		GlobalSynchronizaion::main_cv.notify_one();
 	}
 }

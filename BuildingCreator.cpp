@@ -60,7 +60,7 @@ PlacementRectangle::PlacementRectangle(SimulationArea* pSimulationArea)
 	:m_pSimulationArea(pSimulationArea)
 {
 	auto& pComp = getPhysicsComponent();
-	pComp.updateOtherCollisionTags({ "ROAD" });
+	pComp.setOtherCollisionTags({ "ROAD" });
 
 	setActive(false);
 }
@@ -156,11 +156,12 @@ void PlacementRectangle::updatePaddings()
 {
 	auto& pComp = getPhysicsComponent();
 
-	if (auto obj = pComp.inCollision("ROAD"))
+	auto roads = pComp.getAllCollisionWith("ROAD");
+	if (!roads.empty())
 	{
 		m_isPositionPadded = true;
 
-		if (auto collisionRoad = dynamic_cast<Road*>(obj))
+		if (auto collisionRoad = dynamic_cast<Road*>(roads[0]))
 		{
 			auto axis = collisionRoad->getAxisPoints();
 			const auto[p1, p2] = findTwoClosestPoints(axis, getPosition());
@@ -215,7 +216,7 @@ void PlacementRectangle::updatePaddings()
 					const float sideWidth = useHeight ? m_rectangleSize.y : m_rectangleSize.x;
 					const float roadWidth = collisionRoad->getWidth();
 
-					const auto roadAxisPoint = getClosestPointToLine(p1, p2, getPosition());
+					const auto roadAxisPoint = getClosestPointToLineSegment(p1, p2, getPosition());
 					auto dir = glm::normalize(getPosition() - roadAxisPoint);
 
 					m_paddedPosition = roadAxisPoint + (dir * (sideWidth + roadWidth) / 2.0f);
@@ -246,7 +247,7 @@ BC::Resource::Resource(std::string modelPath, std::string name, BasicBuilding::B
 	case BasicBuilding::BuildingType::HOUSE:
 		House house;
 		house.create(glm::vec3(), modelPath);
-		house.getPhysicsComponent().updateOtherCollisionTags({ "BUILDING", "ROAD" });
+		house.getPhysicsComponent().setOtherCollisionTags({ "BUILDING", "ROAD" });
 		house.enableComponents();
 		house.setActive(false);
 
@@ -315,13 +316,13 @@ void BuildingCreator::update()
 	{
 		// check collisions,
 		// basically if i in collision and if is padded but not same road, return
-		if (building.getPhysicsComponent().inCollision("ROAD"))
+		if (building.getPhysicsComponent().inCollisionWith("ROAD"))
 		{
-			if (m_placementRectangle.paddedPosition() && 
+			/*if (m_placementRectangle.paddedPosition() && 
 				building.getPhysicsComponent().inCollision("ROAD") != m_placementRectangle.getPhysicsComponent().inCollision("ROAD"))
 			{
 				return;
-			}
+			}*/
 		}
 
 
@@ -329,7 +330,7 @@ void BuildingCreator::update()
 		{
 		case BasicBuilding::BuildingType::HOUSE:
 			House house = *static_cast<House*>(&*m_currentResource->prototype);
-			house.getPhysicsComponent().updateOtherCollisionTags({});
+			house.getPhysicsComponent().setOtherCollisionTags({});
 			house.enablePhysics();
 
 			m_pObjectManager->m_houses.add(house);

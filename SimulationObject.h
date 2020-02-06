@@ -17,7 +17,9 @@ public:
 
 	virtual void update();
 
+	const GraphicsComponent& getGraphicsComponent() const;
 	GraphicsComponent& getGraphicsComponent();
+	const PhysicsComponent& getPhysicsComponent() const;
 	PhysicsComponent& getPhysicsComponent();
 
 	void disableComponents();

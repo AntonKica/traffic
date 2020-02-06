@@ -134,10 +134,6 @@ void Window::updateFrame()
 		glfwPollEvents();
 		glfwSwapBuffers(m_window);
 	}
-
-	{
-		App::input.update();
-	}
 }
 
 void Window::setState(State state)

@@ -14,7 +14,7 @@ public:
 	virtual void update() override;
 
 	virtual glm::vec3 getDirectionPointFromConnectionPoint(Point connectionPoint);
-	virtual ConnectionPossibility getConnectionPossibility(Line connectionLine, Shape::AxisPoint connectionPoint) const;
+	virtual ConnectionPossibility getConnectionPossibility(LineSegment connectionLine, Shape::AxisPoint connectionPoint) const;
 
 	virtual void destroy();
 	virtual bool hasBody() const;

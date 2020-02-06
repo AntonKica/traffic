@@ -8,5 +8,5 @@ void House::create(glm::vec3 position, std::string modelPath)
 
 	setupModel(mInfo, true);
 
-	getPhysicsComponent().updateSelfCollisionTags({ "BUILDING", "HOUSE" });
+	getPhysicsComponent().setSelfCollisionTags({ "BUILDING", "HOUSE" });
 }

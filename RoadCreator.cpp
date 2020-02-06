@@ -236,18 +236,18 @@ void RoadCreatorUI::draw()
 	{
 		ImGui::BeginChild(" roads ");
 		//
-		constexpr const uint32_t maxColumnsPerLine = 4;
-		const uint32_t nOfRows = m_prototypes.size() / maxColumnsPerLine + 1;
+		constexpr const uint32_t maxColumnsPerLineSegment = 4;
+		const uint32_t nOfRows = m_prototypes.size() / maxColumnsPerLineSegment + 1;
 
 		for (uint32_t row = 0; row < nOfRows; ++row)
 		{
-			ImGui::Columns(maxColumnsPerLine, 0, false);
+			ImGui::Columns(maxColumnsPerLineSegment, 0, false);
 			const uint32_t totalIterations = m_prototypes.size();
-			const uint32_t nOfColumns = (row + 1) * maxColumnsPerLine <= totalIterations ?
-				maxColumnsPerLine : totalIterations - row * maxColumnsPerLine;
+			const uint32_t nOfColumns = (row + 1) * maxColumnsPerLineSegment <= totalIterations ?
+				maxColumnsPerLineSegment : totalIterations - row * maxColumnsPerLineSegment;
 			for (uint32_t column = 0; column < nOfColumns; ++column)
 			{
-				const uint32_t currentIndex = row * maxColumnsPerLine + column;
+				const uint32_t currentIndex = row * maxColumnsPerLineSegment + column;
 				const ImVec2 buttonSize(ImGui::GetColumnWidth() * 0.9f, 40.0f);
 
 				const auto& currentPrototype = m_prototypes[currentIndex];
@@ -292,7 +292,7 @@ RoadCreator::RoadCreator(ObjectManager* objectManager)
 {
 	// sink road
 	m_roadPrototype.setPosition(glm::vec3(0.0, -0.02, 0.0));
-	m_roadPrototype.getPhysicsComponent().updateOtherCollisionTags({ "ROAD", "BUILDING" });
+	m_roadPrototype.getPhysicsComponent().setOtherCollisionTags({ "ROAD"});
 }
 
 void RoadCreator::update()
@@ -399,8 +399,8 @@ RC::ProcSitPts RoadCreator::processSittingPoints(const std::vector<RC::SittingPo
 		{
 			processed.roadBeginAxisPoint = std::make_pair(front.point, front.road.value());
 
-			Line connectingLine = { front.point, (sittingPoints.begin() + 1)->point };
-			auto conPossibiliy = front.road.value()->getConnectionPossibility(connectingLine, Shape::AxisPoint(front.point));
+			LineSegment connectingLineSegment = { front.point, (sittingPoints.begin() + 1)->point };
+			auto conPossibiliy = front.road.value()->getConnectionPossibility(connectingLineSegment, Shape::AxisPoint(front.point));
 
 			processed.validPoints = conPossibiliy.canConnect && processed.validPoints;
 			processed.axisPoints.insert(processed.axisPoints.begin() + 1, conPossibiliy.recomendedPoint);
@@ -409,8 +409,8 @@ RC::ProcSitPts RoadCreator::processSittingPoints(const std::vector<RC::SittingPo
 		{
 			processed.roadEndAxisPoint = std::make_pair(back.point, back.road.value());
 
-			Line connectingLine = { back.point, (sittingPoints.end() - 2)->point };
-			auto conPossibiliy = back.road.value()->getConnectionPossibility(connectingLine, Shape::AxisPoint(back.point));
+			LineSegment connectingLineSegment = { back.point, (sittingPoints.end() - 2)->point };
+			auto conPossibiliy = back.road.value()->getConnectionPossibility(connectingLineSegment, Shape::AxisPoint(back.point));
 
 			processed.validPoints = conPossibiliy.canConnect && processed.validPoints;
 			processed.axisPoints.insert(processed.axisPoints.end() - 1, conPossibiliy.recomendedPoint);
@@ -520,15 +520,18 @@ void RoadCreator::constructRoadPrototype()
 		const auto& currentPrototype = *m_ui.getSelectedPrototype();
 
 		m_roadPrototype.construct(m_creationPoints.points, currentPrototype);
-		m_roadPrototype.getGraphicsComponent().setActive(true);
+		m_roadPrototype.enableComponents();
 
-		m_roadPrototype.getPhysicsComponent().setActive(true);
+		if (m_processedCurrentPoints.validPoints)
+			m_roadPrototype.getGraphicsComponent().setTransparency(0.0);
+		else
+			m_roadPrototype.getGraphicsComponent().setTransparency(0.8);
+
 	}
 	else
 	{
 		m_roadPrototype.construct(Points(), RoadParameters::Parameters{});
-		m_roadPrototype.getGraphicsComponent().setActive(false);
-		m_roadPrototype.getPhysicsComponent().setActive(false);
+		m_roadPrototype.disableComponents();
 	}
 }
 
@@ -683,9 +686,8 @@ void RoadCreator::createRoadFromCurrent()
 	const auto& currentPrototype = *m_ui.getSelectedPrototype();
 
 	Road newRoad = m_roadPrototype;
-	newRoad.getPhysicsComponent().updateOtherCollisionTags({});
-	newRoad.setPosition(glm::vec3());
-
+	newRoad.getPhysicsComponent().setOtherCollisionTags({});
+	newRoad.setPosition(glm::vec3(0.0f));
 	handleConstruction(newRoad, connectingPoints);
 
 	// reset creation
@@ -732,7 +734,7 @@ void RoadCreator::handleConstruction(Road newRoad, std::vector<RC::PointRoadPair
 			connectRoadToIntersection(*useRoad, *intersection);
 		}
 	}
-
+	
 	if (addNewRoad)
 		newRoads.emplace_back(newRoad);
 	// add to map or wherever

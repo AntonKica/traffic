@@ -40,8 +40,8 @@ namespace Utility
 }
 
 static Point vectorIntersection(Point s1, Point e1, Point s2, Point e2);
-static bool pointSitsOnLine(const Line& line, const Point& point);
-template<class PointType1, class PointType2, class PointType3> bool pointSitsOnLine(const PointType1& s, const PointType2& e, const PointType3& p);
+static bool pointSitsOnLineSegment(const LineSegment& lineSegment, const Point& point);
+template<class PointType1, class PointType2, class PointType3> bool pointSitsOnLineSegment(const PointType1& s, const PointType2& e, const PointType3& p);
 
 static bool approxSamePoints(const Point& p1, const Point& p2)
 {
@@ -50,14 +50,14 @@ static bool approxSamePoints(const Point& p1, const Point& p2)
 	return glm::length(p1 - p2) <= maxDiff;
 }
 
-static float linePointAngle(Point s1, Point e1, Point p)
+static float lineSegmentPointAngle(Point s1, Point e1, Point p)
 {
 	return ((e1.x - s1.x) * (p.z - s1.z) - (e1.z - s1.z) * (p.x - s1.x));
 }
 
 static bool pointsSitsOnSameHalfOfPlane(Point s1, Point e1, Point p1, Point p2)
 {
-	return (linePointAngle(s1, e1, p1) >= 0) == (linePointAngle(s1, e1, p2) >= 0);
+	return (lineSegmentPointAngle(s1, e1, p1) >= 0) == (lineSegmentPointAngle(s1, e1, p2) >= 0);
 }
 
 static bool polygonPointCollision(const Points& polygonPoints, Point point)
@@ -100,40 +100,40 @@ static int triangleOrientation(const Triangle& triangle)
 		return -1;
 }
 
-// Given three colinear points p1, p2, p3, the function checks if 
-// point p3 lies on line segment 'pr' 
+// Given three colineSegmentar points p1, p2, p3, the function checks if 
+// point p3 lies on lineSegment segment 'pr' 
 static bool onSegment(Point p1, Point p2, Point p3)
 {
 	return p3.x <= std::max(p1.x, p2.x) && p3.x >= std::min(p1.x, p2.x) &&
 		p3.z <= std::max(p1.z, p2.z) && p3.z >= std::min(p1.z, p2.z);
 }
 
-static bool lineLineCollision(const Line& lineOne, const Line& lineTwo)
+static bool lineSegmentLineSegmentCollision(const LineSegment& lineSegmentOne, const LineSegment& lineSegmentTwo)
 {
 	/*
-	auto orientationOne = triangleOrientation(Triangle{ lineOne[0], lineTwo[0], lineOne[1] });
-	auto orientationTwo = triangleOrientation(Triangle{ lineOne[0], lineTwo[0], lineTwo[1] });
-	auto orientationThree = triangleOrientation(Triangle{ lineOne[1], lineTwo[1], lineOne[0] });
-	auto orientationFour = triangleOrientation(Triangle{ lineOne[1], lineTwo[1], lineTwo[0] });
+	auto orientationOne = triangleOrientation(Triangle{ lineSegmentOne[0], lineSegmentTwo[0], lineSegmentOne[1] });
+	auto orientationTwo = triangleOrientation(Triangle{ lineSegmentOne[0], lineSegmentTwo[0], lineSegmentTwo[1] });
+	auto orientationThree = triangleOrientation(Triangle{ lineSegmentOne[1], lineSegmentTwo[1], lineSegmentOne[0] });
+	auto orientationFour = triangleOrientation(Triangle{ lineSegmentOne[1], lineSegmentTwo[1], lineSegmentTwo[0] });
 
 	if (orientationOne != orientationTwo &&
 		orientationThree != orientationFour)
 	{
 		return true;
 	}
-	else if (orientationOne == 0 && onSegment(lineOne[0], lineOne[1], lineTwo[0]))
+	else if (orientationOne == 0 && onSegment(lineSegmentOne[0], lineSegmentOne[1], lineSegmentTwo[0]))
 	{
 		return true;
 	}
-	else if (orientationTwo == 0 && onSegment(lineOne[0], lineTwo[1], lineTwo[0]))
+	else if (orientationTwo == 0 && onSegment(lineSegmentOne[0], lineSegmentTwo[1], lineSegmentTwo[0]))
 	{
 		return true;
 	}
-	else if (orientationThree == 0 && onSegment(lineOne[1], lineOne[0], lineTwo[1]))
+	else if (orientationThree == 0 && onSegment(lineSegmentOne[1], lineSegmentOne[0], lineSegmentTwo[1]))
 	{
 		return true;
 	}
-	else if (orientationFour == 0 && onSegment(lineOne[1], lineTwo[0], lineTwo[1]))
+	else if (orientationFour == 0 && onSegment(lineSegmentOne[1], lineSegmentTwo[0], lineSegmentTwo[1]))
 	{
 		return true;
 	}
@@ -142,19 +142,19 @@ static bool lineLineCollision(const Line& lineOne, const Line& lineTwo)
 		return false;
 	}
 	*/
-	auto intersectionPoint = vectorIntersection(lineOne[0], lineOne[1], lineTwo[0], lineTwo[1]);
+	auto intersectionPoint = vectorIntersection(lineSegmentOne[0], lineSegmentOne[1], lineSegmentTwo[0], lineSegmentTwo[1]);
 
-	return pointSitsOnLine(lineOne, intersectionPoint) && pointSitsOnLine(lineTwo, intersectionPoint);
+	return pointSitsOnLineSegment(lineSegmentOne, intersectionPoint) && pointSitsOnLineSegment(lineSegmentTwo, intersectionPoint);
 }
-static bool innerLineLineCollision(const Line& lineOne, const Line& lineTwo)
+static bool innerLineSegmentCollision(const LineSegment& lineSegmentOne, const LineSegment& lineSegmentTwo)
 {
-	if (lineLineCollision(lineOne, lineTwo))
+	if (lineSegmentLineSegmentCollision(lineSegmentOne, lineSegmentTwo))
 	{
-		auto intersectionPoint = vectorIntersection(lineOne[0], lineOne[1], lineTwo[0], lineTwo[1]);
-		return !(approxSamePoints(intersectionPoint, lineOne[0]) ||
-			approxSamePoints(intersectionPoint, lineOne[1]) ||
-			approxSamePoints(intersectionPoint, lineTwo[0]) ||
-			approxSamePoints(intersectionPoint, lineTwo[1]));
+		auto intersectionPoint = vectorIntersection(lineSegmentOne[0], lineSegmentOne[1], lineSegmentTwo[0], lineSegmentTwo[1]);
+		return !(approxSamePoints(intersectionPoint, lineSegmentOne[0]) ||
+			approxSamePoints(intersectionPoint, lineSegmentOne[1]) ||
+			approxSamePoints(intersectionPoint, lineSegmentTwo[0]) ||
+			approxSamePoints(intersectionPoint, lineSegmentTwo[1]));
 	}
 	else
 	{
@@ -173,9 +173,9 @@ static bool trailTrailCollision(const Trail& trailOne, const Trail& trailTwo)
 	{
 		for (uint32_t indexTwo = 0; indexTwo < trailTwo.size() - 1; ++indexTwo)
 		{
-			Line one = { trailOne[indexOne], trailOne[indexOne + 1] };
-			Line two = { trailTwo[indexTwo], trailTwo[indexTwo + 1] };
-			if (lineLineCollision(one, two))
+			LineSegment one = { trailOne[indexOne], trailOne[indexOne + 1] };
+			LineSegment two = { trailTwo[indexTwo], trailTwo[indexTwo + 1] };
+			if (lineSegmentLineSegmentCollision(one, two))
 				return true;
 		}
 	}
@@ -196,13 +196,14 @@ static std::optional<std::pair<Trail, Trail>> cutTwoTrailsOnCollision(Trail& tra
 		{
 			for (auto twoIt = trailTwo.begin(); twoIt + 1 < trailTwo.end(); ++twoIt)
 			{
-				Line one = { *oneIt, *(oneIt + 1) };
-				Line two = { *twoIt, *(twoIt + 1) };
-				if (lineLineCollision(one, two))
+				LineSegment one = { *oneIt, *(oneIt + 1) };
+				LineSegment two = { *twoIt, *(twoIt + 1) };
+				if (lineSegmentLineSegmentCollision(one, two))
 				{
 					// get that point
 					Point intersectionPoint = vectorIntersection(one[0], one[1], two[0], two[1]);
-					// add then insert before each line ed
+					// add then insert before each lineSegment ed
+
 					auto insertOneIt = trailOne.insert(oneIt + 1, intersectionPoint);
 					auto insertTwoIt = trailTwo.insert(twoIt + 1, intersectionPoint);
 					
@@ -228,10 +229,10 @@ static Point getTrailEndsIntersectionPoint(Trail& trailOne, Trail& trailTwo)
 	if (trailOne.size() < 2 || trailTwo.size() < 2)
 		throw std::runtime_error("Cannot intersect trails which consist of one point!");
 
-	Line lineOne = { *(trailOne.end() - 2), *(trailOne.end() - 1) };
-	Line lineTwo = { *(trailTwo.end() - 2), *(trailTwo.end() - 1) };
+	LineSegment lineSegmentOne = { *(trailOne.end() - 2), *(trailOne.end() - 1) };
+	LineSegment lineSegmentTwo = { *(trailTwo.end() - 2), *(trailTwo.end() - 1) };
 
-	return vectorIntersection(lineOne[0], lineOne[1], lineTwo[0], lineTwo[1]);
+	return vectorIntersection(lineSegmentOne[0], lineSegmentOne[1], lineSegmentTwo[0], lineSegmentTwo[1]);
 }
 
 template <class Type> 
@@ -266,12 +267,12 @@ static float intervalDistance(const MinMax<float>& firstInterval, const MinMax<f
 
 template <class PolygonType> bool genericPolygonPolygonCollision(const PolygonType& polygonOne, const PolygonType& polygonTwo)
 {
-	bool canDrawLineBetween = false;
+	bool canDrawLineSegmentBetween = false;
 
 	// with first triangle
 	for (uint32_t index = 0, nextIndex = 1; index < polygonOne.size(); ++index, ++nextIndex)
 	{
-		if (canDrawLineBetween)
+		if (canDrawLineSegmentBetween)
 			break;
 
 		if (nextIndex == polygonOne.size())
@@ -285,15 +286,15 @@ template <class PolygonType> bool genericPolygonPolygonCollision(const PolygonTy
 		const auto firstInterval = genericProjectPolygonOnAxis(polygonOne, perpAxis);
 		const auto secondInterval = genericProjectPolygonOnAxis(polygonTwo, perpAxis);
 
-		canDrawLineBetween = intervalDistance(firstInterval, secondInterval) > 0;
+		canDrawLineSegmentBetween = intervalDistance(firstInterval, secondInterval) > 0;
 	}
 
 	// for second triangle
-	if (!canDrawLineBetween)
+	if (!canDrawLineSegmentBetween)
 	{
 		for (uint32_t index = 0, nextIndex = 1; index < polygonTwo.size(); ++index, ++nextIndex)
 		{
-			if (canDrawLineBetween)
+			if (canDrawLineSegmentBetween)
 				break;
 
 			if (nextIndex == polygonTwo.size())
@@ -307,11 +308,11 @@ template <class PolygonType> bool genericPolygonPolygonCollision(const PolygonTy
 			const auto firstInterval = genericProjectPolygonOnAxis(polygonOne, perpAxis);
 			const auto secondInterval = genericProjectPolygonOnAxis(polygonTwo, perpAxis);
 
-			canDrawLineBetween = intervalDistance(firstInterval, secondInterval) > 0;
+			canDrawLineSegmentBetween = intervalDistance(firstInterval, secondInterval) > 0;
 		}
 	}
 
-	return !canDrawLineBetween;
+	return !canDrawLineSegmentBetween;
 }
 
 
@@ -334,12 +335,12 @@ static bool polygonsCollide(const Points& polygonOne, const Points& polygonTwo)
 	return false;
 }
 
-bool pointSitsOnLine(const Line& line, const Point& point)
+bool pointSitsOnLineSegment(const LineSegment& lineSegment, const Point& point)
 {
-	return pointSitsOnLine(line[0], line[1], point);
+	return pointSitsOnLineSegment(lineSegment[0], lineSegment[1], point);
 }
 
-template<class PointType1, class PointType2, class PointType3> bool pointSitsOnLine(const PointType1& s, const PointType2& e, const PointType3& p)
+template<class PointType1, class PointType2, class PointType3> bool pointSitsOnLineSegment(const PointType1& s, const PointType2& e, const PointType3& p)
 {
 	if (p == s || p == e)
 		return true;
@@ -386,7 +387,7 @@ static TrailPosiition positionOfPointRelativeToTrailEnds(const Trail& trail, Poi
 		const auto& cur2 = trail[index + 1];
 
 		totalDistance += glm::length(cur1 - cur2);
-		if (distanceFromStartToPoint == 0 && pointSitsOnLine(cur1, cur2, point))
+		if (distanceFromStartToPoint == 0 && pointSitsOnLineSegment(cur1, cur2, point))
 		{
 			float excessDistance = glm::length(point - cur2);
 			distanceFromStartToPoint = totalDistance - excessDistance;
@@ -430,14 +431,14 @@ template <class TrailContainer, class TrailPointType> std::pair<TrailContainer, 
 			float travelledDistance = 0;
 			for (auto previousIter = pointIt++; pointIt != std::end(trail); previousIter = pointIt++)
 			{
-				float thisLineDistance = glm::length(*pointIt - *previousIter);
-				travelledDistance += thisLineDistance;
+				float thisLineSegmentDistance = glm::length(*pointIt - *previousIter);
+				travelledDistance += thisLineSegmentDistance;
 
 				if (travelledDistance > distanceToTravell)
 				{
 					auto dir = glm::normalize(*pointIt - *previousIter);
 					float overStep = travelledDistance - distanceToTravell;
-					float distanceFromPoint = thisLineDistance - overStep;
+					float distanceFromPoint = thisLineSegmentDistance - overStep;
 
 					auto finalPoint = *previousIter + dir * distanceFromPoint;
 
@@ -449,7 +450,7 @@ template <class TrailContainer, class TrailPointType> std::pair<TrailContainer, 
 				else
 				{
 					travelledPoints.emplace_back(*pointIt);
-					distanceLeft -= thisLineDistance;
+					distanceLeft -= thisLineSegmentDistance;
 				}
 			}
 		}
@@ -466,14 +467,14 @@ template <class TrailContainer, class TrailPointType> std::pair<TrailContainer, 
 			float travelledDistance = 0;
 			for (auto previousIter = pointIt++; pointIt != std::rend(trail); previousIter = pointIt++)
 			{
-				float thisLineDistance = glm::length(*pointIt - *previousIter);
-				travelledDistance += thisLineDistance;
+				float thisLineSegmentDistance = glm::length(*pointIt - *previousIter);
+				travelledDistance += thisLineSegmentDistance;
 
 				if (travelledDistance > distanceToTravell)
 				{
 					auto dir = glm::normalize(*pointIt - *previousIter);
 					float overStep = travelledDistance - distanceToTravell;
-					float distanceFromPoint = thisLineDistance - overStep;
+					float distanceFromPoint = thisLineSegmentDistance - overStep;
 
 					auto finalPoint = *previousIter + dir * distanceFromPoint;
 
@@ -485,7 +486,7 @@ template <class TrailContainer, class TrailPointType> std::pair<TrailContainer, 
 				else
 				{
 					travelledPoints.emplace_back(*pointIt);
-					distanceLeft -= thisLineDistance;
+					distanceLeft -= thisLineSegmentDistance;
 				}
 			}
 		}
@@ -563,66 +564,78 @@ static Point findClosestPoint(const Points& points, const Point& point)
 	return closestPoint.value();
 };
 
-static std::pair<Point, Point> getClosestSideFromThreePoints(const Point& lineStart, const Point& lineJoint, const Point& lineEnd, const Point& point)
+static std::pair<Point, Point> getClosestSideFromThreePoints(const Point& lineSegmentStart, const Point& lineSegmentJoint, const Point& lineSegmentEnd, const Point& point)
 {
-	const glm::vec3 dirToJointStart = glm::normalize(lineJoint - lineStart);
-	const glm::vec3 dirToJointEnd = glm::normalize(lineJoint - lineEnd);
-	const glm::vec3 dirToJointPoint = glm::normalize(lineJoint - point);
+	const glm::vec3 dirToJointStart = glm::normalize(lineSegmentJoint - lineSegmentStart);
+	const glm::vec3 dirToJointEnd = glm::normalize(lineSegmentJoint - lineSegmentEnd);
+	const glm::vec3 dirToJointPoint = glm::normalize(lineSegmentJoint - point);
 
 	const float startAngle = glm::degrees(glm::acos(glm::dot(dirToJointStart, dirToJointPoint)));
 	const float endAngle = glm::degrees(glm::acos(glm::dot(dirToJointEnd, dirToJointPoint)));
 	// acute angle
-	std::pair<Point, Point> line;
-	auto& [start, end] = line;
+	std::pair<Point, Point> lineSegment;
+	auto& [start, end] = lineSegment;
 	if (startAngle <= 90.0f)
 	{	
 		// other obtuse angle
 		if (endAngle > 90.0f || 
 			startAngle < endAngle)
 		{
-			start = lineStart;
-			end = lineJoint;
+			start = lineSegmentStart;
+			end = lineSegmentJoint;
 		}
 		else
 		{
-			start = lineJoint;
-			end = lineEnd;
+			start = lineSegmentJoint;
+			end = lineSegmentEnd;
 		}
 	}
 	else
 	{
 		if (endAngle > 90.0f)
 		{
-			start = end = lineJoint;
-		//	start = lineStart;
-		//	end = lineJoint;
+			start = end = lineSegmentJoint;
+		//	start = lineSegmentStart;
+		//	end = lineSegmentJoint;
 		}
 		else
 		{
-			start = lineJoint;
-			end = lineEnd;
+			start = lineSegmentJoint;
+			end = lineSegmentEnd;
 		}
 	}
 
-	return line;
+	return lineSegment;
 }
 
-template<class Type> Type getClosestPointToLine(
-	const Type& lineStart,
-	const Type& lineEnd,
+template<class Type> Type getClosestPointToLineSegment(
+	const Type& lineSegmentStart,
+	const Type& lineSegmentEnd,
 	const Type& point)
 {
-	if (approxSamePoints(lineStart, lineEnd)) return lineStart;
-	if (pointSitsOnLine(lineStart, lineEnd, point)) return point;
+	if (approxSamePoints(lineSegmentStart, lineSegmentEnd)) return lineSegmentStart;
+	if (pointSitsOnLineSegment(lineSegmentStart, lineSegmentEnd, point)) return point;
 
-	glm::vec3 lineDirection = glm::normalize(lineEnd - lineStart);
-	float lineLength = glm::length(lineEnd - lineStart);
+	glm::vec3 lineSegmentDirection = glm::normalize(lineSegmentEnd - lineSegmentStart);
+	float lineSegmentLength = glm::length(lineSegmentEnd - lineSegmentStart);
 
-	const glm::vec3 startToPointDir = glm::normalize(point - lineStart);
-	float alpha = glm::acos(glm::dot(startToPointDir, lineDirection));
-	float lineDistanceFromPointOne = glm::length(lineStart - point) * cos(alpha);
+	const glm::vec3 startToPointDir = glm::normalize(point - lineSegmentStart);
+	float alpha = glm::acos(glm::dot(startToPointDir, lineSegmentDirection));
+	float lineSegmentDistanceFromPointOne = glm::length(lineSegmentStart - point) * cos(alpha);
 
-	return lineStart + lineDirection * lineDistanceFromPointOne;
+	auto linePoint = lineSegmentStart + lineSegmentDirection * lineSegmentDistanceFromPointOne;
+	// are we off the segment?
+	if (!pointSitsOnLineSegment(lineSegmentStart, lineSegmentEnd, linePoint))
+	{
+		float distanceToStart = glm::length(linePoint - lineSegmentStart);
+		float distanceToEnd = glm::length(linePoint - lineSegmentEnd);
+
+		return distanceToStart < distanceToEnd ? lineSegmentStart : lineSegmentEnd;
+	}
+	else
+	{
+		return lineSegmentStart + lineSegmentDirection * lineSegmentDistanceFromPointOne;
+	}
 }
 
 template<class PointsType, class PointType> void setNewCirclePointsStart(PointsType& points, PointType point)
@@ -638,6 +651,34 @@ template<class PointsType, class PointType> void setNewCirclePointsStart(PointsT
 		points.insert(points.end(), points.front());
 	}
 }
+
+static LineSegment getClosestLineSegmentFromPoint(const Points& trail, const Point& point)
+{
+	LineSegment lineSegment = { Point(std::numeric_limits<float>::min()),  Point(std::numeric_limits<float>::min()) };
+	if (trail.size() < 2)
+		throw std::runtime_error("No lineSegment segment");
+	else if (trail.size() == 2)
+		lineSegment = { trail[0], trail[1] };
+	else
+	{
+		float closestDistance = std::numeric_limits<float>::max();
+		for (uint32_t indexOne = 0, indexTwo = 1; indexTwo < trail.size(); ++indexOne, ++indexTwo)
+		{
+			LineSegment curLineSegment = { trail[indexOne], trail[indexTwo] };
+			auto closestPoint = getClosestPointToLineSegment(curLineSegment[0], curLineSegment[1], point);
+
+			auto curDistance = glm::length(closestPoint - point);
+			if (curDistance < closestDistance)
+			{
+				closestDistance = curDistance;
+				lineSegment = curLineSegment;
+			}
+		}
+	}
+
+	return lineSegment;
+}
+
 
 template<class C, class T> auto insertElemementBetween(C& container, T first, T second, T element)
 {

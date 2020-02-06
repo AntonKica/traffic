@@ -17,7 +17,7 @@ glm::vec3 CarSpawner::getDirectionPointFromConnectionPoint(Point connectionPoint
 	return getPosition();
 }
 
-BasicRoad::ConnectionPossibility CarSpawner::getConnectionPossibility(Line connectionLine, Shape::AxisPoint connectionPoint) const
+BasicRoad::ConnectionPossibility CarSpawner::getConnectionPossibility(LineSegment connectionLine, Shape::AxisPoint connectionPoint) const
 {
 	return ConnectionPossibility();
 }
@@ -40,7 +40,7 @@ bool CarSpawner::sitsPointOn(Point point) const
 			return point + getPosition();
 		});
 
-	return polygonPointCollision(pts, point);
+	return  Collision::XZPointPoints(point, pts);
 }
 
 BasicRoad::RoadType CarSpawner::getRoadType() const
@@ -175,13 +175,13 @@ void CarSpawner::construct(Road* road, Point connectPoint)
 void CarSpawner::disable()
 {
 	m_disabled = true;
-	m_spawnedCars.clear();
+	m_spawnedCars = {};
 }
 
 void CarSpawner::enable()
 {
 	m_disabled = false;
-	m_spawnedCars.clear();
+	m_spawnedCars = {};
 }
 
 void CarSpawner::initializePossiblePaths(const std::vector<CarSpawner>& allSpawners)
@@ -193,7 +193,9 @@ void CarSpawner::initializePossiblePaths(const std::vector<CarSpawner>& allSpawn
 		if (&spawner == this)
 			continue;
 
-		m_routesToSpawner[&spawner] = PathFinding::createRoadRoutes(*this, spawner);
+		auto routes = PathFinding::createRoadRoutes(*this, spawner);
+		if(!routes.empty())
+			m_routesToSpawner[&spawner] = routes;
 	}
 }
 

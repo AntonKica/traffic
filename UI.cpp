@@ -51,6 +51,12 @@ void UI::unregisterUIElement(UIElement* element)
 
 void UI::drawUI(VkCommandBuffer cmdBuffer)
 {
+	if(auto pDrawData = ImGui::GetDrawData())
+		GUI::drawRenderData(*device, imgui, pDrawData, cmdBuffer);
+}
+
+void UI::updateDrawData()
+{
 	if (m_UIElements.empty())
 		return;
 
@@ -68,8 +74,6 @@ void UI::drawUI(VkCommandBuffer cmdBuffer)
 	}
 
 	ImGui::Render();
-
-	GUI::drawRenderData(*device, imgui, ImGui::GetDrawData(), cmdBuffer);
 }
 
 bool UI::mouseOverlap() const

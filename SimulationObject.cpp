@@ -85,9 +85,18 @@ void SimulationObject::update()
 {
 }
 
+const GraphicsComponent& SimulationObject::getGraphicsComponent() const
+{
+	return m_components.graphics;
+}
+
 GraphicsComponent& SimulationObject::getGraphicsComponent()
 {
 	return m_components.graphics;
+}
+const PhysicsComponent& SimulationObject::getPhysicsComponent() const
+{
+	return m_components.physics;
 }
 PhysicsComponent& SimulationObject::getPhysicsComponent()
 {

@@ -21,7 +21,7 @@ public:
 	std::vector<Road*> disassemble();
 
 	glm::vec3 getDirectionPointFromConnectionPoint(Point point) override;
-	ConnectionPossibility getConnectionPossibility(Line connectionLine, Shape::AxisPoint connectionPoint) const override;
+	ConnectionPossibility getConnectionPossibility(LineSegment connectionLine, Shape::AxisPoint connectionPoint) const override;
 
 	virtual void destroy() override;
 	virtual bool hasBody() const override;

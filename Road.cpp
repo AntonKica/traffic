@@ -248,14 +248,14 @@ std::vector<Point> createOutline(const std::vector<Point>& points, float outline
 
 }
 
-BasicRoad::ConnectionPossibility Road::getConnectionPossibility(Line connectionLine, Shape::AxisPoint connectionPoint) const
+BasicRoad::ConnectionPossibility Road::getConnectionPossibility(LineSegment connectionLineSegment, Shape::AxisPoint connectionPoint) const
 {
 	ConnectionPossibility connectionPossibility{};
 	connectionPossibility.canConnect = true;
 	connectionPossibility.recomendedPoint = connectionPoint;
 	//reored 
-	if (approxSamePoints(connectionLine[0], connectionPoint))
-		std::swap(connectionLine[0], connectionLine[1]);
+	if (approxSamePoints(connectionLineSegment[0], connectionPoint))
+		std::swap(connectionLineSegment[0], connectionLineSegment[1]);
 
 	// sits on ceonneted end?
 	if (m_shape.sitsOnTailOrHead(connectionPoint))
@@ -268,13 +268,13 @@ BasicRoad::ConnectionPossibility Road::getConnectionPossibility(Line connectionL
 	}
 
 	// line[1] is on rectangle axis
-	auto getRectangleLineouchPoint =
-		[](Line rectangleAxis, float rectangleWidth, Line line, bool useIntersectionOffset)
+	auto getRectangleLineSegmentouchPoint =
+		[](LineSegment rectangleAxis, float rectangleWidth, LineSegment line, bool useIntersectionOffset)
 	{
 		const glm::vec3 axisDir = glm::normalize(rectangleAxis[1] - rectangleAxis[0]);
-		const glm::vec3 conLineDir = glm::normalize(line[0] - line[1]);
+		const glm::vec3 conLineSegmentDir = glm::normalize(line[0] - line[1]);
 
-		float connectionAngle = glm::acos(glm::dot(axisDir, conLineDir));
+		float connectionAngle = glm::acos(glm::dot(axisDir, conLineSegmentDir));
 		if (connectionAngle > glm::half_pi<float>())
 			connectionAngle = glm::pi<float>() - connectionAngle;
 
@@ -300,29 +300,50 @@ BasicRoad::ConnectionPossibility Road::getConnectionPossibility(Line connectionL
 		return line[1] + axisPerpDir * (distance + harcodedIntersectionOffset);
 	};
 
-	auto segments = m_shape.getSegments(connectionPoint);
+	auto lineSegment = getClosestLineSegmentFromPoint(m_shape.getAxisPoints(), connectionPoint);
+
+	// ends on ends
+	if (lineSegment[0] != connectionPoint)
+		std::swap(lineSegment[0], lineSegment[1]);
+
+	glm::vec3 axisDir = glm::normalize(lineSegment[0] - lineSegment[1]);
+	glm::vec3 endToLineSegmentEnd = glm::normalize(connectionLineSegment[0] - connectionLineSegment[1]);
+	float connectionAngle = glm::acos(glm::dot(axisDir, endToLineSegmentEnd));
+
+	// I really dont know how to write thi in one satement
+	if (!m_shape.sitsOnTailOrHead(connectionPoint))
+	{
+		connectionPossibility.recomendedPoint =
+			getRectangleLineSegmentouchPoint(lineSegment, m_width, connectionLineSegment, true);
+	}
+	else if (connectionAngle > glm::half_pi<float>())
+	{
+		connectionPossibility.recomendedPoint =
+			getRectangleLineSegmentouchPoint(lineSegment, m_width, connectionLineSegment, false);
+	}
 	// sits on corner?
+	/*
 	if (segments.size() == 1)
 	{
-		auto& [start, end] = segments[0];
+		auto& [start, end] = segments;
 		// ends on ends
 		if (end->centre != connectionPoint)
 			std::swap(start, end);
 
 		glm::vec3 axisDir = glm::normalize(end->centre - start->centre);
-		glm::vec3 endToLineEnd = glm::normalize(connectionLine[0] - connectionLine[1]);
-		float connectionAngle = glm::acos(glm::dot(axisDir, endToLineEnd));
+		glm::vec3 endToLineSegmentEnd = glm::normalize(connectionLineSegment[0] - connectionLineSegment[1]);
+		float connectionAngle = glm::acos(glm::dot(axisDir, endToLineSegmentEnd));
 
 		// I really dont know how to write thi in one satement
 		if (!m_shape.sitsOnTailOrHead(connectionPoint))
 		{
 			connectionPossibility.recomendedPoint =
-				getRectangleLineouchPoint(Line{ start->centre, end->centre }, m_width, connectionLine, true);
+				getRectangleLineSegmentouchPoint(LineSegment{ start->centre, end->centre }, m_width, connectionLineSegment, true);
 		}
 		else if (connectionAngle > glm::half_pi<float>())
 		{
 			connectionPossibility.recomendedPoint =
-				getRectangleLineouchPoint(Line{ start->centre, end->centre }, m_width, connectionLine, false);
+				getRectangleLineSegmentouchPoint(LineSegment{ start->centre, end->centre }, m_width, connectionLineSegment, false);
 		}
 	}
 	else if (segments.size() == 2)// sits between corners/ joints
@@ -333,19 +354,20 @@ BasicRoad::ConnectionPossibility Road::getConnectionPossibility(Line connectionL
 		const glm::vec3 axisDir1 = glm::normalize(end1->centre - start1->centre);
 		// since end1 == start 2
 		const glm::vec3 axisDir2 = glm::normalize(start2->centre - end2->centre);
-		const glm::vec3 lineEndStart = glm::normalize(connectionLine[0] - connectionLine[1]);
+		const glm::vec3 lineEndStart = glm::normalize(connectionLineSegment[0] - connectionLineSegment[1]);
 
 		const auto angleArea = glm::angle(axisDir1, axisDir2);
-		const auto angleLineAxis1 = glm::angle(axisDir1, lineEndStart);
-		const auto angleLineAxis2 = glm::angle(axisDir2, lineEndStart);
+		const auto angleLineSegmentAxis1 = glm::angle(axisDir1, lineEndStart);
+		const auto angleLineSegmentAxis2 = glm::angle(axisDir2, lineEndStart);
 
 		// for now, if between sharp angles,its not valid
-		connectionPossibility.canConnect = angleLineAxis1 <= angleArea && angleLineAxis2 <= angleArea;
+		connectionPossibility.canConnect = angleLineSegmentAxis1 <= angleArea && angleLineSegmentAxis2 <= angleArea;
 	}
 	else
 	{
 		throw std::runtime_error("Bad segment point: " + glm::to_string(Point(connectionPoint)) + " !");
 	}
+	*/
 
 	return connectionPossibility;
 }
@@ -371,7 +393,8 @@ bool Road::hasBody() const
 
 bool Road::sitsPointOn(Point point) const
 {
-	return m_shape.sitsOnShape(point);
+	//return m_shape.sitsOnShape(point);
+	return getPhysicsComponent().collider().collides(point);
 }
 
 BasicRoad::RoadType Road::getRoadType() const
@@ -381,14 +404,10 @@ BasicRoad::RoadType Road::getRoadType() const
 
 Shape::AxisPoint Road::getAxisPoint(Point pointOnRoad) const
 {
-	auto optPoint = m_shape.getShapeAxisPoint(pointOnRoad);
-	if (!optPoint)
-		throw std::runtime_error("Wrong point on road!");
-
-	return optPoint.value();
+	return m_shape.getShapeAxisPoint(pointOnRoad);
 }
 
-static Points createSubLineFromAxis(const Points& axis, const Points& line, float percentageDistanceFromAxis)
+static Points createSubLineSegmentFromAxis(const Points& axis, const Points& line, float percentageDistanceFromAxis)
 {
 	Points newPoints(line);
 	for (uint32_t index = 0; index < axis.size(); ++index)
@@ -434,11 +453,11 @@ void Road::createLanes()
 	for (int i = 0; i < m_parameters.laneCount / 2; ++i)
 	{
 		{
-			auto leftLine = createSubLineFromAxis(leftLanePts, axis, startOffset + offsetPerLane * i);
+			auto leftLineSegment = createSubLineSegmentFromAxis(leftLanePts, axis, startOffset + offsetPerLane * i);
 
 			Lane leftLane;
 			leftLane.side = Lane::Side::LEFT;
-			leftLane.points = Points(leftLine.rbegin(), leftLine.rend());
+			leftLane.points = Points(leftLineSegment.rbegin(), leftLineSegment.rend());
 			leftLane.connectsTo = findConnectedRoad(axis.front());
 			leftLane.connectsFrom = findConnectedRoad(axis.back());
 
@@ -446,11 +465,11 @@ void Road::createLanes()
 		}
 
 		{
-			auto rightLine = createSubLineFromAxis(rightLanePts, axis, startOffset + offsetPerLane * i);
+			auto rightLineSegment = createSubLineSegmentFromAxis(rightLanePts, axis, startOffset + offsetPerLane * i);
 
 			Lane rightLane;
 			rightLane.side = Lane::Side::RIGHT;
-			rightLane.points = Points(rightLine.begin(), rightLine.end());
+			rightLane.points = Points(rightLineSegment.begin(), rightLineSegment.end());
 			rightLane.connectsTo = findConnectedRoad(axis.back());
 			rightLane.connectsFrom = findConnectedRoad(axis.front());
 
@@ -508,26 +527,26 @@ const SegmentedShape& Road::getShape() const
 Shape::AxisPoint Road::getClosestEndPoint(Shape::AxisPoint axisPoint) const
 {
 	auto axisPoints = m_shape.getAxisPoints();
-	
+
 	float lengthFromStart = 0;
 	float totalLength = 0;
 	float passedPoint = false;
 	for (uint32_t firstIndex = 0, secondIndex = 1; secondIndex < axisPoints.size(); ++firstIndex, ++secondIndex)
 	{
-		const Line curLine = { axisPoints[firstIndex], axisPoints[secondIndex] };
-		if (pointSitsOnLine(curLine, axisPoint) && !passedPoint)
+		const LineSegment curLineSegment = { axisPoints[firstIndex], axisPoints[secondIndex] };
+		if (pointSitsOnLineSegment(curLineSegment, axisPoint) && !passedPoint)
 		{
 			passedPoint = true;
 
-			lengthFromStart += glm::length(curLine[0] - axisPoint);
-			totalLength += glm::length(curLine[0] - curLine[1]);
+			lengthFromStart += glm::length(curLineSegment[0] - axisPoint);
+			totalLength += glm::length(curLineSegment[0] - curLineSegment[1]);
 		}
 		else
 		{
 			if (!passedPoint)
-				lengthFromStart += glm::length(curLine[0] - curLine[1]);
+				lengthFromStart += glm::length(curLineSegment[0] - curLineSegment[1]);
 
-			totalLength += glm::length(curLine[0] - curLine[1]);
+			totalLength += glm::length(curLineSegment[0] - curLineSegment[1]);
 		}
 	}
 	auto lengthFromEnd = totalLength - lengthFromStart;
@@ -600,14 +619,10 @@ void Road::construct(Points creationPoints, const RoadParameters::Parameters& pa
 		// physics
 		{
 			auto& physicComponent = getPhysicsComponent();
-			physicComponent.setActive(true);
-			auto pts = m_shape.getSkeleton();
-			physicComponent.collider().setBoundaries(Points(pts.begin(), pts.end()));
+			physicComponent.collider().setBoundaries(m_shape.getOutline());
+			enablePhysics();
 
-			Info::PhysicsComponentUpdateTags updateTags;
-			updateTags.newTags = { "ROAD" };
-			updateTags.newOtherTags = {};
-			physicComponent.updateCollisionTags(updateTags);
+			physicComponent.setSelfCollisionTags({ "ROAD" });
 		}
 
 		updateLength();
@@ -636,7 +651,7 @@ Road::SplitProduct Road::split(Shape::AxisPoint splitPoint)
 	{
 		Road road;
 		// // validate connections
-		for(auto& connection : m_connections)
+		for (auto& connection : m_connections)
 		{
 			if (!sitsOnEndPoints(connection.point))
 			{
@@ -755,9 +770,9 @@ void Road::updateWidthFromParameters()
 	// side offset
 	float sideOffset = 2 * m_parameters.distanceFromSide + 2 * m_parameters.sideLineWidth;
 	float totalLaneWidth = m_parameters.laneCount * m_parameters.laneWidth;
-	float totalLineWidth = (m_parameters.laneCount - 1) * m_parameters.lineWidth;
+	float totalLineSegmentWidth = (m_parameters.laneCount - 1) * m_parameters.lineWidth;
 
-	m_width = sideOffset + totalLaneWidth + totalLineWidth;
+	m_width = sideOffset + totalLaneWidth + totalLineSegmentWidth;
 }
 
 void Road::updateLength()

@@ -1,5 +1,6 @@
 #pragma once
 #include "BasicGeometry.h"
+#include "Collisions.h"
 
 namespace Collider
 {
@@ -10,6 +11,13 @@ namespace Collider
 	};
 	static Circle createCircle(const Points& points);
 	bool circlesOverlay(const Circle& firstCircle, const Circle& secondCircle);
+
+	struct Rectangle
+	{
+		Point topLeft, topRight, bottomLeft, bottomRight;
+	};
+	static Rectangle createRectangle(const Points& points);
+	bool rectanglesOverlay(const Rectangle& firstCircle, const Rectangle& secondCircle);
 }
 
 class Collider2D
@@ -29,23 +37,23 @@ public:
 	glm::vec3 getRotation() const;
 
 	bool collides(const Collider2D& other) const;
+	bool collides(const Points& point) const;
+	bool collides(const Point& point) const;
 private:
 	Collider2D() = default;
 
-	void setupTriangles();
 	void setupCircle();
 
 	void updateCollisionCircle();
-	void updateCollisionTriangles();
+	void updateCollisionBoundaries();
 
 	Points m_boundaries;
 
 	Collider::Circle m_circle;
-	Triangles m_triangles;
 	glm::vec3 m_position = {};
 	glm::vec3 m_rotation = {};
 
 	Collider::Circle m_collisionCircle;
-	Triangles m_collisionTriangles;
+	CL::PolygonXZ m_collisionBoundaries;
 };
 

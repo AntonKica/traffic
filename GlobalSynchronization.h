@@ -2,7 +2,7 @@
 #include <memory>
 #include <condition_variable>
 #include <mutex>
-
+#include <atomic>
 
 namespace GlobalSynchronizaion
 {
@@ -14,13 +14,13 @@ namespace GlobalSynchronizaion
 			std::mutex updateWaitMutex;
 			std::mutex cleanupWaitMutex;
 
-			bool initialized = false;
+			std::atomic<bool> initialized = false;
 
-			bool update		= false;
-			bool updated	= false;
+			std::atomic<bool> update	= false;
+			std::atomic<bool> updated	= false;
 
-			bool cleanUp	= false;
-			bool cleanedUp	= false;
+			std::atomic<bool> cleanUp	= false;
+			std::atomic<bool> cleanedUp	= false;
 		};
 	}
 
@@ -31,5 +31,5 @@ namespace GlobalSynchronizaion
 	extern std::condition_variable thread_cv;
 	extern std::condition_variable main_cv;
 
-	extern bool shouldStopEngine;
+	extern std::atomic<bool> shouldStopEngine;
 }

@@ -1,6 +1,7 @@
 #include "SegmentedShape.h"
 #include <glm/glm.hpp>
 #include <algorithm>
+#include "Collisions.h"
 
 namespace
 {
@@ -54,7 +55,7 @@ std::optional<SegmentedShape::Segment> SegmentedShape::selectSegment(Point arbit
 		// can help
 		if (approxSamePoints(m_joints[index].centre, arbitraryPoint) || 
 			approxSamePoints(m_joints[index + 1].centre, arbitraryPoint)  ||
-			polygonPointCollision(vertices, arbitraryPoint))
+			Collision::XZPointPoints(arbitraryPoint, vertices))
 		{
 			Segment segment;
 			segment.start = &m_joints[index];
@@ -121,7 +122,7 @@ std::vector<SegmentedShape::Segment> SegmentedShape::getSegments(Shape::AxisPoin
 	{
 		for (int index = 0; index + 1 < m_joints.size(); ++index)
 		{
-			if (pointSitsOnLine(m_joints[index].centre, m_joints[index + 1].centre, axisPoint))
+			if (pointSitsOnLineSegment(m_joints[index].centre, m_joints[index + 1].centre, axisPoint))
 			{
 				Segment segment;
 				segment.start = &m_joints[index];
@@ -135,42 +136,39 @@ std::vector<SegmentedShape::Segment> SegmentedShape::getSegments(Shape::AxisPoin
 	return segments;
 }
 
-std::optional<Shape::AxisPoint> SegmentedShape::getShapeAxisPoint(Point arbitraryPoint) const
+Shape::AxisPoint SegmentedShape::getShapeAxisPoint(Point arbitraryPoint) const
 {
-	std::optional<Shape::AxisPoint> axisPoint;
+	auto closestSegmnent = getClosestLineSegmentFromPoint(getAxisPoints(), arbitraryPoint);
 
-	auto selectedSegment = selectSegment(arbitraryPoint);
-	if (selectedSegment)
+	Point shapePoint = getClosestPointToLineSegment<Point>(closestSegmnent[0], closestSegmnent[1], arbitraryPoint);
+	// dont oveerlap actual shape and snap to joint
 	{
-		const auto& [start, end] = selectedSegment.value();
-		Point shapePoint = getClosestPointToLine<Point>(start->centre, end->centre, arbitraryPoint);
-		// dont oveerlap actual shape and snap to joint
-		{
-			/*std::cout << glm::length(Point(shapePoint));
-			if (glm::length(Point(shapePoint)) > 100.0f)
-				std::cout << "Woah\n";*/
+		/*std::cout << glm::length(Point(shapePoint));
+		if (glm::length(Point(shapePoint)) > 100.0f)
+			std::cout << "Woah\n";*/
 
-			const float minDistanceFromJoint = m_width / 2.0f;
-			const float shapeLength = glm::length(start->centre - end->centre);
+		const float minDistanceFromJoint = m_width / 2.0f;
+		const float shapeLength = glm::length(closestSegmnent[0] - closestSegmnent[1]);
 
-			auto distanceFromStart = glm::length(shapePoint - start->centre);
-			auto distanceFromEnd = glm::length(shapePoint - end->centre);
-			if (distanceFromStart < minDistanceFromJoint || distanceFromEnd > shapeLength)
-				shapePoint = start->centre;
-			else if (distanceFromEnd < minDistanceFromJoint || distanceFromStart > shapeLength)
-				shapePoint = end->centre;
-		}
-
-		const float minDistanceFromEndPoints = m_width;
-		if (auto head = getHead(), tail = getTail(); (arePointsInRange(head, shapePoint, minDistanceFromEndPoints) ||
-			arePointsInRange(tail, shapePoint, minDistanceFromEndPoints))
-			&& !isCirculary())
-			axisPoint = glm::length(head - arbitraryPoint) < glm::length(tail - arbitraryPoint) ? head : tail;
-		else
-			axisPoint.emplace(shapePoint);
+		auto distanceFromStart = glm::length(shapePoint - closestSegmnent[0]);
+		auto distanceFromEnd = glm::length(shapePoint - closestSegmnent[1]);
+		if (distanceFromStart < minDistanceFromJoint || distanceFromEnd > shapeLength)
+			shapePoint = closestSegmnent[0];
+		else if (distanceFromEnd < minDistanceFromJoint || distanceFromStart > shapeLength)
+			shapePoint = closestSegmnent[1];
 	}
 
-	return axisPoint;
+	const float minDistanceFromEndPoints = m_width;
+	if (auto head = getHead(), tail = getTail(); (arePointsInRange(head, shapePoint, minDistanceFromEndPoints) ||
+		arePointsInRange(tail, shapePoint, minDistanceFromEndPoints))
+		&& !isCirculary())
+	{
+		return glm::length(head - arbitraryPoint) < glm::length(tail - arbitraryPoint) ? head : tail;
+	}
+	else
+	{
+		return Shape::AxisPoint(shapePoint);
+	}
 }
 
 Point SegmentedShape::getCircumreferencePoint(Point shapePoint) const
@@ -198,7 +196,7 @@ Point SegmentedShape::getCircumreferencePoint(Point shapePoint) const
 			// if it is actualy in that area
 			if (polygonPointCollision(vertices, shapePoint))
 			{
-				auto closestPoint = getClosestPointToLine(segment.start->left, segment.start->right, shapePoint);
+				auto closestPoint = getClosestPointToLineSegment(segment.start->left, segment.start->right, shapePoint);
 
 				return closestPoint;
 			}
@@ -215,18 +213,18 @@ Point SegmentedShape::getCircumreferencePoint(Point shapePoint) const
 
 			if (polygonPointCollision(vertices, shapePoint))
 			{
-				auto closestPoint = getClosestPointToLine(segment.end->left, segment.end->right, shapePoint);
+				auto closestPoint = getClosestPointToLineSegment(segment.end->left, segment.end->right, shapePoint);
 
 				return closestPoint;
 			}
 		}
 	}
 	// .. so we have to try even for non end situation
-	Line leftSide = { segment.start->left, segment.end->left };
-	Line rightSide = { segment.start->right, segment.end->right };
+	LineSegment leftSide = { segment.start->left, segment.end->left };
+	LineSegment rightSide = { segment.start->right, segment.end->right };
 
-	auto closestToLeft = getClosestPointToLine(segment.start->left, segment.end->left, shapePoint);
-	auto closestToRight = getClosestPointToLine(segment.start->right, segment.end->right, shapePoint);
+	auto closestToLeft = getClosestPointToLineSegment(segment.start->left, segment.end->left, shapePoint);
+	auto closestToRight = getClosestPointToLineSegment(segment.start->right, segment.end->right, shapePoint);
 
 	auto distToLeft = glm::length(shapePoint - closestToLeft);
 	auto distToRight = glm::length(shapePoint - closestToRight);
@@ -303,6 +301,21 @@ Points SegmentedShape::getSkeleton()  const
 	}
 
 	return skeleton;
+}
+
+Points SegmentedShape::getOutline() const
+{
+	Points outline(m_joints.size() * 2);
+
+	auto skeletonIterOne = outline.begin();
+	auto skeletonIterTwo = outline.rbegin();
+	for (const auto& joint : m_joints)
+	{
+		*skeletonIterOne++ = joint.left;
+		*skeletonIterTwo++ = joint.right;
+	}
+
+	return outline;
 }
 
 Points SegmentedShape::getLeftSidePoints() const
@@ -387,7 +400,7 @@ bool SegmentedShape::sitsOnAxis(const Point& point) const
 	for (int index = 0; index + 1 < m_joints.size(); ++index)
 	{
 		Points line = { m_joints[index].centre, m_joints[index + 1].centre };
-		if (pointSitsOnLine(line[0], line[1], point))
+		if (pointSitsOnLineSegment(line[0], line[1], point))
 			return true;
 	}
 	return false;
@@ -780,7 +793,7 @@ Shape::AxisSegment SegmentedShape::getEdgesOfAxisPoint(Shape::AxisPoint axisPoin
 	for (int index = 0; index + 1 < m_joints.size(); ++index)
 	{
 		Shape::AxisSegment axisSegment = { m_joints[index].centre, m_joints[index + 1].centre };
-		if (pointSitsOnLine(axisSegment[0], axisSegment[1], axisPoint))
+		if (pointSitsOnLineSegment(axisSegment[0], axisSegment[1], axisPoint))
 			return axisSegment;
 	}
 
@@ -835,7 +848,7 @@ std::optional<SegmentedShape> SegmentedShape::cut(ShapeCut cutPoints)
 
 				for (uint32_t indexOne = 0, indexTwo = 1; indexTwo < axis.size(); ++indexOne, ++indexTwo)
 				{
-					if (pointSitsOnLine(axis[indexOne], axis[indexTwo], cutPoints.axis.back()))
+					if (pointSitsOnLineSegment(axis[indexOne], axis[indexTwo], cutPoints.axis.back()))
 					{
 						insertIt = insertElemementBetween(axis, axis[indexOne], axis[indexTwo], cutPoints.axis.back());
 						axis.erase(axis.begin(), insertIt);
@@ -892,7 +905,7 @@ void SegmentedShape::purifyPoints(Points& axis)
 		return;
 	// remove duplicates, but not end points, if theyre equal
 	auto cursor = axis.begin();
-	while (cursor + 1 != axis.end())
+	while (true)
 	{
 		auto compare = cursor + 1;
 		while (compare != axis.end())
@@ -910,7 +923,10 @@ void SegmentedShape::purifyPoints(Points& axis)
 				++compare;
 			}
 		}
-		++cursor;
+		if (cursor + 1 != axis.end())
+			break;
+		else
+			++cursor;
 	}
 
 	// check for colinear lines

@@ -43,6 +43,7 @@ public:
 	void destroyUI();
 
 	void drawUI(VkCommandBuffer cmdBuffer);
+	void updateDrawData();
 
 	bool mouseOverlap() const;
 

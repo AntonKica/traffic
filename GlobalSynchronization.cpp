@@ -9,5 +9,5 @@ namespace GlobalSynchronizaion
 	std::condition_variable thread_cv = {};
 	std::condition_variable main_cv = {};
 
-	bool shouldStopEngine	= false;
+	std::atomic<bool> shouldStopEngine	= false;
 }

@@ -8,6 +8,7 @@
 class Input
 {
 	friend class Window;
+	friend int main();
 public:
 	Input();
 

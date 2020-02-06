@@ -13,7 +13,7 @@ struct PhysicsComponentCore
 	uint32_t tag = 0;
 	uint32_t otherTags = 0;
 
-	std::unordered_map<uint32_t, SimulationObject*> inCollisionWith;
+	std::unordered_map<uint32_t, std::vector<SimulationObject*>> inCollisionWith;
 
 	//
 	SimulationObject* pOwner = nullptr;
@@ -24,15 +24,13 @@ using pPhysicsComponentCore = PhysicsComponentCore*;
 class PhysicsComponent
 {
 public:
-	void updateSelfCollisionTags(const std::vector<std::string>& newSelfTags);
-	void updateOtherCollisionTags(const std::vector<std::string>& newOtherTags);
-	void updateCollisionTags(const Info::PhysicsComponentUpdateTags& updateInfo);
-
-	void setActive(bool active);
-	bool isActive() const;
+	void setSelfCollisionTags(const std::vector<std::string>& newSelfTags);
+	void setOtherCollisionTags(const std::vector<std::string>& newOtherTags);
+	void setCollisionTags(const Info::PhysicsComponentUpdateTags& updateInfo);
 
 	bool inCollision() const;
-	SimulationObject* inCollision(std::string tag) const;
+	bool inCollisionWith(std::string tag) const;
+	std::vector<SimulationObject*> getAllCollisionWith(std::string tag) const;
 
 	Collider2D& collider();
 	const Collider2D& collider() const;
@@ -49,6 +47,9 @@ private:
 	PhysicsComponent& operator=(PhysicsComponent&& move) noexcept;
 
 	void setOwner(SimulationObject* pNewOwner);
+
+	void setActive(bool active);
+	bool isActive() const;
 
 	SimulationObject* m_pOwner = nullptr;
 	pPhysicsComponentCore m_core = nullptr;

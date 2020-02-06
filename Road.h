@@ -44,7 +44,7 @@ public:
 
 public:
 	// overrided
-	ConnectionPossibility getConnectionPossibility(Line connectionLine, Shape::AxisPoint connectionPoint) const override;
+	ConnectionPossibility getConnectionPossibility(LineSegment connectionLine, Shape::AxisPoint connectionPoint) const override;
 
 	glm::vec3 getDirectionPointFromConnectionPoint(Point connectionPoint) override;
 

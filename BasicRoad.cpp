@@ -165,7 +165,7 @@ Lane BasicRoad::getClosestLane(Point pt) const
 	{
 		// find edges
 		const auto [p1, p2] = findTwoClosestPoints(trail, pt);
-		return getClosestPointToLine(p1, p2, pt);
+		return getClosestPointToLineSegment(p1, p2, pt);
 	};
 
 	const Lane* pLane = nullptr;

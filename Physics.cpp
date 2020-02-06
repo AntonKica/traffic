@@ -23,25 +23,21 @@ void Physics::mainLoop()
 	{
 		std::lock_guard notifyLock(GlobalSynchronizaion::physics.notifyMutex);
 
-		GlobalSynchronizaion::physics.initialized = true;
+		GlobalSynchronizaion::physics.initialized.store(true);
 		GlobalSynchronizaion::main_cv.notify_one();
 	}
-	while (GlobalSynchronizaion::shouldStopEngine == false)
+	while (GlobalSynchronizaion::shouldStopEngine.load() == false)
 	{
 		{
 			//std::cout << "P wait\n";
 			std::unique_lock updateWaitLock(GlobalSynchronizaion::physics.updateWaitMutex);
 
-			auto waitPred = [] { return GlobalSynchronizaion::physics.update; };
+			auto waitPred = [] { return GlobalSynchronizaion::physics.update.load(); };
 			while (!waitPred())
 				GlobalSynchronizaion::thread_cv.wait(updateWaitLock);
 
-			GlobalSynchronizaion::physics.update = false;
+			GlobalSynchronizaion::physics.update.store(false);
 		}
-		{
-			//std::cout << "P notified\n";
-		}
-		//std::cout << "Started phusics loop\n";
 
 		updateCollisions();
 
@@ -49,8 +45,7 @@ void Physics::mainLoop()
 			//std::cout << "P finished\n";
 			std::lock_guard notifyLock(GlobalSynchronizaion::physics.notifyMutex);
 
-			//std::cout << "Phusics about to notify\n";
-			GlobalSynchronizaion::physics.updated = true;
+			GlobalSynchronizaion::physics.updated.store(true);
 			GlobalSynchronizaion::main_cv.notify_one();
 		}
 	}
@@ -89,7 +84,7 @@ void Physics::deactivatePhysicsComponentCore(pPhysicsComponentCore& physicsCompo
 	physicsComponentCore = nullptr;
 }
 
-void Physics::updatePhysicsComponentCollisionTags(pPhysicsComponentCore physicsCore, const Info::PhysicsComponentUpdateTags& updateInfo)
+void Physics::setPhysicsComponentCollisionTags(pPhysicsComponentCore physicsCore, const Info::PhysicsComponentUpdateTags& updateInfo)
 {
 	if (updateInfo.newTags)
 	{
@@ -115,6 +110,11 @@ uint32_t Physics::getTagFlag(std::string tagName)
 		return createTagFlag(tagName);
 }
 
+bool Physics::compatibleTags(uint32_t firstFlags, uint32_t secondFlags) const
+{
+	return (firstFlags & secondFlags) != 0;
+}
+
 
 pPhysicsComponentCore Physics::getPhysicsComponentCore()
 {
@@ -134,6 +134,7 @@ void Physics::prepareResources()
 		m_physicsComponentCores.push(m_physicsComponentCoreData + index);
 
 	// tag flag default
+	// so we have at least one string tag
 	m_tagFlags[std::string()] = 0;
 }
 
@@ -141,8 +142,8 @@ void Physics::destroyResourcces()
 {
 	{
 		std::unique_lock cleanupWaitLock(GlobalSynchronizaion::physics.cleanupWaitMutex);
-		GlobalSynchronizaion::thread_cv.wait(cleanupWaitLock, [] { return GlobalSynchronizaion::physics.cleanUp; });
-		GlobalSynchronizaion::physics.cleanUp = false;
+		GlobalSynchronizaion::thread_cv.wait(cleanupWaitLock, [] { return GlobalSynchronizaion::physics.cleanUp.load(); });
+		GlobalSynchronizaion::physics.cleanUp.store(false);
 	}
 
 	m_physicsComponentCores = {};
@@ -153,7 +154,7 @@ void Physics::destroyResourcces()
 	{
 		std::lock_guard notifyLock(GlobalSynchronizaion::physics.notifyMutex);
 
-		GlobalSynchronizaion::physics.cleanedUp = true;
+		GlobalSynchronizaion::physics.cleanedUp.store(true);
 		GlobalSynchronizaion::main_cv.notify_one();
 	}
 }
@@ -167,16 +168,24 @@ void Physics::updateCollisions()
 	{
 		for (auto& comp : comps)
 		{
-			comp->inCollisionWith.clear();
+			// dont clear whole map
+			for (auto& [tag, objs] : comp->inCollisionWith)
+			{
+				objs.clear();
+			}
 		}
 	}
 
 	// process by tags
 	for (auto& [firstTag, firstComponents] : m_activePhysicsComponentCores)
 	{
+		// comopnent tagged with 0 dont collide
+		if (firstTag == 0)
+			continue;
 		// each component
 		for (auto& firstComponent : firstComponents)
 		{
+
 			// or if no othr collisions skip
 			if (!firstComponent->active || !firstComponent->otherTags)
 				continue;
@@ -196,14 +205,11 @@ void Physics::updateCollisions()
 
 					if (firstComponent->collider2D.collides(secondComponent->collider2D))
 					{
-						// set only with set flags
-						firstComponent->inCollisionWith.emplace(secondTag, secondComponent->pOwner);
-						break;
+						firstComponent->inCollisionWith [secondTag].emplace_back(secondComponent->pOwner);
 					}
 				}
 			}
 		}
-
 	}
 }
 
@@ -214,11 +220,6 @@ uint32_t Physics::createTagFlag(std::string tagName)
 	m_tagFlags[tagName] = uniqueFlag;
 
 	return uniqueFlag;
-}
-
-bool Physics::compatibleTags(uint32_t firstFlags, uint32_t secondFlags) const
-{
-	return (firstFlags & secondFlags) != 0;
 }
 
 void Physics::registerPhysicsCoreTags(pPhysicsComponentCore& physicsCore, const std::vector<std::string>& tags)

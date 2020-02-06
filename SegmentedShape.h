@@ -52,7 +52,7 @@ public:
 	std::optional<Segment> selectSegment(Point arbitraryPoint) const;
 	std::vector<Segment> getJointSegments(Shape::AxisPoint jointPoint) const;
 	std::vector<Segment> getSegments(Shape::AxisPoint axisPoint) const;
-	std::optional<Shape::AxisPoint> getShapeAxisPoint(Point arbitraryPoint) const;
+	Shape::AxisPoint getShapeAxisPoint(Point arbitraryPoint) const;
 	Point getCircumreferencePoint(Point shapePoint) const;
 	bool isHeadSegment(const Segment& segment) const;
 	bool isTailSegment(const Segment& segment) const;
@@ -61,6 +61,7 @@ public:
 	// getters
 	const Joints& getShape() const;
 	Points getSkeleton() const;
+	Points getOutline() const;
 	Points getLeftSidePoints() const;
 	Points getRightSidePoints() const;
 	Shape::Axis getAxis() const;

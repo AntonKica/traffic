@@ -5,6 +5,8 @@
 #include "GlobalSynchronization.h"
 #include "SimulationArea.h"
 
+#include <boost/geometry.hpp>
+
 constexpr const char* AppName = "Traffic Simulation";
 
 void runGraphics()
@@ -49,15 +51,15 @@ int main()
 		std::unique_lock initializationLock(initializationMutex);
 
 		{
-			GlobalSynchronizaion::graphics.initialized = false;
+			GlobalSynchronizaion::graphics.initialized.store(false);
 			graphicsThread = std::thread(runGraphics);
-			GlobalSynchronizaion::main_cv.wait(initializationLock, [] { return GlobalSynchronizaion::graphics.initialized; });
+			GlobalSynchronizaion::main_cv.wait(initializationLock, [] { return GlobalSynchronizaion::graphics.initialized.load(); });
 		}
 
 		{
-			GlobalSynchronizaion::physics.initialized = false;
+			GlobalSynchronizaion::physics.initialized.store(false);
 			physicsThread = std::thread(runPhysics);
-			GlobalSynchronizaion::main_cv.wait(initializationLock, [] { return GlobalSynchronizaion::physics.initialized; });
+			GlobalSynchronizaion::main_cv.wait(initializationLock, [] { return GlobalSynchronizaion::physics.initialized.load(); });
 		}
 	}
 
@@ -72,7 +74,7 @@ int main()
 			//std::cout << "New loop\n";
 			App::time.tick();
 
-			// update outside objects
+			// update wndow for curent frame
 			{
 				App::window.updateFrame();
 				App::camera.update();
@@ -86,27 +88,35 @@ int main()
 
 				// reset
 				{
-					GlobalSynchronizaion::graphics.update = true;
-					GlobalSynchronizaion::graphics.updated = false;
+					GlobalSynchronizaion::graphics.update.store(true);
+					GlobalSynchronizaion::graphics.updated.store(false);
 
-					GlobalSynchronizaion::physics.update = true;
-					GlobalSynchronizaion::physics.updated = false;
+					GlobalSynchronizaion::physics.update.store(true);
+					GlobalSynchronizaion::physics.updated.store(false);
 
 					GlobalSynchronizaion::thread_cv.notify_all();
 				}
 				// send and wait for signal
 				{
-
+					// we can update input meantime
+					{
+						App::input.update();
+					}
 					//std::cout << "Started all wait.. \n";
-					auto waitPred = [] {
-						return	GlobalSynchronizaion::graphics.updated &&
-							GlobalSynchronizaion::physics.updated;
+					auto wait = [] {
+						return	!GlobalSynchronizaion::graphics.updated.load() ||
+							!GlobalSynchronizaion::physics.updated.load();
 					};
 
-					while (!waitPred())
-						//GlobalSynchronizaion::main_cv.wait_for(updateLock, std::chrono::milliseconds(1));
+					while (wait())
 						std::this_thread::sleep_for(std::chrono::nanoseconds(10));
 				}
+			}
+
+
+			// update UI
+			{
+				UI::getInstance().updateDrawData();
 			}
 
 			{
@@ -120,18 +130,18 @@ int main()
 		std::mutex cleanUpMutex;
 		std::unique_lock cleanUpLock(cleanUpMutex);
 		{
-			GlobalSynchronizaion::graphics.cleanUp = true;
-			GlobalSynchronizaion::graphics.cleanedUp = false;
+			GlobalSynchronizaion::graphics.cleanUp.store(true);
+			GlobalSynchronizaion::graphics.cleanedUp.store(false);
 			GlobalSynchronizaion::thread_cv.notify_all();
-			GlobalSynchronizaion::main_cv.wait(cleanUpLock, [] { return GlobalSynchronizaion::graphics.cleanedUp; });
+			GlobalSynchronizaion::main_cv.wait(cleanUpLock, [] { return GlobalSynchronizaion::graphics.cleanedUp.load(); });
 			graphicsThread.join();
 		}
 
 		{
-			GlobalSynchronizaion::physics.cleanUp = true;
-			GlobalSynchronizaion::physics.cleanedUp = false;
+			GlobalSynchronizaion::physics.cleanUp.store(true);
+			GlobalSynchronizaion::physics.cleanedUp.store(false);
 			GlobalSynchronizaion::thread_cv.notify_all();
-			GlobalSynchronizaion::main_cv.wait(cleanUpLock, [] { return GlobalSynchronizaion::physics.cleanedUp; });
+			GlobalSynchronizaion::main_cv.wait(cleanUpLock, [] { return GlobalSynchronizaion::physics.cleanedUp.load(); });
 			physicsThread.join();
 		}
 	}

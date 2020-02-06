@@ -3,6 +3,8 @@
 
 #include <utility>
 #include <algorithm>
+#include <boost/geometry.hpp>
+#include <iostream>
 
 namespace
 {
@@ -108,6 +110,7 @@ namespace
 	}
 
 	constexpr auto triangleTriangleCollision = genericPolygonPolygonCollision<Triangle>;
+	constexpr auto quadrangleQuadrangleCollision = genericPolygonPolygonCollision<Quadrangle>;
 
 	Triangles createTriangleFromPoints(const Points& points)
 	{
@@ -132,6 +135,30 @@ namespace
 
 		return triangles;
 	}
+}
+
+struct MinMaxVectors
+{
+	glm::vec3 min = glm::vec3(std::numeric_limits<float>::max());
+	glm::vec3 max = glm::vec3(std::numeric_limits<float>::min());
+};
+
+MinMaxVectors getMinMaxFromPoints(const Points& points)
+{
+	MinMaxVectors minMax = {};
+
+	for (const auto& p : points)
+	{
+		minMax.max.x = std::max(minMax.max.x, p.x);
+		minMax.max.y = std::max(minMax.max.y, p.y);
+		minMax.max.z = std::max(minMax.max.z, p.z);
+
+		minMax.min.x = std::min(minMax.min.x, p.x);
+		minMax.min.y = std::min(minMax.min.y, p.y);
+		minMax.min.z = std::min(minMax.min.z, p.z);
+	}
+
+	return minMax;
 }
 
 Collider::Circle Collider::createCircle(const Points& points)
@@ -181,6 +208,16 @@ bool Collider::circlesOverlay(const Circle& firstCircle, const Circle& secondCir
 	return circleDistances <= std::abs(r1 + r2);
 }
 
+Collider::Rectangle Collider::createRectangle(const Points& points)
+{
+	return Rectangle();
+}
+
+bool Collider::rectanglesOverlay(const Rectangle& firstCircle, const Rectangle& secondCircle)
+{
+	return false;
+}
+
 void Collider2D::set(const Points& newBoundaries, const glm::vec3& newPosition, const glm::vec3& newRotation)
 {
 	m_boundaries = newBoundaries;
@@ -188,7 +225,7 @@ void Collider2D::set(const Points& newBoundaries, const glm::vec3& newPosition, 
 	m_rotation = newRotation;
 
 	setupCircle();
-	setupTriangles();
+	updateCollisionBoundaries();
 }
 
 void Collider2D::set(const glm::vec3& newPosition, const glm::vec3& newRotation)
@@ -197,7 +234,7 @@ void Collider2D::set(const glm::vec3& newPosition, const glm::vec3& newRotation)
 	m_rotation = newRotation;
 
 	updateCollisionCircle();
-	updateCollisionTriangles();
+	updateCollisionBoundaries();
 }
 
 void Collider2D::setBoundaries(const Points& newBoundaries)
@@ -205,7 +242,7 @@ void Collider2D::setBoundaries(const Points& newBoundaries)
 	m_boundaries = newBoundaries;
 
 	setupCircle();
-	setupTriangles();
+	updateCollisionBoundaries();
 }
 
 void Collider2D::setPosition(const glm::vec3& newPosition)
@@ -215,7 +252,7 @@ void Collider2D::setPosition(const glm::vec3& newPosition)
 		m_position = newPosition;
 
 		updateCollisionCircle();
-		updateCollisionTriangles();
+		updateCollisionBoundaries();
 	}
 }
 
@@ -226,7 +263,7 @@ void Collider2D::setRotation(const glm::vec3& newRotation)
 	{
 		m_rotation = newRotation;
 
-		updateCollisionTriangles();
+		updateCollisionBoundaries();
 	}
 }
 
@@ -251,19 +288,22 @@ bool Collider2D::collides(const Collider2D& other) const
 	// check before doing any calculations
 	if (Collider::circlesOverlay(m_collisionCircle, other.m_collisionCircle))
 	{
-		// then with each triangle
-		for (auto triangle : m_collisionTriangles)
-		{
-			for (auto otherTriangle : other.m_collisionTriangles)
-			{
-				if (triangleTriangleCollision(triangle, otherTriangle))
-					return true;
-			}
-		}
+		return Collision::polygonPolygon(m_collisionBoundaries, other.m_collisionBoundaries);
 	}
 
 	return false;
 }
+
+bool Collider2D::collides(const Points& points) const
+{
+	return Collision::polygonPolygon(Collision::details::createXZPolygonFromPoints(points), m_collisionBoundaries);
+}
+
+bool Collider2D::collides(const Point& point) const
+{
+	return Collision::pointPolygon(Collision::details::createPointXZFromPoint(point), m_collisionBoundaries);
+}
+
 
 void Collider2D::setupCircle()
 {
@@ -272,28 +312,17 @@ void Collider2D::setupCircle()
 	updateCollisionCircle();
 }
 
-void Collider2D::setupTriangles()
-{
-	if (m_boundaries.size() >= 3)
-		m_triangles = createTriangleFromPoints(m_boundaries);
-	else
-		m_triangles.clear();
-
-	updateCollisionTriangles();
-}
-
 void Collider2D::updateCollisionCircle()
 {
 	m_collisionCircle = m_circle;
 	m_collisionCircle.centre += m_position;
 }
 
-void Collider2D::updateCollisionTriangles()
+void Collider2D::updateCollisionBoundaries()
 {
-	m_collisionTriangles.clear();
-
-	std::transform(std::begin(m_triangles), std::end(m_triangles), std::back_inserter(m_collisionTriangles),
-		[&](const Triangle& triangle)
+	std::vector<Point> transformedPoints(m_boundaries.size());
+	std::transform(std::begin(m_boundaries), std::end(m_boundaries), std::begin(transformedPoints),
+		[&](const Point& point)
 		{
 			auto rotatePointInXZPlane = [](glm::vec3 centre, float angle, Point point)
 			{
@@ -307,11 +336,8 @@ void Collider2D::updateCollisionTriangles()
 				return point + centre;
 			};
 
-			Triangle newTriangle;
-			newTriangle[0] = rotatePointInXZPlane(m_circle.centre, m_rotation.x, triangle[0]) + m_position;
-			newTriangle[1] = rotatePointInXZPlane(m_circle.centre, m_rotation.x, triangle[1]) + m_position;
-			newTriangle[2] = rotatePointInXZPlane(m_circle.centre, m_rotation.x, triangle[2]) + m_position;
-
-			return newTriangle;
+			Point newPoint = rotatePointInXZPlane(m_circle.centre, m_rotation.x, point) + m_position;
+			return newPoint;
 		});
+	m_collisionBoundaries = Collision::details::createXZPolygonFromPoints(transformedPoints);
 }

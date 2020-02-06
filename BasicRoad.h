@@ -68,7 +68,7 @@ public:
 			return canConnect;
 		}
 	};
-	virtual ConnectionPossibility getConnectionPossibility(Line connectionLine, Shape::AxisPoint connectionPoint) const = 0;
+	virtual ConnectionPossibility getConnectionPossibility(LineSegment connectionLine, Shape::AxisPoint connectionPoint) const = 0;
 
 	enum class RoadType
 	{

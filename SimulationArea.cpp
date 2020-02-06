@@ -61,7 +61,7 @@ void SimulationAreaVisualizer::createVisuals(size_t xCount, size_t zCount, doubl
 	const int maxZCount = 500;
 	const size_t xPointsCount = std::clamp<size_t>(xCount, 0, maxXCount);
 	const size_t zPointsCount = std::clamp<size_t>(zCount, 0, maxZCount);
-	constexpr const float sinkYCoord = -0.01;
+	constexpr const float sinkYCoord = -0.03;
 
 	VD::PositionVertices vertices;
 	VD::Indices indices;
@@ -405,7 +405,7 @@ Point closestTraiPoint(const Trail& trail, Point pt)
 {
 	// find edges
 	const auto [p1, p2] = findTwoClosestPoints(trail, pt);
-	return getClosestPointToLine(p1, p2, pt);
+	return getClosestPointToLineSegment(p1, p2, pt);
 }
 
 const Road* SimulationArea::findClosestRoadFromBuilding(const BasicBuilding& building) const
@@ -536,18 +536,12 @@ void SimulationArea::runSimulation()
 			//road.resetNearbyBuildings();
 		}
 
-		static PathVisualizer visualizer;
+		//static PathVisualizer visualizer;
 		for (auto& intersection : m_objectManager.m_intersections.data)
 		{
 			intersection.createLanes();
-
-			for (const auto [side, lanes] : intersection.getAllLanes())
-			{
-				for(const auto& lane : lanes)
-					visualizer.addPoints(lane.points);
-			}
 		}
-		visualizer.setupDraws();
+		//visualizer.setupDraws();
 		for (auto& spawner : m_objectManager.m_carSpawners.data)
 		{
 			spawner.createLanes();

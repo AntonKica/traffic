@@ -5,9 +5,16 @@
 #include <glm/gtx/vector_angle.hpp>
 #include "GlobalObjects.h"
 
+namespace
+{
+	float kilometersPerSecondToMeters(float mps)
+	{
+		return mps / 3.6f;
+	}
+}
 void SimpleCar::update()
 {
-	currentlyTravelled += speed * App::time.deltaTime();
+	currentlyTravelled += kilometersPerSecondToMeters(speed) * App::time.deltaTime();
 
 	{
 		float thisLineLength = glm::length(pathToTake[currentLine] - pathToTake[currentLine + 1]);
@@ -20,15 +27,17 @@ void SimpleCar::update()
 			currentlyTravelled = 0;
 		}
 
-		const glm::vec3 direction = glm::normalize(pathToTake[currentLine + 1] - pathToTake[currentLine]);
-		glm::vec3 newPosition = pathToTake[currentLine] + (direction * currentlyTravelled);
+		m_currentDirection = glm::normalize(pathToTake[currentLine + 1] - pathToTake[currentLine]);
+		glm::vec3 newPosition = pathToTake[currentLine] + (m_currentDirection * currentlyTravelled);
 		newPosition.y += 0.3f * 3;
 
-		const float xRotation = std::atan2(direction.x, direction.z) + glm::half_pi<float>();
+		const float xRotation = std::atan2(m_currentDirection.x, m_currentDirection.z) + glm::half_pi<float>();
 
-		getGraphicsComponent().setPosition(newPosition);
-		getGraphicsComponent().setRotationX(xRotation);
+		setPosition(newPosition);
+		setRotation({ xRotation, 0.0, 0.0 });
 	}
+
+	handleNearbyCars();
 }
 
 void SimpleCar::drive(PathFinding::TravellSegments travellSegments)
@@ -47,14 +56,63 @@ void SimpleCar::drive(PathFinding::TravellSegments travellSegments)
 			ptsToDrive.insert(ptsToDrive.end(), lane.points.begin(), lane.points.end());
 		}
 	}
-	removeDuplicates(ptsToDrive);
+	for (auto begin = ptsToDrive.begin(); begin + 1 != ptsToDrive.end();)
+	{
+		if (approxSamePoints(*begin, *(begin + 1)))
+			begin = ptsToDrive.erase(begin);
+		else
+			++begin;
+	}
 
 	pathToTake = ptsToDrive;
-	speed = 7.0f;
+	speed = 50.0f;
 
 	Info::ModelInfo mInfo;
 	mInfo.model = "resources/models/car2/car2.obj";
 
 	setupModel(mInfo, true);
 	getGraphicsComponent().setSize(glm::vec3(3));
+
+	setupCollision();
+}
+
+void SimpleCar::setupCollision()
+{
+	m_size = glm::vec2(2, 3);
+	m_collisionSizeMultiplier = 3.0f;
+	auto halfSize = (m_size / 2.0f) * m_collisionSizeMultiplier;
+
+	Points collisionPoints{ 
+		Point(-halfSize.x, 0.0f, -halfSize.y),  Point(halfSize.x, 0.0f, -halfSize.y),
+		Point(halfSize.x, 0.0f, halfSize.y) ,  Point(-halfSize.x, 0.0f, halfSize.y)
+	};
+
+	auto& physicsComponent = getPhysicsComponent();
+	physicsComponent.collider().setBoundaries(collisionPoints);
+	physicsComponent.setSelfCollisionTags({ "CAR" });
+	physicsComponent.setOtherCollisionTags({ "CAR" });
+	enablePhysics();
+}
+
+void SimpleCar::handleNearbyCars()
+{
+	auto& physicsComponent = getPhysicsComponent();
+	auto possibleCollision = physicsComponent.getAllCollisionWith("CAR");
+	// we know its car
+	for(const auto& simObject : possibleCollision)
+	{
+		auto otherCar = static_cast<SimpleCar*>(simObject);
+
+		auto angleWithOther = glm::acos(glm::dot(m_currentDirection, otherCar->m_currentDirection));
+
+		if (angleWithOther <= glm::quarter_pi<float>())
+		{
+			speed = 0.0f;
+		}
+		else
+		{
+			speed = 50.0f;
+
+		}
+	}
 }

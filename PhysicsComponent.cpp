@@ -2,48 +2,63 @@
 #include "GlobalObjects.h"
 
 
-void PhysicsComponent::updateSelfCollisionTags(const std::vector<std::string>& newSelfTags)
+void PhysicsComponent::setSelfCollisionTags(const std::vector<std::string>& newSelfTags)
 {
 	Info::PhysicsComponentUpdateTags tags;
 	tags.newTags = newSelfTags;
 
-	updateCollisionTags(tags);
+	setCollisionTags(tags);
 }
 
-void PhysicsComponent::updateOtherCollisionTags(const std::vector<std::string>& newOtherTags)
+void PhysicsComponent::setOtherCollisionTags(const std::vector<std::string>& newOtherTags)
 {
 	Info::PhysicsComponentUpdateTags tags;
 	tags.newOtherTags = newOtherTags;
 
-	updateCollisionTags(tags);
+	setCollisionTags(tags);
 }
 
-void PhysicsComponent::updateCollisionTags(const Info::PhysicsComponentUpdateTags& updateInfo)
+void PhysicsComponent::setCollisionTags(const Info::PhysicsComponentUpdateTags& updateInfo)
 {
-	App::physics.updatePhysicsComponentCollisionTags(m_core, updateInfo);
-}
-
-void PhysicsComponent::setActive(bool active)
-{
-	m_core->active = active;
-}
-
-bool PhysicsComponent::isActive() const
-{
-	return m_core->active;
+	App::physics.setPhysicsComponentCollisionTags(m_core, updateInfo);
 }
 
 bool PhysicsComponent::inCollision() const
 {
-	return !m_core->inCollisionWith.empty();
-}
+	for (const auto& [tag, objects] : m_core->inCollisionWith)
+	{
+		if (!objects.empty())
+			return true;
+	}
 
-SimulationObject* PhysicsComponent::inCollision(std::string tag) const
+	return false;
+}
+bool PhysicsComponent::inCollisionWith(std::string tag) const
 {
 	auto flag = App::physics.getTagFlag(tag);
-	auto result = m_core->inCollisionWith.find(flag);
+	for (const auto& [objectsTag, objects] : m_core->inCollisionWith)
+	{
+		if (App::physics.compatibleTags(flag, objectsTag) && !objects.empty())
+			return true;
+	}
 
-	return result != m_core->inCollisionWith.end() ? result->second : nullptr;
+	return false;
+}
+
+std::vector<SimulationObject*> PhysicsComponent::getAllCollisionWith(std::string tag) const
+{
+	std::set<SimulationObject*> allCollidedObjects;
+
+	auto flag = App::physics.getTagFlag(tag);
+	for (const auto& [objectsTag, objects] : m_core->inCollisionWith)
+	{
+		if (App::physics.compatibleTags(flag, objectsTag) && !objects.empty())
+		{
+			allCollidedObjects.insert(objects.begin(), objects.end());
+		}
+	}
+
+	return std::vector(allCollidedObjects.begin(), allCollidedObjects.end());
 }
 
 Collider2D& PhysicsComponent::collider()
@@ -125,4 +140,14 @@ void PhysicsComponent::setOwner(SimulationObject* pNewOwner)
 {
 	m_pOwner = pNewOwner;
 	m_core->pOwner = m_pOwner;
+}
+
+void PhysicsComponent::setActive(bool active)
+{
+	m_core->active = active;
+}
+
+bool PhysicsComponent::isActive() const
+{
+	return m_core->active;
 }

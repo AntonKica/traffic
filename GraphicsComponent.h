@@ -54,6 +54,7 @@ public:
 	GraphicsComponent& operator=(const GraphicsComponent& other);
 	GraphicsComponent& operator=(GraphicsComponent&& other) noexcept;
 
+
 	void updateGraphicsComponent(const Info::GraphicsComponentCreateInfo& info);
 	void setActive(bool value);
 //private:
@@ -67,8 +68,10 @@ public:
 	void setRotationZ(float rotationZ);
 
 	void setSize(const glm::vec3& size);
-	void setTint(const glm::vec4& tint);
+	void setTint(const glm::vec4 & tint);
 	void setTransparency(float transparency);
+	
+
 
 	bool isActive() const;
 	glm::vec3 getPosition() const;
