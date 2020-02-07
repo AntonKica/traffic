@@ -560,6 +560,7 @@ void SimulationArea::runSimulation()
 		{
 			spawner.enable();
 			spawner.spawnCar();
+			spawner.spawnCar();
 		}
 	}
 	// EXPERIMENT

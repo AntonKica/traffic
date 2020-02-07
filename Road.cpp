@@ -534,7 +534,7 @@ Shape::AxisPoint Road::getClosestEndPoint(Shape::AxisPoint axisPoint) const
 	for (uint32_t firstIndex = 0, secondIndex = 1; secondIndex < axisPoints.size(); ++firstIndex, ++secondIndex)
 	{
 		const LineSegment curLineSegment = { axisPoints[firstIndex], axisPoints[secondIndex] };
-		if (pointSitsOnLineSegment(curLineSegment, axisPoint) && !passedPoint)
+		if (pointSitsOnLineSegment(axisPoint, curLineSegment) && !passedPoint)
 		{
 			passedPoint = true;
 

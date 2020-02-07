@@ -400,7 +400,7 @@ bool SegmentedShape::sitsOnAxis(const Point& point) const
 	for (int index = 0; index + 1 < m_joints.size(); ++index)
 	{
 		Points line = { m_joints[index].centre, m_joints[index + 1].centre };
-		if (pointSitsOnLineSegment(line[0], line[1], point))
+		if (pointSitsOnLineSegment(point, line[0], line[1]))
 			return true;
 	}
 	return false;
@@ -793,7 +793,7 @@ Shape::AxisSegment SegmentedShape::getEdgesOfAxisPoint(Shape::AxisPoint axisPoin
 	for (int index = 0; index + 1 < m_joints.size(); ++index)
 	{
 		Shape::AxisSegment axisSegment = { m_joints[index].centre, m_joints[index + 1].centre };
-		if (pointSitsOnLineSegment(axisSegment[0], axisSegment[1], axisPoint))
+		if (pointSitsOnLineSegment(axisPoint, axisSegment[0], axisSegment[1]))
 			return axisSegment;
 	}
 
