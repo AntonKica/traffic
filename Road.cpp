@@ -1,6 +1,8 @@
 #include "Road.h"
 #include "Utilities.h"
 #include "Mesh.h"
+#include "LineManipulator.h"
+#include "EarcutAdaptation.h"
 
 #include <glm/gtx/string_cast.hpp>
 #include <glm/gtx/vector_angle.hpp>
@@ -11,7 +13,7 @@
 #include <chrono>
 #include <array>
 
-constexpr const char* asphaltTextureLane = "resources/materials/road1.jpg";
+constexpr const char* asphaltTextureLane = "resources/materials/roadTexture.jpg";
 
 float calculateLength(const Points& points)
 {
@@ -32,220 +34,6 @@ glm::vec3 getAveragePosition(const Points& points)
 	glm::vec3 averagePosition = std::accumulate(std::begin(points), std::end(points), glm::vec3());
 
 	return averagePosition / float(points.size());
-}
-
-Points createShape(const Points& points, float width)
-{
-	const glm::vec3 vectorUp(0.0f, 1.0f, 0.0f);
-
-	Points leftPoints;
-	Points rightPoints;
-
-	glm::vec3 dirVec;
-	glm::vec3 currentDirectionPoint;
-	glm::vec3 previousDirectionPoint;
-	Point previousPoint;
-	Point nextPoint;
-	for (int i = 0; i < points.size(); ++i)
-	{
-		// vertices
-		{
-			const auto& curPoint = points[i];
-			previousPoint = curPoint;
-			if (i + 1 < points.size())
-			{
-				nextPoint = points[i + 1];
-				currentDirectionPoint = glm::normalize(nextPoint - curPoint);
-			}
-			else if (points.front() == points.back())
-			{
-				nextPoint = *(points.begin() + 1);
-				currentDirectionPoint = glm::normalize(nextPoint - curPoint);
-			}
-
-			if (i - 1 >= 0)
-			{
-				previousPoint = points[i - 1];
-				previousDirectionPoint = glm::normalize(curPoint - previousPoint);
-			}
-			else if (points.front() == points.back())
-			{
-				previousPoint = *(points.end() - 2);
-				previousDirectionPoint = glm::normalize(curPoint - previousPoint);
-			}
-			else
-			{
-				previousDirectionPoint = currentDirectionPoint;
-			}
-
-			const auto [left, right] = getSidePoints(previousDirectionPoint, currentDirectionPoint, previousPoint, curPoint, nextPoint, width);
-
-			leftPoints.emplace_back(left);
-			rightPoints.emplace_back(right);
-		}
-	}
-	Points shapePoints;
-	shapePoints.insert(std::end(shapePoints), std::begin(leftPoints), std::end(leftPoints));
-	shapePoints.insert(std::end(shapePoints), std::rbegin(rightPoints), std::rend(rightPoints));
-
-	return shapePoints;
-}
-
-Mesh creteTexturedMesh(const Points& points, int width)
-{
-	VD::PositionVertices vertices;
-	VD::TextureVertices textureCoords;
-	VD::Indices indices;
-
-	const glm::vec3 vectorUp(0.0f, 1.0f, 0.0f);
-
-	float shapeLength = calculateLength(points);
-	float textureDistance = 0;
-
-	glm::vec3 dirVec;
-	glm::vec3 currentDirectionPoint;
-	glm::vec3 previousDirectionPoint;
-	Point previousPoint;
-	Point nextPoint;
-	for (int i = 0; i < points.size(); ++i)
-	{
-		// vertices
-		{
-			const auto& curPoint = points[i];
-			previousPoint = curPoint;
-			if (i + 1 < points.size())
-			{
-				nextPoint = points[i + 1];
-				currentDirectionPoint = glm::normalize(nextPoint - curPoint);
-			}
-			else if (points.front() == points.back())
-			{
-				nextPoint = *(points.begin() + 1);
-				currentDirectionPoint = glm::normalize(nextPoint - curPoint);
-			}
-
-			if (i - 1 >= 0)
-			{
-				previousPoint = points[i - 1];
-				previousDirectionPoint = glm::normalize(curPoint - previousPoint);
-			}
-			else if (points.front() == points.back())
-			{
-				previousPoint = *(points.end() - 2);
-				previousDirectionPoint = glm::normalize(curPoint - previousPoint);
-			}
-			else
-			{
-				previousDirectionPoint = currentDirectionPoint;
-			}
-
-			const auto [left, right] = getSidePoints(previousDirectionPoint, currentDirectionPoint, previousPoint, curPoint, nextPoint, width);
-
-			std::array<VD::PositionVertex, 2> sideVertices;
-			sideVertices[0] = right;
-			sideVertices[1] = left;
-
-			vertices.insert(vertices.end(), { left, right });
-		}
-		// textures
-		{
-			if (i != 0)
-				textureDistance += glm::length(points[i - 1] - points[i]);
-
-			VD::TextureVertex rightCoord = glm::vec2(1, textureDistance);
-			VD::TextureVertex leftCoord = glm::vec2(0, textureDistance);
-
-			textureCoords.insert(textureCoords.end(), { leftCoord, rightCoord });
-		}
-	}
-
-	// indices
-	for (int i = 0; i < vertices.size(); ++i)
-	{
-		if (i > 1)
-		{
-			std::array<uint32_t, 3> triplets = { i - 2, i - 1, i };
-			indices.insert(std::end(indices), std::begin(triplets), std::end(triplets));
-		}
-	}
-
-	Mesh mesh;
-	mesh.vertices.positions = vertices;
-	mesh.vertices.textures = textureCoords;
-	mesh.indices = indices;
-
-	return mesh;
-}
-
-std::vector<Point> createOutline(const std::vector<Point>& points, float outlineSize)
-{
-	if (points.size() < 2)
-		return points;
-
-	const glm::vec3 vectorUp(0.0f, 1.0f, 0.0f);
-
-	std::vector<Point> leftPoints;
-	std::vector<Point> rightPoints;
-
-	glm::vec3 dirVec;
-	glm::vec3 currentDirectionPoint;
-	glm::vec3 previousDirectionPoint;
-	Point previousPoint;
-	Point nextPoint;
-	for (int i = 0; i < points.size(); ++i)
-	{
-		const auto& curPoint = points[i];
-		previousPoint = curPoint;
-		if (i + 1 < points.size())
-		{
-			nextPoint = points[i + 1];
-			currentDirectionPoint = glm::normalize(nextPoint - curPoint);
-		}
-		else if (points.front() == points.back())
-		{
-			nextPoint = *(points.begin() + 1);
-			currentDirectionPoint = glm::normalize(nextPoint - curPoint);
-		}
-
-		if (i - 1 >= 0)
-		{
-			previousPoint = points[i - 1];
-			previousDirectionPoint = glm::normalize(curPoint - previousPoint);
-		}
-		else if (points.front() == points.back())
-		{
-			previousPoint = *(points.end() - 2);
-			previousDirectionPoint = glm::normalize(curPoint - previousPoint);
-		}
-		else
-		{
-			previousDirectionPoint = currentDirectionPoint;
-		}
-
-		const auto [left, right] = getSidePoints(previousDirectionPoint, currentDirectionPoint, previousPoint, curPoint, nextPoint, outlineSize);
-			// dont duplicate first and last
-		if (i == 0 || i == points.size() - 1)
-		{
-			leftPoints.emplace_back(left);
-			rightPoints.emplace_back(right);
-		}
-		else
-		{
-			leftPoints.insert(leftPoints.end(), { left, left });
-			rightPoints.insert(rightPoints.end(), { right, right });
-		}
-	}
-	std::vector<Point> shapePoints(leftPoints.size() + rightPoints.size());
-	auto insertIt = std::copy(std::begin(leftPoints), std::end(leftPoints), shapePoints.begin());
-	insertIt = std::copy(std::begin(rightPoints), std::end(rightPoints), insertIt);
-
-	std::vector<Point> outline(shapePoints.size());
-	auto outIt = outline.begin();
-	for (auto& point : shapePoints)
-		*outIt++ = point * outlineSize;
-	
-	return outline;
-
 }
 
 BasicRoad::ConnectionPossibility Road::getConnectionPossibility(LineSegment connectionLineSegment, Shape::AxisPoint connectionPoint) const
@@ -308,7 +96,12 @@ BasicRoad::ConnectionPossibility Road::getConnectionPossibility(LineSegment conn
 
 	glm::vec3 axisDir = glm::normalize(lineSegment[0] - lineSegment[1]);
 	glm::vec3 endToLineSegmentEnd = glm::normalize(connectionLineSegment[0] - connectionLineSegment[1]);
-	float connectionAngle = glm::acos(glm::dot(axisDir, endToLineSegmentEnd));
+	auto constrainDot = [](float dotProduct)
+	{
+		if (dotProduct > 1.0f) return 1.0f;
+		else if (dotProduct < -1.0f) return -1.0f;
+	};
+	float connectionAngle = glm::acos(constrainDot(glm::dot(axisDir, endToLineSegmentEnd)));
 
 	// I really dont know how to write thi in one satement
 	if (!m_shape.sitsOnTailOrHead(connectionPoint))
@@ -394,7 +187,7 @@ bool Road::hasBody() const
 bool Road::sitsPointOn(Point point) const
 {
 	//return m_shape.sitsOnShape(point);
-	return getPhysicsComponent().collider().collides(point);
+	return getPhysicsComponent().getCollider("BODY").collidesWith(point);
 }
 
 BasicRoad::RoadType Road::getRoadType() const
@@ -405,19 +198,6 @@ BasicRoad::RoadType Road::getRoadType() const
 Shape::AxisPoint Road::getAxisPoint(Point pointOnRoad) const
 {
 	return m_shape.getShapeAxisPoint(pointOnRoad);
-}
-
-static Points createSubLineSegmentFromAxis(const Points& axis, const Points& line, float percentageDistanceFromAxis)
-{
-	Points newPoints(line);
-	for (uint32_t index = 0; index < axis.size(); ++index)
-	{
-		const auto dir = glm::normalize(line[index] - axis[index]);
-		const auto dist = glm::length(line[index] - axis[index]);
-		newPoints[index] = axis[index] + (dir * dist * percentageDistanceFromAxis);
-	}
-
-	return newPoints;
 }
 
 void Road::createLanes()
@@ -453,7 +233,7 @@ void Road::createLanes()
 	for (int i = 0; i < m_parameters.laneCount / 2; ++i)
 	{
 		{
-			auto leftLineSegment = createSubLineSegmentFromAxis(leftLanePts, axis, startOffset + offsetPerLane * i);
+			auto leftLineSegment = LineManipulator::getShiftedPointsFromLineToAxisInPercetageDistance(leftLanePts, axis, startOffset + offsetPerLane * i);
 
 			Lane leftLane;
 			leftLane.side = Lane::Side::LEFT;
@@ -465,7 +245,7 @@ void Road::createLanes()
 		}
 
 		{
-			auto rightLineSegment = createSubLineSegmentFromAxis(rightLanePts, axis, startOffset + offsetPerLane * i);
+			auto rightLineSegment = LineManipulator::getShiftedPointsFromLineToAxisInPercetageDistance(rightLanePts, axis, startOffset + offsetPerLane * i);
 
 			Lane rightLane;
 			rightLane.side = Lane::Side::RIGHT;
@@ -568,14 +348,6 @@ glm::vec3 Road::getDirectionFromEndPoint(Shape::AxisPoint endPoint) const
 	}
 }
 
-
-void Road::construct(Shape::Axis axisPoints, const RoadParameters::Parameters& parameters)
-{
-	Points points(axisPoints.begin(), axisPoints.end());
-
-	construct(points, parameters);
-}
-
 void Road::construct(Points creationPoints, const RoadParameters::Parameters& parameters)
 {
 	if (creationPoints.empty())
@@ -603,11 +375,13 @@ void Road::construct(Points creationPoints, const RoadParameters::Parameters& pa
 
 		// graphics model
 		{
+			Model model;
+			// basic mesh
 			auto mesh = SegmentedShape::createMesh(m_shape);
 			mesh.textures[VD::TextureType::DIFFUSE] = asphaltTextureLane;
-
-			Model model;
-			model.meshes.push_back(mesh);
+			model.meshes.emplace_back(mesh);
+			// line
+			model.meshes.emplace_back(createLineMesh());
 
 			Info::ModelInfo modelInfo;
 			modelInfo.model = &model;
@@ -618,11 +392,10 @@ void Road::construct(Points creationPoints, const RoadParameters::Parameters& pa
 
 		// physics
 		{
-			auto& physicComponent = getPhysicsComponent();
-			physicComponent.collider().setBoundaries(m_shape.getOutline());
+			auto& bodyCollider = getPhysicsComponent().createCollider("BODY");
+			bodyCollider.setSelfTags({ "ROAD" });
+			bodyCollider.setBoundaries(m_shape.getOutline());
 			enablePhysics();
-
-			physicComponent.setSelfCollisionTags({ "ROAD" });
 		}
 
 		updateLength();
@@ -631,10 +404,9 @@ void Road::construct(Points creationPoints, const RoadParameters::Parameters& pa
 
 void Road::reconstruct()
 {
-	auto axis = m_shape.getAxis();
-	Points points(std::begin(axis), std::end(axis));
+	auto axis = m_shape.getAxisPoints();
 
-	construct(points, m_parameters);
+	construct(axis, m_parameters);
 }
 
 void Road::mergeWith(Road& road)
@@ -642,33 +414,6 @@ void Road::mergeWith(Road& road)
 	m_shape.mergeWith(road.m_shape);
 	road.transferConnections(this);
 	reconstruct();
-}
-Road::SplitProduct Road::split(Shape::AxisPoint splitPoint)
-{
-
-	Road::SplitProduct product;
-	if (auto optSplit = m_shape.split(splitPoint))
-	{
-		Road road;
-		// // validate connections
-		for (auto& connection : m_connections)
-		{
-			if (!sitsOnEndPoints(connection.point))
-			{
-				road.addConnection(connection);
-				//product.connection = connection;
-				dismissConnection(connection);
-			}
-		}
-		// then construct
-		road.construct(optSplit.value().getAxis(), m_parameters);
-
-		product.road = road;
-	}
-	// reconstruct t the end, may be bettter performance, who knows
-	reconstruct();
-
-	return product;
 }
 
 Road Road::cutKnot()
@@ -703,14 +448,43 @@ void Road::extend(Shape::AxisPoint roadEnd, Point point)
 	reconstruct();
 }
 
+Products::Split Road::split(Shape::AxisPoint splitPoint)
+{
+
+	Products::Split product;
+	if (auto optSplit = m_shape.split(splitPoint))
+	{
+		Road road;
+		// // validate connections
+		for (auto& connection : m_connections)
+		{
+			if (!sitsOnEndPoints(connection.point))
+			{
+				road.addConnection(connection);
+				//product.connection = connection;
+				dismissConnection(connection);
+			}
+		}
+		// then construct
+		road.construct(optSplit.value().getAxisPoints(), m_parameters);
+
+		product.road = road;
+	}
+	// reconstruct t the end, may be bettter performance, who knows
+	reconstruct();
+
+	return product;
+}
+
+
 SegmentedShape::ShapeCut Road::getCut(Shape::AxisPoint roadAxisPoint) const
 {
 	return m_shape.getShapeCut(roadAxisPoint, m_width);
 }
 
-Road::CutProduct Road::cut(SegmentedShape::ShapeCut cutPoints)
+Products::Cut Road::cut(SegmentedShape::ShapeCut cutPoints)
 {
-	Road::CutProduct product;
+	Products::Cut product;
 	if (auto optSplit = m_shape.cut(cutPoints))
 	{
 		Road road;
@@ -724,7 +498,7 @@ Road::CutProduct Road::cut(SegmentedShape::ShapeCut cutPoints)
 			}
 		}
 		// then construct
-		road.construct(optSplit.value().getAxis(), m_parameters);
+		road.construct(optSplit.value().getAxisPoints(), m_parameters);
 		reconstruct();
 
 		product.road = road;
@@ -744,7 +518,7 @@ Road::CutProduct Road::cut(SegmentedShape::ShapeCut cutPoints)
 
 	return product;
 }
-
+/*
 void Road::resetNearbyBuildings()
 {
 	m_nearbyBuildings.clear();
@@ -763,14 +537,107 @@ const std::vector<Road::NearbyBuildingPlacement>& Road::getNearbyBuildings() con
 {
 	return m_nearbyBuildings;
 }
+*/
+
+Mesh Road::createLineMesh()
+{
+	const auto axisPoints = m_shape.getAxisPoints();
+	const auto leftSidePoints = m_shape.getLeftSidePoints();
+	const auto rightSidePoints = m_shape.getRightSidePoints();
+
+	const auto& lineInfo = m_parameters.lineInfo;
+	// this mesh we will write on
+	Mesh mesh;
+	auto& meshVertices = mesh.vertices.positions;
+	auto& meshIndices = mesh.indices;
+
+	float shorterDistanceFromSide = 0;
+	// statrs wiht offset of lineWidth
+	float fartherDistanceFromSide = lineInfo.lineWidth;
+
+	// apply distance from side
+	shorterDistanceFromSide += lineInfo.distanceFromSide;
+	fartherDistanceFromSide += lineInfo.distanceFromSide;
+
+	// create side line
+	{
+		Points linePoints;
+		// left side
+		{
+			const Points leftLineSideOne = LineManipulator::getShiftedPointsFromLineToAxisInSetDistance(axisPoints, leftSidePoints, shorterDistanceFromSide);
+			const Points leftLineSideTwo = LineManipulator::getShiftedPointsFromLineToAxisInSetDistance(axisPoints, leftSidePoints, fartherDistanceFromSide);
+			linePoints.insert(linePoints.end(), leftLineSideOne.begin(), leftLineSideOne.end());
+			// reversed
+			linePoints.insert(linePoints.end(), leftLineSideTwo.rbegin(), leftLineSideTwo.rend());
+		}
+		// triangulate
+		const auto [leftLineVertices, leftLineIndices] = EarcutAdaptation::triangulatePoints(linePoints);
+		linePoints.clear();
+
+		// right side
+		{
+			const Points rightLineSideOne = LineManipulator::getShiftedPointsFromLineToAxisInSetDistance(axisPoints, rightSidePoints, shorterDistanceFromSide);
+			const Points rightLineSideTwo = LineManipulator::getShiftedPointsFromLineToAxisInSetDistance(axisPoints, rightSidePoints, fartherDistanceFromSide);
+			linePoints.insert(linePoints.end(), rightLineSideOne.begin(), rightLineSideOne.end());
+			// reversed
+			linePoints.insert(linePoints.end(), rightLineSideTwo.rbegin(), rightLineSideTwo.rend());
+		}
+		const auto [rightLineVertices, rightLineIndices] = EarcutAdaptation::triangulatePoints(linePoints);
+
+		// join the
+		LineManipulator::joinPositionVerticesAndIndices(meshVertices, meshIndices, leftLineVertices, leftLineIndices);
+		LineManipulator::joinPositionVerticesAndIndices(meshVertices, meshIndices, rightLineVertices, rightLineIndices);
+	}
+	// create mid line
+	if(m_parameters.laneCount > 1)
+	{
+		const float lineLength = 2.0f; // 2 meters
+		const float spaceBetweenLines = 1.0f; //  1 meter
+
+		auto axisPoints = m_shape.getAxisPoints();
+		Point currentPoint = axisPoints.front();
+		while (true)
+		{
+			const auto [linePoints, lineTravellLeft] = LineManipulator::cutPointsInDistance(axisPoints, lineLength);
+			// if we have finished
+			if (lineTravellLeft && lineTravellLeft.value() == lineLength)
+				break;
+
+			SegmentedShape shape;
+			shape.construct(linePoints, m_parameters.lineInfo.lineWidth);
+
+			const auto [lineVertices, lineIndices] = EarcutAdaptation::triangulatePoints(shape.getOutline());
+			// join them
+			LineManipulator::joinPositionVerticesAndIndices(meshVertices, meshIndices, lineVertices, lineIndices);
+
+			const auto [_, stepTravellLeft] = LineManipulator::cutPointsInDistance(axisPoints, spaceBetweenLines);
+			// if we have finished here as well
+			if (stepTravellLeft && stepTravellLeft.value() == spaceBetweenLines)
+				break;
+		}
+		// well cut from it
+		SegmentedShape lineShape;
+		lineShape.construct(m_shape.getAxis(), m_parameters.lineInfo.lineWidth);
+
+
+	}
+
+	// move vertices bit up since we want to see them above road
+	for (auto& vert : meshVertices)	vert.y += 0.015f;
+
+	// give them whiteColor
+	mesh.vertices.colors = VD::ColorVertices(mesh.vertices.positions.size(), glm::vec4(1.0));
+
+	return mesh;
+}
 
 void Road::updateWidthFromParameters()
 {
 	//float newWidth = 0.0f;
 	// side offset
-	float sideOffset = 2 * m_parameters.distanceFromSide + 2 * m_parameters.sideLineWidth;
-	float totalLaneWidth = m_parameters.laneCount * m_parameters.laneWidth;
-	float totalLineSegmentWidth = (m_parameters.laneCount - 1) * m_parameters.lineWidth;
+	float sideOffset = 2 * m_parameters.lineInfo.distanceFromSide + 2 * m_parameters.lineInfo.sideLineWidth;
+	float totalLaneWidth = m_parameters.laneCount * m_parameters.lineInfo.laneWidth;
+	float totalLineSegmentWidth = (m_parameters.laneCount - 1) * m_parameters.lineInfo.lineWidth;
 
 	m_width = sideOffset + totalLaneWidth + totalLineSegmentWidth;
 }

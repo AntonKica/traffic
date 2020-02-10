@@ -1,8 +1,8 @@
 #pragma once
 #include "SimulationObject.h"
 #include "SegmentedShape.h"
+#include "Mesh.h"
 
-#include "Utilities.h"
 #include <map>
 #include <glm/glm.hpp>
 
@@ -96,13 +96,9 @@ public:
 	std::vector<Lane> getAllLanesConnectingFrom(const BasicRoad* const connectsFromRoad) const;
 	std::vector<Lane> getAllLanesConnectingTwoRoads(const BasicRoad* const connectsFromRoad, const BasicRoad* const connectsToRoad) const;
 protected:
-
-	//Connection& findConnection(BasicRoad* connectedRoad);
 	const Connection& getConnection(Connection connection) const;
 	const Connection& getConnection(BasicRoad* road, Point point) const;
-	/*
-	* Carefully with this
-	*/
+
 	const Connection& getConnection(Point point) const;
 	const Connection* findConnection(Point point) const;
 	BasicRoad* findConnectedRoad(Point point) const;
@@ -116,6 +112,9 @@ protected:
 
 	std::vector<Connection> m_connections;
 	std::unordered_map<Lane::Side, std::vector<Lane>> m_lanes;
+
+// lanes
+	virtual Mesh createLineMesh() = 0;
 private:
 };
 

@@ -152,14 +152,14 @@ void SimulationObject::setPosition(glm::vec3 newPosition)
 {
 	m_position = newPosition;
 	m_components.graphics.setPosition(newPosition);
-	m_components.physics.collider().setPosition(newPosition);
+	m_components.physics.setPosition(newPosition);
 }
 
 void SimulationObject::setRotation(glm::vec3 newRotation)
 {
 	m_rotation = newRotation;
 	m_components.graphics.setRotation(newRotation);
-	m_components.physics.collider().setRotation(newRotation);
+	m_components.physics.setRotation(newRotation);
 }
 
 bool SimulationObject::isActive() const

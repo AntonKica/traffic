@@ -20,9 +20,8 @@ public:
 	pPhysicsComponentCore copyCreatePhysicsComponentCore(const pPhysicsComponentCore& copyPhysicsCore);
 	void deactivatePhysicsComponentCore(pPhysicsComponentCore& physicsComponent);
 
-	void setPhysicsComponentCollisionTags(pPhysicsComponentCore physicsCore, const Info::PhysicsComponentUpdateTags& updateInfo);
-
-	uint32_t getTagFlag(std::string tagName);
+	uint32_t getTagsFlag(const std::vector<std::string>& tagNames);
+	uint32_t getTagFlag(const std::string& tagName);
 	bool compatibleTags(uint32_t firstFlags, uint32_t secondFlags) const;
 private:
 	pPhysicsComponentCore getPhysicsComponentCore();
@@ -30,21 +29,33 @@ private:
 	void prepareResources();
 	void destroyResourcces();
 
+	void prepareFrame();
 	void updateCollisions();
 
 	uint32_t createTagFlag(std::string tagName);
-
-	void registerPhysicsCoreTags(pPhysicsComponentCore& physicsCore, const std::vector<std::string>& tags);
-	void registerPhysicsCoreTags(pPhysicsComponentCore& physicsCore, uint32_t newTag);
-	void unregisterPhysicsCoreFromTags(pPhysicsComponentCore& physicsCore);
-
 	
-
 	pPhysicsComponentCore m_physicsComponentCoreData;
 	uint32_t m_physicsComponentCoreCount;
 	std::stack<pPhysicsComponentCore>  m_physicsComponentCores;
 
-	std::unordered_map<uint32_t, std::vector<pPhysicsComponentCore>> m_activePhysicsComponentCores;
+	std::vector<pPhysicsComponentCore> m_activePhysicsComponentCores;
 	std::unordered_map<std::string, uint32_t> m_tagFlags;
+
+	struct AssociatedCollider
+	{
+		SimulationObject* simObject;
+		Collider2D* collider;
+
+		// sorti via collider tags
+		bool operator<(const AssociatedCollider& other) const
+		{
+			return collider->m_tags < other.collider->m_tags;
+		}
+	};
+	struct
+	{
+		std::vector<AssociatedCollider> canBeDetecdedByOthers;
+		std::vector<AssociatedCollider> canDetectOthers;
+	} m_preparedColliders;
 };
 

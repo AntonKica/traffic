@@ -1,7 +1,5 @@
 #pragma once
-#include "BuildingCreator.h"
 #include "RoadCreator.h"
-#include "House.h"
 #include "CarSpawner.h"
 
 #include "UI.h"
@@ -73,7 +71,6 @@ private:
 	Container<Road> m_roads;
 	Container<RoadIntersection> m_intersections;
 	Container<CarSpawner> m_carSpawners;
-	Container<House> m_houses;
 
 	RoadCreator m_roadCreator;
 	//BuildingCreator m_buildingCreator;

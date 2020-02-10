@@ -51,7 +51,7 @@ void SimpleCar::drive(PathFinding::TravellSegments travellSegments)
 	setupModel(mInfo, true);
 	getGraphicsComponent().setSize(glm::vec3(3));
 
-	setupDetection();
+	setupSelf();
 }
 
 bool SimpleCar::finishedDriving() const
@@ -135,21 +135,43 @@ void SimpleCar::updatePosition()
 	}
 }
 
+void SimpleCar::setupSelf()
+{
+	// set size
+	m_size = glm::vec2(2.0, 3.0);
+	auto halfSize = m_size / 2.0f;
+	Points collisionPoints{
+		// left points
+		Point(-halfSize.x, 0.0f, -halfSize.y),
+		Point(-halfSize.x, 0.0f, halfSize.y),
+		// rewersed right points
+		Point(halfSize.x, 0.0f, halfSize.y),
+		Point(halfSize.x, 0.0f, -halfSize.y),
+	};
+
+	auto& physicsComponent = getPhysicsComponent();
+	auto& bodyCollider = physicsComponent.createCollider("BODY");
+	bodyCollider.setBoundaries(collisionPoints);
+	bodyCollider.setSelfTags({ "CAR" });
+
+	setupDetection();
+
+	enablePhysics();
+}
+
 void SimpleCar::setupDetection()
 {
 	const glm::vec3 forward(0.0, 0.0, 1.0);
 	const glm::vec3 right(1.0, 0.0, 0.0);
 
-	const float visionWidth = 25.0f;
-	const float visionDistance = 75.0f;		// meters
+	const float visionWidth = 25.0f;		// meters
+	const float visionDistance = 75.0f;		
 
-	// set size
-	m_size = glm::vec2(2.0, 3.0);
 	auto collisionDimensions = (m_size * 0.5f);
 	collisionDimensions.x += visionWidth * 0.5f;
 	collisionDimensions.y += visionDistance;
 
-	Points collisionPoints{
+	Points detectionPoints{
 		// left points
 		Point(-collisionDimensions.x, 0.0f, -collisionDimensions.y),
 		Point(-collisionDimensions.x, 0.0f, collisionDimensions.y),
@@ -159,16 +181,15 @@ void SimpleCar::setupDetection()
 	};
 
 	auto& physicsComponent = getPhysicsComponent();
-	physicsComponent.collider().setBoundaries(collisionPoints);
-	physicsComponent.setSelfCollisionTags({ "CAR" });
-	physicsComponent.setOtherCollisionTags({ "CAR" });
-	enablePhysics();
+	auto& detectionCollider = physicsComponent.createCollider("DETECTOR");
+	detectionCollider.setBoundaries(detectionPoints);
+	detectionCollider.setOtherTags({ "CAR" });
 }
 
 void SimpleCar::handleNearbyCars()
 {
-	auto& physicsComponent = getPhysicsComponent();
-	auto possibleCollision = physicsComponent.getAllCollisionWith("CAR");
+	auto& detectorCollider = getPhysicsComponent().getCollider("DETECTOR");
+	auto possibleCollision = detectorCollider.getAllCollisionWith("CAR");
 
 	bool waitForPassingCar = false;
 	for(const auto& simObject : possibleCollision)

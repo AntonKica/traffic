@@ -1,6 +1,7 @@
 #include "RoadIntersection.h"
 #include "Utilities.h"
-#include "polyPartition/earcut.hpp"
+#include "EarcutAdaptation.h"
+#include "LineManipulator.h"
 
 #include "Road.h"
 
@@ -398,45 +399,39 @@ void RoadIntersection::setUpShape()
 		}
 	}
 
-	// copy edges to outline
+	// copy edges to outline for future use
 	{
 		m_outlinePoints.clear();
 		for (const auto& edge : edges)
 			m_outlinePoints.insert(m_outlinePoints.end(), edge.begin(), edge.end());
 		// reverse since we need thme to be in clockwise order
 		std::reverse(std::begin(m_outlinePoints), std::end(m_outlinePoints));
+
 	}
 
 	// and then triangulate
-	using EarCutPoint = std::array<float, 2>;
-	std::vector<std::vector<EarCutPoint>> polygon(1);
-	polygon[0].resize(m_outlinePoints.size());
-	for (auto index = 0; index < m_outlinePoints.size(); ++index)
-	{
-		polygon[0][index] = { m_outlinePoints[index].x, m_outlinePoints[index].z };
-	}
-
-	std::vector<uint32_t> indices = mapbox::earcut(polygon);
-	m_shapePoints = m_outlinePoints;
+	const auto [bodyVertices, bodyIndices] =  EarcutAdaptation::triangulatePoints(m_outlinePoints);
 
 	// then setupDrawing
-	Mesh mesh;
-	mesh.vertices.positions = m_shapePoints;
-	mesh.indices = indices;
-
+	Mesh bodyMesh;
+	bodyMesh.vertices.positions = bodyVertices;
+	bodyMesh.indices = bodyIndices;
 	const glm::vec4 grey(0.44, 0.44, 0.44, 1.0);
-	VD::ColorVertices colors(m_shapePoints.size(), grey);
-	mesh.vertices.colors = colors;
+	bodyMesh.vertices.colors = VD::ColorVertices(bodyVertices.size(), grey);
+
+	Mesh lineMesh = createLineMesh();
+
 
 	Model model;
-	model.meshes.push_back(mesh);
+	model.meshes.emplace_back(bodyMesh);
+	model.meshes.emplace_back(lineMesh);
 
 	Info::ModelInfo mInfo;
 	mInfo.model = &model;
 
 	setupModel(mInfo, true);
 
-	getPhysicsComponent().collider().setBoundaries(m_shapePoints);
+	getPhysicsComponent().createCollider("BODY").setBoundaries(m_outlinePoints);
 }
 
 void RoadIntersection::checkShapesAndRebuildIfNeeded()
@@ -614,11 +609,10 @@ void RoadIntersection::createLanes()
 	m_lanes.clear();
 	for (const auto& [shapeOne, roadOne] : associatedShapes)
 	{
-		auto pathsFromRoadRoadOne = roadOne->getAllLanesConnectingTo(this);
+		auto lanesFromRoadRoadOne = roadOne->getAllLanesConnectingTo(this);
 
 		for (const auto& [shapeTwo, roadTwo] : associatedShapes)
 		{
-			auto pathsFromRoadRoadTwo = roadTwo->getAllLanesConnectingFrom(this);
 			// dont make road with self
 			if (shapeOne == shapeTwo)
 				continue;
@@ -631,7 +625,7 @@ void RoadIntersection::createLanes()
 			Points shapeTwoAxis = shapeTwo->getAxisPoints();
 			Points shapeTwoLeftSide = shapeTwo->getLeftSidePoints();
 
-			for (const auto& path : pathsFromRoadRoadOne)
+			for (const auto& path : lanesFromRoadRoadOne)
 			{
 				Point intersectionLaneStart = path.points.back();
 				auto shapeOneDiameter = glm::length(shapeOneAxis.front() - shapeOneRightSide.front());
@@ -676,4 +670,62 @@ bool RoadIntersection::canSwitchLanes() const
 uint32_t RoadIntersection::directionCount() const
 {
 	return m_connections.size();
+}
+
+Mesh RoadIntersection::createLineMesh()
+{
+	Mesh mesh;
+	auto& meshVertices = mesh.vertices.positions;
+	auto& meshIndices = mesh.indices;
+
+	for (uint32_t indexOne = 0, indexTwo = 1; indexOne < m_connectShapes.size(); ++indexOne, ++indexTwo)
+	{
+		if (indexTwo == m_connectShapes.size())
+			indexTwo = 0;
+
+		const auto& shapeOne = m_connectShapes[indexOne];
+		const auto& shapeTwo = m_connectShapes[indexTwo];
+
+		// extract points
+		Points edgePoints;
+		//Points axisPoints;
+		{
+			auto sidePointsOne =  shapeOne.getRightSidePoints();
+			auto sidePointsTwo = shapeTwo.getLeftSidePoints();
+			auto intersected = cutTwoTrailsOnCollision(sidePointsOne, sidePointsTwo);
+
+			if (intersected)
+				sidePointsOne.pop_back();
+			else
+				sidePointsOne.emplace_back(getTrailEndsIntersectionPoint(sidePointsOne, sidePointsTwo));
+
+			edgePoints.insert(edgePoints.end(), sidePointsOne.begin(), sidePointsOne.end());
+			edgePoints.insert(edgePoints.end(), sidePointsTwo.rbegin(), sidePointsTwo.rend());
+		}
+		
+		// make them
+		constexpr const auto sideDistance = RoadParameters::Defaults::distanceFromSide;
+		constexpr const auto lindeWidth = RoadParameters::Defaults::lineWidth;
+
+		const float shorterDistanceFromSide = sideDistance;
+		const float fartherDistanceFromSide = sideDistance + lindeWidth;
+		Points edgeLinePoints;
+		{
+			const Points sideOne = LineManipulator::getShiftedLineToLeftFromLineInSetDistance(edgePoints, shorterDistanceFromSide);
+			const Points sideTwo = LineManipulator::getShiftedLineToLeftFromLineInSetDistance(edgePoints, fartherDistanceFromSide);
+			edgeLinePoints.insert(edgeLinePoints.end(), sideOne.begin(), sideOne.end());
+			// reversed
+			edgeLinePoints.insert(edgeLinePoints.end(), sideTwo.rbegin(), sideTwo.rend());
+		}
+		// triangulate
+		const auto [edgeVertices, edgeIndices] = EarcutAdaptation::triangulatePoints(edgeLinePoints);
+
+		LineManipulator::joinPositionVerticesAndIndices(meshVertices, meshIndices, edgeVertices, edgeIndices);
+	}
+	// add color and move them a bit up
+	for (auto& vert : meshVertices)	vert.y += 0.015f;
+	// give them whiteColor
+	mesh.vertices.colors = VD::ColorVertices(mesh.vertices.positions.size(), glm::vec4(1.0));
+
+	return mesh;
 }

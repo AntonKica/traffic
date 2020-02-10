@@ -37,7 +37,8 @@ namespace VulkanData
 	VkVertexInputBindingDescription getBindingDescriptionFromFlags(VertexFlags flags);
 	std::vector<VkVertexInputAttributeDescription> getAttributeDescriptionsFromFlags(VertexFlags flags);
 
-	using Indices = std::vector<uint32_t>;
+	using Index = uint32_t;
+	using Indices = std::vector<Index>;
 
 	enum class TextureType
 	{

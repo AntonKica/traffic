@@ -33,10 +33,19 @@ public:
 
 	void initializePossiblePaths(const std::vector<CarSpawner>& allSpawners);
 	void spawnCar();
+
+	bool canReceiveCars() const;
+protected:
+	virtual Mesh createLineMesh() override;
+
+
 private:
 	SegmentedShape m_shape;
 	Points m_shapePoints;
 	bool m_disabled;
+	bool m_canSpawnCars = true;
+	bool m_canReceiveCars = true;
+
 	std::vector<SimpleCar> m_spawnedCars;
 
 	std::unordered_map<const CarSpawner*, PathFinding::RoadRoutes> m_routesToSpawner;

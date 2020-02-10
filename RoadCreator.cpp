@@ -139,8 +139,8 @@ std::vector<Point> generateCurveFromThreePoints(const std::array<Point, 3>& poin
 RoadCreatorUI::RoadCreatorUI()
 {
 	m_prototypes = {
-		RC::Prototype("Basic 2-lane road", 2, 3.0f, 0.25, 0.1, 0.25, 0.0f, false, false),
-		RC::Prototype("Basic 4-lane road", 4, 3.0f, 0.25, 0.1, 0.25, 0.0f, false, false),
+		RC::Prototype("1-lane road", 1, 3.0f, 0.25, 0.1, 0.25, 0.0f, false, false),
+		RC::Prototype("2-lane road", 2, 3.0f, 0.25, 0.1, 0.25, 0.0f, false, false),
 	};
 
 	m_selectedPrototype = &m_prototypes[0];
@@ -292,7 +292,6 @@ RoadCreator::RoadCreator(ObjectManager* objectManager)
 {
 	// sink road
 	m_roadPrototype.setPosition(glm::vec3(0.0, -0.02, 0.0));
-	m_roadPrototype.getPhysicsComponent().setOtherCollisionTags({ "ROAD"});
 }
 
 void RoadCreator::update()
@@ -400,20 +399,34 @@ RC::ProcSitPts RoadCreator::processSittingPoints(const std::vector<RC::SittingPo
 			processed.roadBeginAxisPoint = std::make_pair(front.point, front.road.value());
 
 			LineSegment connectingLineSegment = { front.point, (sittingPoints.begin() + 1)->point };
-			auto conPossibiliy = front.road.value()->getConnectionPossibility(connectingLineSegment, Shape::AxisPoint(front.point));
+			if (connectingLineSegment[0] != connectingLineSegment[1])
+			{
+				auto conPossibiliy = front.road.value()->getConnectionPossibility(connectingLineSegment, Shape::AxisPoint(front.point));
 
-			processed.validPoints = conPossibiliy.canConnect && processed.validPoints;
-			processed.axisPoints.insert(processed.axisPoints.begin() + 1, conPossibiliy.recomendedPoint);
+				processed.validPoints = conPossibiliy.canConnect && processed.validPoints;
+				processed.axisPoints.insert(processed.axisPoints.begin() + 1, conPossibiliy.recomendedPoint);
+			}
+			else
+			{
+				processed.validPoints = false;
+			}
 		}
 		if (back.road)
 		{
 			processed.roadEndAxisPoint = std::make_pair(back.point, back.road.value());
 
 			LineSegment connectingLineSegment = { back.point, (sittingPoints.end() - 2)->point };
-			auto conPossibiliy = back.road.value()->getConnectionPossibility(connectingLineSegment, Shape::AxisPoint(back.point));
+			if (connectingLineSegment[0] != connectingLineSegment[1])
+			{
+				auto conPossibiliy = back.road.value()->getConnectionPossibility(connectingLineSegment, Shape::AxisPoint(back.point));
 
-			processed.validPoints = conPossibiliy.canConnect && processed.validPoints;
-			processed.axisPoints.insert(processed.axisPoints.end() - 1, conPossibiliy.recomendedPoint);
+				processed.validPoints = conPossibiliy.canConnect && processed.validPoints;
+				processed.axisPoints.insert(processed.axisPoints.end() - 1, conPossibiliy.recomendedPoint);
+			}
+			else
+			{
+				processed.validPoints = false;
+			}
 		}
 	}
 
@@ -686,7 +699,6 @@ void RoadCreator::createRoadFromCurrent()
 	const auto& currentPrototype = *m_ui.getSelectedPrototype();
 
 	Road newRoad = m_roadPrototype;
-	newRoad.getPhysicsComponent().setOtherCollisionTags({});
 	newRoad.setPosition(glm::vec3(0.0f));
 	handleConstruction(newRoad, connectingPoints);
 
@@ -783,9 +795,21 @@ void RoadCreator::updateMousePoint()
 void RoadCreator::updateProcessedPoints()
 {
 	RC::SittingPoints spts = m_setPoints;
-	if (m_mousePoint)
-		spts.push_back(m_mousePoint.value());
 
+	// check for uniquiess
+	if (m_mousePoint)
+	{
+		bool samePoint = false;
+		for (const auto& spt : spts)
+		{
+			if (spt.point == m_mousePoint->point)
+			{
+				samePoint = true;
+				break;
+			}
+		}
+		if(!samePoint) spts.push_back(m_mousePoint.value());
+	}
 
 	m_processedCurrentPoints = processSittingPoints(spts);
 }
@@ -821,7 +845,7 @@ void RoadCreator::updateCreationPoints()
 	bool hasFrontRoad = false;
 	bool hasBackRoad = false;
 
-	if (m_ui.doCurves() && m_setPoints.size() == 2)
+	if (m_ui.doCurves() && m_processedCurrentPoints.axisPoints.size() == 3)
 	{
 		const auto& curPts = m_processedCurrentPoints.axisPoints;
 		std::array<Point, 3> curvePoints;

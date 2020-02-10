@@ -1,5 +1,7 @@
 #include "Collider2D.h"
 #include "BasicGeometry.h"
+#include "SimulationObject.h"
+#include "GlobalObjects.h"
 
 #include <utility>
 #include <algorithm>
@@ -8,133 +10,7 @@
 
 namespace
 {
-	bool polygonPointCollision(const Points& polygonPoints, Point point)
-	{
-		bool collision = false;
-		for (auto vert = polygonPoints.begin(); vert != polygonPoints.end(); ++vert)
-		{
-			auto nextVert = (vert + 1) ==
-				polygonPoints.end() ? polygonPoints.begin() : vert + 1;
 
-			// z test
-			if (((vert->z > point.z) && nextVert->z < point.z)
-				|| (vert->z < point.z && (nextVert->z > point.z)))
-			{
-				if (point.x < (nextVert->x - vert->x) * (point.z - vert->z) / (nextVert->z - vert->z) + vert->x)
-				{
-					collision = !collision;
-				}
-			}
-		}
-
-		return collision;
-	}
-
-	template <class T> struct MinMax
-	{
-		T min, max;
-	};
-
-	template <class PolygonType> MinMax<float> genericProjectPolygonOnAxis(const PolygonType& polygonPoints, const glm::vec3& axis)
-	{
-		float dotProduct = glm::dot(axis, polygonPoints[0]);
-		float min = dotProduct;
-		float max = dotProduct;
-
-		for (const auto& point : polygonPoints)
-		{
-			dotProduct = glm::dot(axis, point);
-			min = std::min(min, dotProduct);
-			max = std::max(max, dotProduct);
-		}
-
-		return MinMax<float>{ min, max };
-	}
-
-	float intervalDistance(const MinMax<float>& firstInterval, const MinMax<float>& secondInterval)
-	{
-		if (firstInterval.min < secondInterval.min)
-			return secondInterval.min - firstInterval.max;
-		else
-			return firstInterval.min - secondInterval.max;
-	}
-
-	template <class PolygonType> bool genericPolygonPolygonCollision(const PolygonType& polygonOne, const PolygonType& polygonTwo)
-	{
-		bool canDrawLineBetween = false;
-
-		// with first triangle
-		for (uint32_t index = 0, nextIndex = 1; index < polygonOne.size(); ++index, ++nextIndex)
-		{
-			if (canDrawLineBetween)
-				break;
-
-			if (nextIndex == polygonOne.size())
-				nextIndex = 0;
-
-			const glm::vec3 edge = polygonOne[index] - polygonOne[nextIndex];
-
-			const glm::vec3 vectorUp(0.0, 1.0, 0.0);
-			const auto perpAxis = glm::normalize(glm::cross(edge, vectorUp));
-
-			const auto firstInterval = genericProjectPolygonOnAxis(polygonOne, perpAxis);
-			const auto secondInterval = genericProjectPolygonOnAxis(polygonTwo, perpAxis);
-
-			canDrawLineBetween = intervalDistance(firstInterval, secondInterval) > 0;
-		}
-
-		// for second triangle
-		if (!canDrawLineBetween)
-		{
-			for (uint32_t index = 0, nextIndex = 1; index < polygonTwo.size(); ++index, ++nextIndex)
-			{
-				if (canDrawLineBetween)
-					break;
-
-				if (nextIndex == polygonTwo.size())
-					nextIndex = 0;
-
-				const glm::vec3 edge = polygonTwo[index] - polygonTwo[nextIndex];
-
-				const glm::vec3 vectorUp(0.0, 1.0, 0.0);
-				const auto perpAxis = glm::normalize(glm::cross(edge, vectorUp));
-
-				const auto firstInterval = genericProjectPolygonOnAxis(polygonOne, perpAxis);
-				const auto secondInterval = genericProjectPolygonOnAxis(polygonTwo, perpAxis);
-
-				canDrawLineBetween = intervalDistance(firstInterval, secondInterval) > 0;
-			}
-		}
-
-		return !canDrawLineBetween;
-	}
-
-	constexpr auto triangleTriangleCollision = genericPolygonPolygonCollision<Triangle>;
-	constexpr auto quadrangleQuadrangleCollision = genericPolygonPolygonCollision<Quadrangle>;
-
-	Triangles createTriangleFromPoints(const Points& points)
-	{
-		const uint32_t triangleCount = points.size() - 2;
-		Triangles triangles;
-		triangles.resize(triangleCount);
-
-		auto trianglesIt = triangles.begin();
-
-		// create triangles
-		auto firstPointIter = points.begin();
-		auto secondPointIter = points.begin() + 1;
-		auto thirdPointIter = points.begin() + 2;
-		while (true)
-		{
-			if (thirdPointIter == points.end())
-				break;
-
-			Triangle newTriangle = { *firstPointIter++, *secondPointIter++, *thirdPointIter++ };
-			*trianglesIt++ = newTriangle;
-		}
-
-		return triangles;
-	}
 }
 
 struct MinMaxVectors
@@ -218,6 +94,7 @@ bool Collider::rectanglesOverlay(const Rectangle& firstCircle, const Rectangle& 
 	return false;
 }
 
+/*
 void Collider2D::set(const Points& newBoundaries, const glm::vec3& newPosition, const glm::vec3& newRotation)
 {
 	m_boundaries = newBoundaries;
@@ -236,6 +113,7 @@ void Collider2D::set(const glm::vec3& newPosition, const glm::vec3& newRotation)
 	updateCollisionCircle();
 	updateCollisionBoundaries();
 }
+*/
 
 void Collider2D::setBoundaries(const Points& newBoundaries)
 {
@@ -243,6 +121,114 @@ void Collider2D::setBoundaries(const Points& newBoundaries)
 
 	setupCircle();
 	updateCollisionBoundaries();
+}
+
+const Points& Collider2D::getBoundaries() const
+{
+	return m_boundaries;
+}
+
+glm::vec3 Collider2D::getPosition() const
+{
+	return m_position;
+}
+
+glm::vec3 Collider2D::getRotation() const
+{
+	return m_rotation;
+}
+
+
+bool Collider2D::canCollideWith(const Collider2D& other) const
+{
+	return canCollideWith(other.m_tags);
+}
+
+bool Collider2D::canCollideWith(uint32_t otherTag) const
+{
+	return m_otherTags & otherTag;
+}
+
+bool Collider2D::collidesWith(const Collider2D& other) const
+{
+	// check before doing any calculations
+	if (Collider::circlesOverlay(m_collisionCircle, other.m_collisionCircle))
+	{
+		return Collision::polygonPolygon(m_collisionBoundaries, other.m_collisionBoundaries);
+	}
+
+	return false;
+}
+
+bool Collider2D::collidesWith(const Points& points) const
+{
+	return Collision::polygonPolygon(Collision::details::createXZPolygonFromPoints(points), m_collisionBoundaries);
+}
+
+bool Collider2D::collidesWith(const Point& point) const
+{
+	return Collision::pointPolygon(Collision::details::createPointXZFromPoint(point), m_collisionBoundaries);
+}
+
+void Collider2D::setSelfTags(const std::vector<std::string>& newSelfTags)
+{
+	m_tags = App::physics.getTagsFlag(newSelfTags);
+}
+
+void Collider2D::setOtherTags(const std::vector<std::string>& newOtherTags)
+{
+	m_otherTags = App::physics.getTagsFlag(newOtherTags);
+}
+
+void Collider2D::setTags(const std::vector<std::string>& newSelfTags, const std::vector<std::string>& newOtherTags)
+{
+	setSelfTags(newSelfTags);
+	setOtherTags(newOtherTags);
+}
+
+void Collider2D::resetSelfTags()
+{
+	m_tags = 0;
+}
+
+void Collider2D::resetOtherTags()
+{
+	m_otherTags = 0;
+}
+
+void Collider2D::resetTags()
+{
+	m_tags = 0;
+	m_otherTags = 0;
+}
+
+bool Collider2D::hasSelfTags() const
+{
+	return m_tags != 0;
+}
+
+bool Collider2D::hasOtherTags() const
+{
+	return m_otherTags != 0;
+}
+
+bool Collider2D::isInCollison() const
+{
+	return !m_currentlyInCollision.empty();
+}
+
+std::vector<SimulationObject*> Collider2D::getAllCollisionWith(std::string tagName) const
+{
+	const auto checkTag = App::physics.getTagFlag(tagName);
+
+	std::set<SimulationObject*> collidedWith;
+	for (const auto& [collider, object] : m_currentlyInCollision)
+	{
+		if (collider->m_tags & checkTag)
+			collidedWith.emplace(object);
+	}
+
+	return std::vector(collidedWith.begin(), collidedWith.end());
 }
 
 void Collider2D::setPosition(const glm::vec3& newPosition)
@@ -266,44 +252,6 @@ void Collider2D::setRotation(const glm::vec3& newRotation)
 		updateCollisionBoundaries();
 	}
 }
-
-const Points& Collider2D::getBoundaries() const
-{
-	return m_boundaries;
-}
-
-glm::vec3 Collider2D::getPosition() const
-{
-	return m_position;
-}
-
-glm::vec3 Collider2D::getRotation() const
-{
-	return m_rotation;
-}
-
-
-bool Collider2D::collides(const Collider2D& other) const
-{
-	// check before doing any calculations
-	if (Collider::circlesOverlay(m_collisionCircle, other.m_collisionCircle))
-	{
-		return Collision::polygonPolygon(m_collisionBoundaries, other.m_collisionBoundaries);
-	}
-
-	return false;
-}
-
-bool Collider2D::collides(const Points& points) const
-{
-	return Collision::polygonPolygon(Collision::details::createXZPolygonFromPoints(points), m_collisionBoundaries);
-}
-
-bool Collider2D::collides(const Point& point) const
-{
-	return Collision::pointPolygon(Collision::details::createPointXZFromPoint(point), m_collisionBoundaries);
-}
-
 
 void Collider2D::setupCircle()
 {
@@ -340,4 +288,26 @@ void Collider2D::updateCollisionBoundaries()
 			return newPoint;
 		});
 	m_collisionBoundaries = Collision::details::createXZPolygonFromPoints(transformedPoints);
+}
+
+void Collider2D::clearCollisions()
+{
+	m_currentlyInCollision.clear();
+}
+
+bool Collider2D::alreadyInCollisionWith(Collider2D* collider) const
+{
+	for (const auto& [collisionCollider, collisionObject] : m_currentlyInCollision)
+	{
+		if (collider == collisionCollider)
+			return true;
+	}
+
+	return false;
+}
+
+void Collider2D::addCollision(Collider2D* collider, SimulationObject* collisionObject)
+{
+	Collider2DSimulationObjectPair pair = { collider, collisionObject };
+	m_currentlyInCollision.push_back(pair);
 }

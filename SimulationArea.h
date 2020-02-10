@@ -162,9 +162,9 @@ private:
 	Mode m_currentMode = {};
 	SimulationMode m_currentSimulationMode;
 
-	const Road* findClosestRoadFromBuilding(const BasicBuilding& building) const;
+	/*const Road* findClosestRoadFromBuilding(const BasicBuilding& building) const;
 	void connectBuildingsAndRoads();
-	void connectBuildingToClosestRoad(BasicBuilding& building);
+	void connectBuildingToClosestRoad(BasicBuilding& building);*/
 	void runSimulation();
 	void stopSimulation();
 };

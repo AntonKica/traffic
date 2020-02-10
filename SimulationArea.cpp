@@ -408,6 +408,7 @@ Point closestTraiPoint(const Trail& trail, Point pt)
 	return getClosestPointToLineSegment(p1, p2, pt);
 }
 
+/*
 const Road* SimulationArea::findClosestRoadFromBuilding(const BasicBuilding& building) const
 {
 	const auto buildingPos = building.getPosition();
@@ -429,6 +430,7 @@ const Road* SimulationArea::findClosestRoadFromBuilding(const BasicBuilding& bui
 
 	return closestRoad;
 }
+
 
 void SimulationArea::connectBuildingsAndRoads()
 {
@@ -472,6 +474,7 @@ void SimulationArea::connectBuildingToClosestRoad(BasicBuilding& building)
 		building.setNearbyRoad(closestRoad, closestRoadPoint);
 	}
 }
+*/
 
 class PathVisualizer : public SimulationObject
 {
@@ -559,7 +562,6 @@ void SimulationArea::runSimulation()
 		for (auto& spawner : m_objectManager.m_carSpawners.data)
 		{
 			spawner.enable();
-			spawner.spawnCar();
 			spawner.spawnCar();
 		}
 	}

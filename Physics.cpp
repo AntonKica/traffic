@@ -1,7 +1,7 @@
 #include "Physics.h"
 #include "PhysicsComponent.h"
 #include "GlobalSynchronization.h"
-
+#include "SimulationObject.h"
 #include <iostream>
 
 void Physics::run()
@@ -39,6 +39,7 @@ void Physics::mainLoop()
 			GlobalSynchronizaion::physics.update.store(false);
 		}
 
+		prepareFrame();
 		updateCollisions();
 
 		{
@@ -58,12 +59,8 @@ pPhysicsComponentCore Physics::createPhysicsComponentCore()
 
 void Physics::copyPhysicsComponentCore(const pPhysicsComponentCore& copyPhysicsCore, pPhysicsComponentCore& destinationPhysicsCore)
 {
-	unregisterPhysicsCoreFromTags(destinationPhysicsCore);
-
 	*destinationPhysicsCore = *copyPhysicsCore;
 	destinationPhysicsCore->pOwner = nullptr;
-	// register raw
-	registerPhysicsCoreTags(destinationPhysicsCore, copyPhysicsCore->tag);
 }
 
 pPhysicsComponentCore Physics::copyCreatePhysicsComponentCore(const pPhysicsComponentCore& copyPhysicsCore)
@@ -76,7 +73,8 @@ pPhysicsComponentCore Physics::copyCreatePhysicsComponentCore(const pPhysicsComp
 
 void Physics::deactivatePhysicsComponentCore(pPhysicsComponentCore& physicsComponentCore)
 {
-	unregisterPhysicsCoreFromTags(physicsComponentCore);
+	m_activePhysicsComponentCores.erase(
+		std::find(std::begin(m_activePhysicsComponentCores), std::end(m_activePhysicsComponentCores), physicsComponentCore));
 
 	m_physicsComponentCores.push(physicsComponentCore);
 
@@ -84,24 +82,17 @@ void Physics::deactivatePhysicsComponentCore(pPhysicsComponentCore& physicsCompo
 	physicsComponentCore = nullptr;
 }
 
-void Physics::setPhysicsComponentCollisionTags(pPhysicsComponentCore physicsCore, const Info::PhysicsComponentUpdateTags& updateInfo)
-{
-	if (updateInfo.newTags)
-	{
-		unregisterPhysicsCoreFromTags(physicsCore);
-		registerPhysicsCoreTags(physicsCore, updateInfo.newTags.value());
-	}
 
-	// assingon other tags
-	if (updateInfo.newOtherTags)
-	{
-		physicsCore->otherTags = 0;
-		for (const auto& newOtherTag : updateInfo.newOtherTags.value())
-			physicsCore->otherTags |= getTagFlag(newOtherTag);
-	}
+uint32_t Physics::getTagsFlag(const std::vector<std::string>& tagNames)
+{
+	uint32_t flag = 0;
+	for (const auto& tagName : tagNames)
+		flag |= getTagFlag(tagName);
+
+	return flag;
 }
 
-uint32_t Physics::getTagFlag(std::string tagName)
+uint32_t Physics::getTagFlag(const std::string& tagName)
 {
 	auto optFlag = m_tagFlags.find(tagName);
 	if (optFlag != m_tagFlags.end())
@@ -121,7 +112,7 @@ pPhysicsComponentCore Physics::getPhysicsComponentCore()
 	auto ptr = m_physicsComponentCores.top();
 	m_physicsComponentCores.pop();
 
-	m_activePhysicsComponentCores[0].emplace_back(ptr);
+	m_activePhysicsComponentCores.emplace_back(ptr);
 	return ptr;
 }
 
@@ -130,7 +121,8 @@ void Physics::prepareResources()
 	m_physicsComponentCoreCount = 50'000;
 	m_physicsComponentCoreData = new PhysicsComponentCore[m_physicsComponentCoreCount];
 
-	for (uint32_t index = 0; index < m_physicsComponentCoreCount; ++index)
+	// copy reverse
+	for (int index = m_physicsComponentCoreCount - 1; index >= 0; --index)
 		m_physicsComponentCores.push(m_physicsComponentCoreData + index);
 
 	// tag flag default
@@ -159,55 +151,98 @@ void Physics::destroyResourcces()
 	}
 }
 
-void Physics::updateCollisions()
+void Physics::prepareFrame()
 {
-	if (m_tagFlags.size() <= 1)
-		return;
-
-	for (auto& [_, comps] : m_activePhysicsComponentCores)
+	// first count them
+	uint32_t canBeDetectedCount = 0;
+	uint32_t canDetectcount = 0;
+	for (const auto& activeCore : m_activePhysicsComponentCores)
 	{
-		for (auto& comp : comps)
+		// skpi non active cores
+		if (!activeCore->active)
+			continue;
+
+		// divide
+		for (const auto& [_ ,collider]: activeCore->collider2Ds)
 		{
-			// dont clear whole map
-			for (auto& [tag, objs] : comp->inCollisionWith)
-			{
-				objs.clear();
-			}
+			if (collider.hasSelfTags())
+				++canBeDetectedCount;
+			if (collider.hasOtherTags())
+				++canDetectcount;
 		}
 	}
 
-	// process by tags
-	for (auto& [firstTag, firstComponents] : m_activePhysicsComponentCores)
 	{
-		// comopnent tagged with 0 dont collide
-		if (firstTag == 0)
-			continue;
-		// each component
-		for (auto& firstComponent : firstComponents)
-		{
+		// clean from previous
+		m_preparedColliders.canBeDetecdedByOthers.clear();
+		m_preparedColliders.canDetectOthers.clear();
 
-			// or if no othr collisions skip
-			if (!firstComponent->active || !firstComponent->otherTags)
+		// prepare space
+		if (m_preparedColliders.canBeDetecdedByOthers.size() < canBeDetectedCount)
+			m_preparedColliders.canBeDetecdedByOthers.resize(canBeDetectedCount);
+		if (m_preparedColliders.canDetectOthers.size() < canDetectcount)
+			m_preparedColliders.canDetectOthers.resize(canDetectcount);
+	}
+
+	// iterators
+	auto canBeDetecdedByOthersIt = m_preparedColliders.canBeDetecdedByOthers.begin();
+	auto canDetectOthersIt = m_preparedColliders.canDetectOthers.begin();
+
+	// reset, add and categorize components
+	for (auto& activeCore : m_activePhysicsComponentCores)
+	{
+		// skpi non active cores
+		if (!activeCore->active)
+			continue;
+
+		for (auto& [_, collider] : activeCore->collider2Ds)
+		{
+			// reset the colider
+			collider.clearCollisions();
+
+			// assign
+			AssociatedCollider associatedCollider = { activeCore->pOwner, &collider };
+
+			if (collider.hasSelfTags())
+				*canBeDetecdedByOthersIt++ = associatedCollider;
+			if (collider.hasOtherTags())
+				*canDetectOthersIt++ = associatedCollider;
+		}
+	}
+
+	// goo to keep them sorted
+	std::sort(m_preparedColliders.canBeDetecdedByOthers.begin(), m_preparedColliders.canBeDetecdedByOthers.end());
+	std::sort(m_preparedColliders.canDetectOthers.begin(), m_preparedColliders.canDetectOthers.end());
+}
+
+void Physics::updateCollisions()
+{
+	for (auto& [firstOwner, firstCollider] :m_preparedColliders.canDetectOthers)
+	{
+		for (auto& [secondOwner, secondCollider] : m_preparedColliders.canBeDetecdedByOthers)
+		{
+			// dont try collision with same object
+			if (firstOwner == secondOwner)
 				continue;
 
-			// otherwise check
-			for (auto& [secondTag, secondComponents] : m_activePhysicsComponentCores)
+			// check if we already collided with
+			if(firstCollider->alreadyInCollisionWith(secondCollider))
+				continue;
+
+			//set first
+			bool collided = false;
+			if (firstCollider->canCollideWith(*secondCollider))
 			{
-				// if can collide with this flags
-				if (!compatibleTags(firstComponent->otherTags, secondTag))
-					continue;
+				collided = firstCollider->collidesWith(*secondCollider);
+				if (collided)
+					firstCollider->addCollision(secondCollider, secondOwner);
+			}
 
-				// optherwise do collision wit each other component
-				for (auto& secondComponent : secondComponents)
-				{
-					if (!secondComponent->active || &firstComponent == &secondComponent)
-						continue;
-
-					if (firstComponent->collider2D.collides(secondComponent->collider2D))
-					{
-						firstComponent->inCollisionWith [secondTag].emplace_back(secondComponent->pOwner);
-					}
-				}
+			// check if second also looks for same collison so we set it too
+			if (collided)
+			{
+				if (secondCollider->canCollideWith(*firstCollider))
+					secondCollider->addCollision(firstCollider, firstOwner);
 			}
 		}
 	}
@@ -220,28 +255,4 @@ uint32_t Physics::createTagFlag(std::string tagName)
 	m_tagFlags[tagName] = uniqueFlag;
 
 	return uniqueFlag;
-}
-
-void Physics::registerPhysicsCoreTags(pPhysicsComponentCore& physicsCore, const std::vector<std::string>& tags)
-{
-	uint32_t newTag = 0;
-	for (const auto& newTagFlag : tags)
-		newTag |= getTagFlag(newTagFlag);
-
-	physicsCore->tag = newTag;
-	m_activePhysicsComponentCores[newTag].emplace_back(physicsCore);
-}
-
-void Physics::registerPhysicsCoreTags(pPhysicsComponentCore& physicsCore, uint32_t newTag)
-{
-	physicsCore->tag = newTag;
-	m_activePhysicsComponentCores[newTag].emplace_back(physicsCore);
-}
-
-void Physics::unregisterPhysicsCoreFromTags(pPhysicsComponentCore& physicsCore)
-{
-	auto& [_, cores] = *m_activePhysicsComponentCores.find(physicsCore->tag);
-	cores.erase(std::find(std::begin(cores), std::end(cores), physicsCore));
-
-	physicsCore->tag = 0;
 }

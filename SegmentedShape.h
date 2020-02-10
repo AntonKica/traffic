@@ -106,19 +106,21 @@ public:
 	void construct(const Points& constructionPoints, float width);
 	void construct(const OrientedConstructionPoints& constructionPoints, float width);
 	void reconstruct();
+	//
 	void mergeWith(const SegmentedShape& otherShape);
-	std::optional<SegmentedShape> split(Shape::AxisPoint splitPoint);
 	SegmentedShape cutKnot();
 	SegmentedShape shorten(Shape::AxisPoint shapeEnd, float size);
 	void extend(Shape::AxisPoint shapeEnd, Point point);
-
+	//
+	std::optional<SegmentedShape> split(Shape::AxisPoint splitPoint);
+	//
 	struct ShapeCut
 	{
 		Shape::Axis axis;
 	};
 	ShapeCut getShapeCut(Shape::AxisPoint axisPoint, float radius) const;
-	Shape::AxisSegment getEdgesOfAxisPoint(Shape::AxisPoint axisPoint) const;
 	std::optional<SegmentedShape> cut(ShapeCut cutPoints);
+	Shape::AxisSegment getEdgesOfAxisPoint(Shape::AxisPoint axisPoint) const;
 
 private:
 	void setNewCircularEndPoints(Shape::AxisPoint axisPoint);

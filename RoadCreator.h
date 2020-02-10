@@ -1,7 +1,7 @@
 #pragma once
-#include "GraphicsComponent.h"
-#include "Road.h"
 #include "BasicCreator.h"
+#include "Road.h"
+#include "RoadIntersection.h"
 
 #include <glm/glm.hpp>
 #include <vector>
@@ -9,7 +9,6 @@
 #include <set>
 #include <optional>
 #include <string>
-
 /*
 using Point = glm::vec3;
 using Points = std::vector<glm::vec3>;*/
@@ -60,7 +59,7 @@ namespace RC
 	struct Prototype : public RoadParameters::Parameters
 	{
 		Prototype(std::string name,
-			float laneCount,
+			uint32_t laneCount,
 			float laneWidth,
 			float lineWidth,
 			float distanceFromSide,
@@ -72,13 +71,13 @@ namespace RC
 			this->name			= name;
 
 			this->laneCount		= laneCount;
-			this->laneWidth		= laneWidth;
-			this->lineWidth		= lineWidth;
-			this->distanceFromSide	= distanceFromSide;
-			this->sideLineWidth		= sideLineWidth;
+			this->lineInfo.laneWidth		= laneWidth;
+			this->lineInfo.lineWidth		= lineWidth;
+			this->lineInfo.distanceFromSide	= distanceFromSide;
+			this->lineInfo.sideLineWidth		= sideLineWidth;
 
 			if(separatorWidth != 0.0f) 
-				this->separatorWidth = separatorWidth;
+				this->lineInfo.separatorWidth = separatorWidth;
 
 			this->isOneWay		= isOneWay;
 			this->forceOneWay	= forceOneWay;
@@ -90,6 +89,11 @@ namespace RC
 	{
 		Point point;
 		std::optional<BasicRoad*> road;
+
+		bool operator==(const SittingPoint& other) const
+		{
+			return point == other.point && road == other.road;
+		}
 	};
 	using SittingPoints = std::vector<SittingPoint>;
 

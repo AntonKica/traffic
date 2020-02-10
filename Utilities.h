@@ -318,7 +318,7 @@ template <class PolygonType> bool genericPolygonPolygonCollision(const PolygonTy
 
 static bool polygonsCollide(const Points& polygonOne, const Points& polygonTwo)
 {
-	if (polygonOne.size() <= 2 || polygonOne.size() <= 2)
+	if (polygonOne.size() <= 2 || polygonTwo.size() <= 2)
 		return false;
 
 	for (uint32_t indexOne = 0; indexOne + 2 < polygonOne.size();++indexOne)
@@ -755,4 +755,13 @@ template<class T1, class T2> bool compareOptionals(std::optional<T1> lhs, std::o
 		return true;
 	else					//homogenous, definitely not equal
 		return false;
+}
+
+static float trailLength(const Trail& trail)
+{
+	float length = 0;
+	for (uint32_t indexOne = 0, indexTwo = 1; indexTwo < trail.size(); ++indexOne, ++indexTwo)
+		length += glm::length(trail[indexOne] - trail[indexTwo]);
+
+	return length;
 }

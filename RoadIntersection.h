@@ -1,7 +1,8 @@
 #pragma once
 #include "SegmentedShape.h"
 #include "BasicRoad.h"
-#include "Utilities.h"
+#include "BasicGeometry.h"
+
 #include <vector>
 #include <array>
 #include <set>
@@ -33,12 +34,14 @@ public:
 
 	uint32_t directionCount() const;
 
+protected:
+	virtual Mesh createLineMesh() override;
+
 private:
 
 	float m_width = 0;
 	Point m_centre = {};
 	std::vector<SegmentedShape> m_connectShapes;
 	std::vector<Point> m_outlinePoints;
-	std::vector<Point> m_shapePoints;
 };
 

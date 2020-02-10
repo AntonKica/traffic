@@ -985,33 +985,32 @@ void VulkanBase::drawModelData(const VD::ModelData& modelData, VkCommandBuffer& 
 				VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(m_pushConstants), &m_pushConstants);
 		}
 
-		const size_t vertexSize = VD::vertexSizeFromFlags(meshData.drawData.vertices->buffer.type);
-
-		vertexOffset = meshData.drawData.vertices->byteOffset / vertexSize;
-		vertecCount = meshData.drawData.vertices->buffer.data.size() / vertexSize;
-		if (currentVertexBuffer != meshData.vertexBuffer)
 		{
-			currentVertexBuffer = meshData.vertexBuffer;
+			const size_t vertexSize = VD::vertexSizeFromFlags(meshData.drawData.vertices->buffer.type);
 
-			VkBuffer vertexBuffers[] = { *currentVertexBuffer };
-			VkDeviceSize offsets[] = { 0 };
-			vkCmdBindVertexBuffers(cmdBuff, 0, 1, vertexBuffers, offsets);
+			vertexOffset = meshData.drawData.vertices->byteOffset / vertexSize;
+			vertecCount = meshData.drawData.vertices->buffer.data.size() / vertexSize;
+			if (currentVertexBuffer != meshData.vertexBuffer)
+			{
+				currentVertexBuffer = meshData.vertexBuffer;
+
+				VkBuffer vertexBuffers[] = { *currentVertexBuffer };
+				VkDeviceSize offsets[] = { 0 };
+				vkCmdBindVertexBuffers(cmdBuff, 0, 1, vertexBuffers, offsets);
+			}
 		}
-
-		if (meshData.indexBuffer != nullptr && currentIndexBuffer != meshData.indexBuffer)
 		{
 			const size_t indexSize = sizeof(uint32_t);
-
 			indexOffset = meshData.drawData.indices->byteOffset / indexSize;
 			indexCount = meshData.drawData.indices->buffer.size();
+			if (meshData.indexBuffer != nullptr && currentIndexBuffer != meshData.indexBuffer)
+			{
+				currentIndexBuffer = meshData.indexBuffer;
 
-
-			currentIndexBuffer = meshData.indexBuffer;
-
-			VkDeviceSize offsets[] = { 0 };
-			vkCmdBindIndexBuffer(cmdBuff, *currentIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+				VkDeviceSize offsets[] = { 0 };
+				vkCmdBindIndexBuffer(cmdBuff, *currentIndexBuffer, 0, VK_INDEX_TYPE_UINT32);
+			}
 		}
-
 		VkDescriptorSet descriptorSets[] = { meshData.descriptorSet->sets[currentImage] };
 		uint32_t offsets[] = { meshData.dynamicBufferOffset };
 		vkCmdBindDescriptorSets(cmdBuff, VK_PIPELINE_BIND_POINT_GRAPHICS, currentPipeline->pipelineLayout, 0,

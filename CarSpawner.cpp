@@ -3,7 +3,10 @@
 #include <numeric>
 #include <random>
 #include <chrono>
+
 #include "SimpleCar.h"
+#include "LineManipulator.h"
+#include "EarcutAdaptation.h"
 
 void CarSpawner::update()
 {
@@ -154,17 +157,19 @@ void CarSpawner::construct(Road* road, Point connectPoint)
 
 
 	VD::PositionVertices vertices = m_shapePoints;
-	VD::ColorVertices colors(vertices.size(), glm::vec4(0.5f, 0.1f, 0.5f, 1.0));
+	const glm::vec4 grey(0.54, 0.54, 0.54, 1.0);
+	VD::ColorVertices colors(vertices.size(), grey);
 	// since we go on ther circumreference
 	VD::Indices indices = { 0,1,2, 2,3,0 };
 
-	Mesh mesh;
-	mesh.vertices.positions = vertices;
-	mesh.vertices.colors = colors;
-	mesh.indices = indices;
+	Mesh bodyMesh;
+	bodyMesh.vertices.positions = vertices;
+	bodyMesh.vertices.colors = colors;
+	bodyMesh.indices = indices;
 
 	Model model;
-	model.meshes.push_back(mesh);
+	model.meshes.push_back(bodyMesh);
+	model.meshes.push_back(createLineMesh());
 
 	Info::ModelInfo mInfo;
 	mInfo.model = &model;
@@ -242,4 +247,55 @@ void CarSpawner::spawnCar()
 		}
 	}
 	std::cout << "\n";
+}
+
+bool CarSpawner::canReceiveCars() const
+{
+	return m_canReceiveCars;
+}
+
+Mesh CarSpawner::createLineMesh()
+{
+	auto leftSidePoints = m_shape.getLeftSidePoints();
+	auto rightSidePoints = m_shape.getRightSidePoints();
+
+	Points linePoints;
+	std::reverse_copy(std::begin(leftSidePoints), std::end(leftSidePoints), std::back_inserter(linePoints));
+	std::copy(std::begin(rightSidePoints), std::end(rightSidePoints), std::back_inserter(linePoints));
+
+	// this mesh we will write on
+	Mesh mesh;
+	auto& meshVertices = mesh.vertices.positions;
+	auto& meshIndices = mesh.indices;
+
+	constexpr const auto sideDistance = RoadParameters::Defaults::distanceFromSide;
+	constexpr const auto lineWidth = RoadParameters::Defaults::lineWidth;
+
+	const float shorterDistanceFromSide = sideDistance;
+	const float fartherDistanceFromSide = sideDistance + lineWidth;
+
+	// create side line
+	{
+		Points pointsToDraw;
+		// left side
+		{
+			const Points pointsOne = LineManipulator::getShiftedLineToLeftFromLineInSetDistance(linePoints, shorterDistanceFromSide);
+			const Points pointsTwo = LineManipulator::getShiftedLineToLeftFromLineInSetDistance(linePoints, fartherDistanceFromSide);
+			pointsToDraw.insert(pointsToDraw.end(), pointsOne.begin(), pointsOne.end());
+			// reversed
+			pointsToDraw.insert(pointsToDraw.end(), pointsTwo.rbegin(), pointsTwo.rend());
+		}
+		// triangulate
+		const auto [vertices, indices] = EarcutAdaptation::triangulatePoints(pointsToDraw);
+
+		LineManipulator::joinPositionVerticesAndIndices(meshVertices, meshIndices, vertices, indices);
+	}
+
+	// move vertices bit up since we want to see them above road
+	for (auto& vert : meshVertices)	vert.y += 0.015f;
+
+	// give them whiteColor
+	mesh.vertices.colors = VD::ColorVertices(mesh.vertices.positions.size(), glm::vec4(1.0));
+
+	return mesh;
 }

@@ -2,78 +2,39 @@
 #include "GlobalObjects.h"
 
 
-void PhysicsComponent::setSelfCollisionTags(const std::vector<std::string>& newSelfTags)
+Collider2D& PhysicsComponent::createCollider(const std::string& name)
 {
-	Info::PhysicsComponentUpdateTags tags;
-	tags.newTags = newSelfTags;
+	auto& newCollider = m_core->collider2Ds[name];
 
-	setCollisionTags(tags);
+	// setup
+	newCollider.setPosition(m_position);
+	newCollider.setRotation(m_rotation);
+
+	return newCollider;
 }
 
-void PhysicsComponent::setOtherCollisionTags(const std::vector<std::string>& newOtherTags)
+Collider2D& PhysicsComponent::getCollider(const std::string& name)
 {
-	Info::PhysicsComponentUpdateTags tags;
-	tags.newOtherTags = newOtherTags;
+	auto newCollider = m_core->collider2Ds.find(name);
+	if (newCollider == m_core->collider2Ds.end())
+		throw std::runtime_error("Trying to accses collider with name " + name + " that wasnt created previously!");
 
-	setCollisionTags(tags);
+	return newCollider->second;
 }
 
-void PhysicsComponent::setCollisionTags(const Info::PhysicsComponentUpdateTags& updateInfo)
+const Collider2D& PhysicsComponent::getCollider(const std::string& name) const 
 {
-	App::physics.setPhysicsComponentCollisionTags(m_core, updateInfo);
-}
+	const auto newCollider = m_core->collider2Ds.find(name);
+	if (newCollider == m_core->collider2Ds.end())
+		throw std::runtime_error("Trying to accses collider with name " + name + " that wasnt created previously!");
 
-bool PhysicsComponent::inCollision() const
-{
-	for (const auto& [tag, objects] : m_core->inCollisionWith)
-	{
-		if (!objects.empty())
-			return true;
-	}
-
-	return false;
-}
-bool PhysicsComponent::inCollisionWith(std::string tag) const
-{
-	auto flag = App::physics.getTagFlag(tag);
-	for (const auto& [objectsTag, objects] : m_core->inCollisionWith)
-	{
-		if (App::physics.compatibleTags(flag, objectsTag) && !objects.empty())
-			return true;
-	}
-
-	return false;
-}
-
-std::vector<SimulationObject*> PhysicsComponent::getAllCollisionWith(std::string tag) const
-{
-	std::set<SimulationObject*> allCollidedObjects;
-
-	auto flag = App::physics.getTagFlag(tag);
-	for (const auto& [objectsTag, objects] : m_core->inCollisionWith)
-	{
-		if (App::physics.compatibleTags(flag, objectsTag) && !objects.empty())
-		{
-			allCollidedObjects.insert(objects.begin(), objects.end());
-		}
-	}
-
-	return std::vector(allCollidedObjects.begin(), allCollidedObjects.end());
-}
-
-Collider2D& PhysicsComponent::collider()
-{
-	return m_core->collider2D;
-}
-
-const Collider2D& PhysicsComponent::collider() const
-{
-	return m_core->collider2D;
+	return newCollider->second;
 }
 
 PhysicsComponent::PhysicsComponent()
 {
 	m_core = App::physics.createPhysicsComponentCore();
+	m_core->pOwner = m_pOwner;
 }
 
 PhysicsComponent::~PhysicsComponent()
@@ -88,9 +49,11 @@ PhysicsComponent::PhysicsComponent(const PhysicsComponent& copy)
 		return;
 
 	if (copy.m_core)
+	{
+		m_core->pOwner = m_pOwner;
 		m_core = App::physics.copyCreatePhysicsComponentCore(copy.m_core);
+	}
 
-	m_core->pOwner = m_pOwner;
 }
 
 PhysicsComponent::PhysicsComponent(PhysicsComponent&& move) noexcept
@@ -99,6 +62,10 @@ PhysicsComponent::PhysicsComponent(PhysicsComponent&& move) noexcept
 		return;
 
 	m_core = move.m_core;	move.m_core = nullptr;
+	if (m_core)
+	{
+		m_core->pOwner = m_pOwner;
+	}
 }
 
 PhysicsComponent& PhysicsComponent::operator=(const PhysicsComponent& copy)
@@ -119,7 +86,10 @@ PhysicsComponent& PhysicsComponent::operator=(const PhysicsComponent& copy)
 			App::physics.copyCreatePhysicsComponentCore(copy.m_core);
 	}
 
-	m_core->pOwner = m_pOwner;
+	if (m_core)
+	{
+		m_core->pOwner = m_pOwner;
+	}
 
 	return *this;
 }
@@ -133,13 +103,29 @@ PhysicsComponent& PhysicsComponent::operator=(PhysicsComponent&& move) noexcept
 		App::physics.deactivatePhysicsComponentCore(m_core);
 	m_core = move.m_core;	move.m_core = nullptr;
 
+	if (m_core)
+	{
+		m_core->pOwner = m_pOwner;
+	}
+
 	return *this;
 }
 
 void PhysicsComponent::setOwner(SimulationObject* pNewOwner)
 {
 	m_pOwner = pNewOwner;
-	m_core->pOwner = m_pOwner;
+	if (m_core)
+		m_core->pOwner = m_pOwner;
+}
+
+void PhysicsComponent::setPosition(glm::vec3 position)
+{
+	m_core->setPosition(position);
+}
+
+void PhysicsComponent::setRotation(glm::vec3 rotation)
+{
+	m_core->setRotation(rotation);
 }
 
 void PhysicsComponent::setActive(bool active)
@@ -150,4 +136,16 @@ void PhysicsComponent::setActive(bool active)
 bool PhysicsComponent::isActive() const
 {
 	return m_core->active;
+}
+
+void PhysicsComponentCore::setPosition(const glm::vec3& position)
+{
+	for (auto& [_, collider] : collider2Ds)
+		collider.setPosition(position);
+}
+
+void PhysicsComponentCore::setRotation(const glm::vec3& rotation)
+{
+	for (auto& [_, collider] : collider2Ds)
+		collider.setRotation(rotation);
 }

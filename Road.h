@@ -1,10 +1,9 @@
 #pragma once
-#include "Utilities.h"
 #include "BasicRoad.h"
 #include "SegmentedShape.h"
 
-#include "RoadIntersection.h"
 #include <vector>
+#include <optional>
 
 namespace RoadParameters
 {
@@ -24,17 +23,28 @@ namespace RoadParameters
 	struct Parameters
 	{
 		uint32_t laneCount	= Defaults::laneCount;
-		float laneWidth		= Defaults::laneWidth;
-		float lineWidth		= Defaults::lineWidth;
 
-		float distanceFromSide				= Defaults::distanceFromSide;
-		float sideLineWidth					= Defaults::sideLineWidth;
-		std::optional<float> separatorWidth	= Defaults::separatorWidth;
+		struct
+		{
+			float laneWidth = Defaults::laneWidth;
+			float lineWidth = Defaults::lineWidth;
+
+			float distanceFromSide = Defaults::distanceFromSide;
+			float sideLineWidth = Defaults::sideLineWidth;
+			std::optional<float> separatorWidth = Defaults::separatorWidth;
+		} lineInfo;
+
 		bool isOneWay = Defaults::isOneWay;
 		bool forceOneWay = Defaults::forceOneWay;
 	};
 }
-class BasicBuilding;
+
+namespace Products
+{
+	struct Split;
+	using Cut = Split;
+}
+
 class Road :
 	public BasicRoad
 {
@@ -70,25 +80,27 @@ public:
 	glm::vec3 getDirectionFromEndPoint(Shape::AxisPoint endPoint) const;
 
 	//
-	void construct(Shape::Axis axisPoints, const RoadParameters::Parameters& parameters);
 	void construct(Points creationPoints, const RoadParameters::Parameters& parameters);
 	void reconstruct();
 
 	void mergeWith(Road& otherRoad);
-	struct SplitProduct;
-	SplitProduct split(Shape::AxisPoint splitPoint);
 	Road cutKnot();
 	Road shorten(Shape::AxisPoint roadEnd, float size);
 	void extend(Shape::AxisPoint roadEnd, Point point);
-	SegmentedShape::ShapeCut getCut(Shape::AxisPoint roadAxisPoint) const;
-	using CutProduct = SplitProduct;
-	CutProduct cut(SegmentedShape::ShapeCut cutPoints);
+	// products
+	Products::Split split(Shape::AxisPoint splitPoint);
 
+	SegmentedShape::ShapeCut getCut(Shape::AxisPoint roadAxisPoint) const;
+	Products::Cut cut(SegmentedShape::ShapeCut cutPoints);
+
+	/*
 	void resetNearbyBuildings();
 	void addNearbyByuilding(BasicBuilding* nearbyBuilding, Point entryPoint);
 
 	struct NearbyBuildingPlacement;
-	const std::vector<NearbyBuildingPlacement>& getNearbyBuildings() const;
+	const std::vector<NearbyBuildingPlacement>& getNearbyBuildings() const;*/
+protected:
+	virtual Mesh createLineMesh() override;
 
 private:
 	void updateWidthFromParameters();
@@ -98,22 +110,13 @@ private:
 	RoadParameters::Parameters m_parameters;
 	float m_width = 0.0f;
 	float m_length = 0.0f;
-
-	struct NearbyBuildingPlacement
-	{
-		BasicBuilding* building;
-		Point entryPoint;
-	};
-
-	std::vector<NearbyBuildingPlacement> m_nearbyBuildings;
-	// just for cause
 };
 
-struct Road::SplitProduct
+// declarations
+namespace Products
 {
-	std::optional<Road> road;
-
-	//std::optional<Connection> connection;
-};
-
-
+	struct Split
+	{
+		std::optional<Road> road;
+	};
+}

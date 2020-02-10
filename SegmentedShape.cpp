@@ -2,6 +2,8 @@
 #include <glm/glm.hpp>
 #include <algorithm>
 #include "Collisions.h"
+#include "EarcutAdaptation.h"
+#include "LineManipulator.h"
 
 namespace
 {
@@ -21,26 +23,6 @@ namespace
 
 		return indices;
 	}
-
-	template <class PointsType> auto //std::tuple<typename PointsType::iterator, typename PointsType::iterator, float> 
-		travellDistanceOnPoints(PointsType& points, float distance)
-	{
-		float travelledDistance = 0;
-		auto currentPoint = points.begin();
-		auto nextPoint = currentPoint + 1;
-		while (nextPoint != points.end())
-		{
-			travelledDistance += glm::length(*currentPoint - *nextPoint);
-
-			if (travelledDistance >= distance)
-				break;
-			else
-				currentPoint = nextPoint++;
-		}
-
-		return std::make_tuple(currentPoint, nextPoint, travelledDistance);
-	}
-
 }
 std::optional<SegmentedShape::Segment> SegmentedShape::selectSegment(Point arbitraryPoint) const
 {
@@ -253,31 +235,39 @@ Mesh SegmentedShape::createMesh(const SegmentedShape& shape)
 	VD::PositionVertices vertices(verticesCount);
 	VD::TextureVertices textureCoords(verticesCount);
 
-	auto verticesIter = vertices.begin();
-	auto texturesIter = textureCoords.begin();
-	float travelledLength = 0;
+	auto verticesLeftIter = vertices.begin();
+	auto verticesRightIter = vertices.rbegin();
+	auto texturesLeftIter = textureCoords.begin();
+	auto texturesRightIter = textureCoords.rbegin();
+
+	float travelledLeft = 0;
+	float travelledRight = trailLength(shape.getAxisPoints());
 	Point previousTravellPoint = joints[0].centre;
 	for (const auto& joint : joints)
 	{
-		travelledLength += glm::length(previousTravellPoint - joint.centre);
+		const float travelledLength = glm::length(previousTravellPoint - joint.centre);
+		travelledLeft += travelledLength;
 		previousTravellPoint = joint.centre;
 
-		*verticesIter++ = joint.left;
-		*verticesIter++ = joint.right;
+		*verticesLeftIter++ = joint.left;
+		*verticesRightIter++ = joint.right;
 
 		VD::TextureVertex left, right;
 		left.x = 1.0;
-		left.y = travelledLength;
+		left.y = travelledLeft;
 		right.x = 0.0;
-		right.y = travelledLength;
+		right.y = travelledRight;
+		
 
-		*texturesIter++ = left;
-		*texturesIter++ = right;
+		*texturesLeftIter++ = left;
+		*texturesLeftIter++ = right;
+
+		travelledRight -= travelledLength;
 	}
-	VD::Indices indices = createTriangledIndices(vertices);
+	const auto [positionVertices, indices] = EarcutAdaptation::triangulatePoints(vertices);
 
 	Mesh mesh;
-	mesh.vertices.positions = vertices;
+	mesh.vertices.positions = positionVertices;
 	mesh.vertices.textures = textureCoords;
 	mesh.indices = indices;
 
@@ -573,6 +563,114 @@ void SegmentedShape::mergeWith(const SegmentedShape& otherShape)
 		construct(thisShapeAxis, m_width);
 	}
 }
+SegmentedShape SegmentedShape::cutKnot()
+{
+	auto knotPoint = sitsOnAxis(getHead()) ? getHead() : getTail();
+
+	auto newAxis = getAxis();
+
+	const auto [firstPoint, secondPoint] = getEdgesOfAxisPoint(knotPoint);
+	auto knotIter = insertElemementBetween(newAxis, firstPoint, secondPoint, knotPoint);
+
+	// get the right points
+	Points knotPoints;
+	if (sitsOnHead(knotPoint))
+	{
+		std::copy(newAxis.begin(), knotIter + 1, std::back_inserter(knotPoints));
+		newAxis.erase(newAxis.begin(), knotIter);
+	}
+	else
+	{
+		std::copy(knotIter, newAxis.end(), std::back_inserter(knotPoints));
+		newAxis.erase(knotIter + 1, newAxis.end());
+	}
+
+	// construct them
+	construct(newAxis, m_width);
+
+	SegmentedShape knotShape;
+	knotShape.construct(knotPoints, m_width);
+
+	return knotShape;
+}
+
+SegmentedShape SegmentedShape::shorten(Shape::AxisPoint shapeEnd, float size)
+{
+	Shape::Axis newAxis;
+	Shape::Axis shortenAxis;
+	if (sitsOnTail(shapeEnd))
+	{
+		removeTailDirectionPoint();
+		auto axis = getAxis();
+		auto [firstPoint, secondPoint, travelledDistance] = LineManipulator::travellDistanceOnPoints(size, axis);
+		if (secondPoint == std::end(axis))
+			throw std::runtime_error("Too far size to shorten");
+
+		float newVecLength = travelledDistance - size;
+		if (newVecLength != 0)
+		{
+			// reverse direction and go from second point
+			glm::vec3 direction = glm::normalize(*firstPoint - *secondPoint);
+			auto pointPos = *secondPoint + (direction * newVecLength);
+
+			// place behind
+			auto insertIt = axis.emplace(firstPoint + 1, Shape::AxisPoint(pointPos));
+
+			// copy shortened
+			shortenAxis = Shape::Axis(axis.begin(), insertIt + 1);
+			// then rese
+			newAxis = Shape::Axis(insertIt, axis.end());
+		}
+	}
+	else
+	{
+		removeHeadDirectionPoint();
+		reverseBody();
+		//reversed 
+		auto reversedAxis = getAxis();
+		auto [firstPoint, secondPoint, travelledDistance] = LineManipulator::travellDistanceOnPoints(size, reversedAxis);
+
+		if (firstPoint == std::end(reversedAxis))
+			throw std::runtime_error("Too far size to shorten");
+
+		float newVecLength = travelledDistance - size;
+		if (newVecLength != 0)
+		{
+			// reverse direction and go from second point
+			glm::vec3 direction = glm::normalize(*firstPoint - *secondPoint);
+			auto pointPos = *secondPoint + (direction * newVecLength);
+
+			// place behind
+			auto insertIt = reversedAxis.emplace(firstPoint + 1, Shape::AxisPoint(pointPos));
+
+			// reverse copy shortened
+			std::reverse_copy(std::begin(reversedAxis), insertIt + 1, std::back_insert_iterator(shortenAxis));
+			// then rest
+			std::reverse_copy(insertIt, std::end(reversedAxis), std::back_insert_iterator(newAxis));
+		}
+	}
+	// update current
+	construct(newAxis, m_width);
+
+	// create shortened
+	SegmentedShape shortenedShape;
+	shortenedShape.construct(shortenAxis, m_width);
+
+	return shortenedShape;
+}
+
+void SegmentedShape::extend(Shape::AxisPoint shapeEnd, Point point)
+{
+	auto newAxis = getAxis();
+	if (shapeEnd == newAxis.front())
+		newAxis.emplace(newAxis.begin(), point);
+	else if (shapeEnd == newAxis.back())
+		newAxis.emplace(newAxis.end(), point);
+	else
+		throw std::runtime_error("Unknown extent point!");
+
+	construct(newAxis, m_width);
+}
 
 std::optional<SegmentedShape> SegmentedShape::split(Shape::AxisPoint splitPoint)
 {
@@ -634,115 +732,6 @@ std::optional<SegmentedShape> SegmentedShape::split(Shape::AxisPoint splitPoint)
 	return optionalSplit;
 }
 
-SegmentedShape SegmentedShape::cutKnot()
-{
-	auto knotPoint = sitsOnAxis(getHead()) ? getHead() : getTail();
-
-	auto newAxis = getAxis();
-
-	const auto [firstPoint, secondPoint] = getEdgesOfAxisPoint(knotPoint);
-	auto knotIter = insertElemementBetween(newAxis, firstPoint, secondPoint, knotPoint);
-
-	// get the right points
-	Points knotPoints;
-	if (sitsOnHead(knotPoint))
-	{
-		std::copy(newAxis.begin(), knotIter + 1, std::back_inserter(knotPoints));
-		newAxis.erase(newAxis.begin(), knotIter);
-	}
-	else
-	{
-		std::copy(knotIter, newAxis.end(), std::back_inserter(knotPoints));
-		newAxis.erase(knotIter + 1, newAxis.end());
-	}
-
-	// construct them
-	construct(newAxis, m_width);
-
-	SegmentedShape knotShape;
-	knotShape.construct(knotPoints, m_width);
-
-	return knotShape;
-}
-
-SegmentedShape SegmentedShape::shorten(Shape::AxisPoint shapeEnd, float size)
-{
-	Shape::Axis newAxis;
-	Shape::Axis shortenAxis;
-	if (sitsOnTail(shapeEnd))
-	{
-		removeTailDirectionPoint();
-		auto axis = getAxis();
-		auto [firstPoint, secondPoint, travelledDistance] = travellDistanceOnPoints(axis, size);
-		if (secondPoint == std::end(axis))
-			throw std::runtime_error("Too far size to shorten");
-
-		float newVecLength = travelledDistance - size;
-		if (newVecLength != 0)
-		{
-			// reverse direction and go from second point
-			glm::vec3 direction = glm::normalize(*firstPoint - *secondPoint);
-			auto pointPos = *secondPoint + (direction * newVecLength);
-
-			// place behind
-			auto insertIt = axis.emplace(firstPoint + 1, Shape::AxisPoint(pointPos));
-
-			// copy shortened
-			shortenAxis = Shape::Axis(axis.begin(), insertIt + 1);
-			// then rese
-			newAxis = Shape::Axis(insertIt, axis.end());
-		}
-	}
-	else
-	{
-		removeHeadDirectionPoint();
-		reverseBody();
-		//reversed 
-		auto reversedAxis = getAxis();
-		auto [firstPoint, secondPoint, travelledDistance] = travellDistanceOnPoints(reversedAxis, size);
-
-		if (firstPoint == std::end(reversedAxis))
-			throw std::runtime_error("Too far size to shorten");
-
-		float newVecLength = travelledDistance - size;
-		if (newVecLength != 0)
-		{
-			// reverse direction and go from second point
-			glm::vec3 direction = glm::normalize(*firstPoint - *secondPoint);
-			auto pointPos = *secondPoint + (direction * newVecLength);
-
-			// place behind
-			auto insertIt = reversedAxis.emplace(firstPoint + 1, Shape::AxisPoint(pointPos));
-
-			// reverse copy shortened
-			std::reverse_copy(std::begin(reversedAxis), insertIt + 1, std::back_insert_iterator(shortenAxis));
-			// then rest
-			std::reverse_copy(insertIt, std::end(reversedAxis), std::back_insert_iterator(newAxis));
-		}
-	}
-	// update current
-	construct(newAxis, m_width);
-
-	// create shortened
-	SegmentedShape shortenedShape;
-	shortenedShape.construct(shortenAxis, m_width);
-
-	return shortenedShape;
-}
-
-void SegmentedShape::extend(Shape::AxisPoint shapeEnd, Point point)
-{
-	auto newAxis = getAxis();
-	if (shapeEnd == newAxis.front())
-		newAxis.emplace(newAxis.begin(), point);
-	else if (shapeEnd == newAxis.back())
-		newAxis.emplace(newAxis.end(), point);
-	else
-		throw std::runtime_error("Unknown extent point!");
-
-	construct(newAxis, m_width);
-}
-
 SegmentedShape::ShapeCut SegmentedShape::getShapeCut(Shape::AxisPoint axisPoint, float radius) const
 {
 	auto axis = getAxis();
@@ -785,19 +774,6 @@ SegmentedShape::ShapeCut SegmentedShape::getShapeCut(Shape::AxisPoint axisPoint,
 	SegmentedShape::ShapeCut cut{ cutAxis };
 
 	return cut;
-}
-
-Shape::AxisSegment SegmentedShape::getEdgesOfAxisPoint(Shape::AxisPoint axisPoint) const
-{
-
-	for (int index = 0; index + 1 < m_joints.size(); ++index)
-	{
-		Shape::AxisSegment axisSegment = { m_joints[index].centre, m_joints[index + 1].centre };
-		if (pointSitsOnLineSegment(axisPoint, axisSegment[0], axisSegment[1]))
-			return axisSegment;
-	}
-
-	throw std::runtime_error("Suppleid non axis point for edges!");
 }
 
 std::optional<SegmentedShape> SegmentedShape::cut(ShapeCut cutPoints)
@@ -868,6 +844,19 @@ std::optional<SegmentedShape> SegmentedShape::cut(ShapeCut cutPoints)
 	return optShape;
 }
 
+Shape::AxisSegment SegmentedShape::getEdgesOfAxisPoint(Shape::AxisPoint axisPoint) const
+{
+
+	for (int index = 0; index + 1 < m_joints.size(); ++index)
+	{
+		Shape::AxisSegment axisSegment = { m_joints[index].centre, m_joints[index + 1].centre };
+		if (pointSitsOnLineSegment(axisPoint, axisSegment[0], axisSegment[1]))
+			return axisSegment;
+	}
+
+	throw std::runtime_error("Suppleid non axis point for edges!");
+}
+
 void SegmentedShape::setNewCircularEndPoints(Shape::AxisPoint axisPoint)
 {
 	auto newAxis = getAxis();
@@ -901,7 +890,7 @@ void SegmentedShape::eraseCommonPoints()
 
 void SegmentedShape::purifyPoints(Points& axis)
 {
-	if (axis.size() < 3)
+	if (axis.size() <= 2)
 		return;
 	// remove duplicates, but not end points, if theyre equal
 	auto cursor = axis.begin();
@@ -929,6 +918,9 @@ void SegmentedShape::purifyPoints(Points& axis)
 			++cursor;
 	}
 
+	// if anything to check again
+	if (axis.size() <= 2)
+		return;
 	// check for colinear lines
 	auto pointOne = axis.begin();
 	auto pointTwo = pointOne + 1;

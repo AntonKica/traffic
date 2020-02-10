@@ -5,6 +5,7 @@
 #include "GlobalObjects.h"
 #include "House.h"
 
+/*
 namespace
 {
 	struct Rect
@@ -154,6 +155,7 @@ void PlacementRectangle::updatePhysicsData()
 
 void PlacementRectangle::updatePaddings()
 {
+	
 	auto& pComp = getPhysicsComponent();
 
 	auto roads = pComp.getAllCollisionWith("ROAD");
@@ -231,6 +233,7 @@ void PlacementRectangle::updatePaddings()
 		m_paddedPosition = getPosition();
 		m_paddedRotation = getRotation();
 	}
+	
 }
 
 void BuildingCreatorUI::draw()
@@ -318,11 +321,11 @@ void BuildingCreator::update()
 		// basically if i in collision and if is padded but not same road, return
 		if (building.getPhysicsComponent().inCollisionWith("ROAD"))
 		{
-			/*if (m_placementRectangle.paddedPosition() && 
+			if (m_placementRectangle.paddedPosition() && 
 				building.getPhysicsComponent().inCollision("ROAD") != m_placementRectangle.getPhysicsComponent().inCollision("ROAD"))
 			{
 				return;
-			}*/
+			}
 		}
 
 
@@ -351,3 +354,4 @@ void BuildingCreator::setActiveAction()
 	m_parkingLotCreator.setActive(m_active);
 }
 
+*/

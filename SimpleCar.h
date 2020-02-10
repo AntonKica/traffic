@@ -16,6 +16,8 @@ private:
 	void advancePath();
 	void updateDirectionAndRotation();
 	void updatePosition();
+
+	void setupSelf();
 	void setupDetection();
 	void handleNearbyCars();
 	bool inAlertDistance(const SimpleCar& other);
